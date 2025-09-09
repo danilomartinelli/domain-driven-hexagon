@@ -1,23 +1,31 @@
 # Domain-Driven Hexagon
 
-**Check out my other repositories**:
+A comprehensive guide and practical implementation demonstrating Domain-Driven Design (DDD) patterns and Hexagonal Architecture using modern TypeScript, NestJS, and PostgreSQL.
 
-- [Backend best practices](https://github.com/Sairyss/backend-best-practices) - Best practices, tools and guidelines for backend development.
-- [System Design Patterns](https://github.com/Sairyss/system-design-patterns) - list of topics and resources related to distributed systems, system design, microservices, scalability and performance, etc.
-- [Full Stack starter template](https://github.com/Sairyss/fullstack-starter-template) - template for full stack applications based on TypeScript, React, Vite, ChakraUI, tRPC, Fastify, Prisma, zod, etc.
+## Overview
 
----
+This project provides practical recommendations for designing scalable software applications. It includes comprehensive techniques, tools, best practices, architectural patterns, and guidelines gathered from industry experience and established architectural principles.
 
-The main emphasis of this project is to provide recommendations on how to design software applications. This readme includes techniques, tools, best practices, architectural patterns and guidelines gathered from different sources.
+## Technology Stack
 
-Code examples are written using [NodeJS](https://nodejs.org/en/), [TypeScript](https://www.typescriptlang.org/), [NestJS](https://docs.nestjs.com/) framework and [Slonik](https://github.com/gajus/slonik) for the database access.
+Code examples are implemented using:
+- **Runtime**: [NodeJS](https://nodejs.org/en/) with [TypeScript](https://www.typescriptlang.org/)
+- **Framework**: [NestJS](https://docs.nestjs.com/) with CQRS pattern support
+- **Database**: PostgreSQL with [Slonik](https://github.com/gajus/slonik) query builder
+- **Testing**: Jest with Cucumber for behavioral testing
+- **Architecture**: Hexagonal/Clean Architecture with DDD patterns
 
-Patterns and principles presented here are **framework/language agnostic**. Therefore, the above technologies can be easily replaced with any alternative. No matter what language or framework is used, any application can benefit from principles described below.
+## Framework Agnostic Principles
 
-**Note**: code examples are adapted to TypeScript and frameworks mentioned above. <br/>
-(Implementations in other languages will look differently)
+While this implementation uses the technologies above, the patterns and principles presented here are **framework/language agnostic**. The architectural concepts can be applied using any technology stack - Java with Spring, .NET, Python with Django/FastAPI, or any other modern framework.
 
-**Everything below is provided as a recommendation, not a rule**. Different projects have different requirements, so any pattern mentioned in this readme should be adjusted to project needs or even skipped entirely if it doesn't fit. In real world production applications, you will most likely only need a fraction of those patterns depending on your use cases. More info in [this](#general-recommendations-on-architectures-best-practices-design-patterns-and-principles) section.
+**Note**: Code examples are specifically adapted to TypeScript and the NestJS ecosystem. Implementations in other languages will have different syntax but follow the same architectural principles.
+
+## Important Disclaimer
+
+**Everything in this guide is provided as a recommendation, not a rigid rule**. Different projects have different requirements, complexity levels, and constraints. Any pattern mentioned should be carefully evaluated and adapted to your specific project needs, or even skipped entirely if it doesn't provide value.
+
+In real-world production applications, you will most likely only need a fraction of these patterns depending on your use cases, team size, and business complexity. More guidance on this topic can be found in the [architectural recommendations](#general-recommendations-on-architectures-best-practices-design-patterns-and-principles) section.
 
 ---
 
@@ -671,7 +679,8 @@ By combining compile and runtime validations, using objects instead of primitive
 
 **Recommended to read**:
 
-- [Backend Best Practices: Data Validation](https://github.com/Sairyss/backend-best-practices#data-validation)
+- [Martin Fowler: Validation](https://martinfowler.com/articles/replaceThrowWithNotification.html)
+- [Always-Valid Domain Model](https://enterprisecraftsmanship.com/posts/always-valid-domain-model/)
 
 ### Guarding vs validating
 
@@ -1094,7 +1103,8 @@ Example files:
 
 Read more:
 
-- [Backend best practices - Testing](https://github.com/Sairyss/backend-best-practices#testing)
+- [Martin Fowler: Testing Strategies](https://martinfowler.com/articles/practical-test-pyramid.html)
+- [BDD and Cucumber](https://cucumber.io/docs/bdd/)
 
 ## Folder and File Structure
 
@@ -1255,10 +1265,9 @@ Read more:
 
 ---
 
-# Additional resources
+# Additional Resources
 
-- [Backend best practices](https://github.com/Sairyss/backend-best-practices) - more best practices that are used here
-- [System Design Patterns](https://github.com/Sairyss/system-design-patterns) - learn system design
+This section contains curated resources for deepening your understanding of domain-driven design, clean architecture, and software engineering best practices.
 
 ## Articles
 
@@ -1296,3 +1305,27 @@ Read more:
 - ["Secure by Design"](https://www.manning.com/books/secure-by-design) by Dan Bergh Johnsson, Daniel Deogun, Daniel Sawano
 - ["Implementing Domain-Driven Design"](https://www.amazon.com/Implementing-Domain-Driven-Design-Vaughn-Vernon/dp/0321834577) by Vaughn Vernon
 - ["Clean Architecture: A Craftsman's Guide to Software Structure and Design"](https://www.amazon.com/Clean-Architecture-Craftsmans-Software-Structure/dp/0134494164/ref=sr_1_1?dchild=1&keywords=clean+architecture&qid=1605343702&s=books&sr=1-1) by Robert Martin
+
+---
+
+## Credits and Attribution
+
+This project builds upon excellent work and educational content from the software engineering community. Special acknowledgment to:
+
+- **Original inspiration**: [Sairyss/domain-driven-hexagon](https://github.com/Sairyss/domain-driven-hexagon) - An outstanding educational resource that provided the foundational structure and many of the architectural concepts demonstrated in this implementation.
+
+- **Domain-Driven Design community** - The concepts and patterns presented here are built on decades of collective wisdom from practitioners including Eric Evans, Vaughn Vernon, Martin Fowler, and countless other contributors to the DDD and Clean Architecture communities.
+
+- **Open Source Contributors** - This project leverages many excellent open-source tools and frameworks. We're grateful to all the maintainers and contributors who make modern software development possible.
+
+### Educational Purpose
+
+This repository is maintained for educational purposes to help developers understand and apply domain-driven design patterns in real-world applications. It serves as both a learning resource and a practical reference implementation.
+
+### Contributing
+
+Contributions are welcome! Whether it's improving documentation, adding examples, fixing bugs, or suggesting architectural improvements, please feel free to open issues or submit pull requests.
+
+### License
+
+This project is provided as-is for educational purposes. Please refer to the LICENSE file for specific terms and conditions.

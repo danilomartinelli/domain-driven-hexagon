@@ -7,11 +7,13 @@ This document provides comprehensive guidance for using Docker with the Domain-D
 ## Quick Start
 
 For new developers, use the automated quick-start:
+
 ```bash
 make quick-start
 ```
 
 This command will:
+
 1. Check system requirements
 2. Install dependencies
 3. Generate SSL certificates
@@ -22,6 +24,7 @@ This command will:
 ## Manual Setup Commands
 
 ### Initial Setup
+
 ```bash
 # Generate SSL certificates for HTTPS
 make ssl
@@ -37,6 +40,7 @@ make db-migrate-dev
 ```
 
 ### Development Commands
+
 ```bash
 # Start development environment
 make dev
@@ -55,6 +59,7 @@ make shell
 ```
 
 ### Production Commands
+
 ```bash
 # Start production environment
 make prod
@@ -70,6 +75,7 @@ make prod-stop
 ```
 
 ### Database Commands
+
 ```bash
 # Run migrations (development)
 make db-migrate-dev
@@ -88,6 +94,7 @@ make db-seed
 ```
 
 ### Testing Commands
+
 ```bash
 # Run tests in container
 make test
@@ -103,6 +110,7 @@ make lint
 ```
 
 ### Monitoring Commands
+
 ```bash
 # Show container status
 make status
@@ -118,6 +126,7 @@ make logs
 ```
 
 ### Build Commands
+
 ```bash
 # Build production image
 make build
@@ -133,6 +142,7 @@ make build-all
 ```
 
 ### Cleanup Commands
+
 ```bash
 # Stop and remove containers
 make clean
@@ -154,6 +164,7 @@ make reset
 ```
 
 ### Information Commands
+
 ```bash
 # Show environment information
 make env
@@ -168,14 +179,16 @@ make help
 ## Service URLs
 
 ### Development Environment
-- **Application**: http://localhost:3000
-- **PgAdmin**: http://localhost:5050 (admin@ddh.local / admin)
+
+- **Application**: <http://localhost:3000>
+- **PgAdmin**: <http://localhost:5050> (<admin@ddh.local> / admin)
 - **Database**: localhost:5432 (user / password / ddh)
 - **Redis**: localhost:6379
 
 ### Production Environment
-- **Application**: http://localhost:3000
-- **With Nginx**: http://localhost:80 | https://localhost:443
+
+- **Application**: <http://localhost:3000>
+- **With Nginx**: <http://localhost:80> | <https://localhost:443>
 - **Database**: localhost:5432 (internal access only)
 - **Redis**: localhost:6379 (internal access only)
 
@@ -247,8 +260,9 @@ make status
 ### Performance
 
 The setup includes optimizations:
+
 - Multi-stage builds for minimal image size
-- Health checks for reliability  
+- Health checks for reliability
 - Resource limits for stability
 - Nginx reverse proxy for production
 - Redis caching layer
@@ -266,6 +280,7 @@ The setup includes optimizations:
 ## Monitoring
 
 Use the monitoring commands to track:
+
 - Container health and status
 - Resource usage (CPU, memory)
 - Network connections
@@ -273,6 +288,7 @@ Use the monitoring commands to track:
 - Performance metrics
 
 For detailed monitoring, use:
+
 ```bash
 make monitor
 ```

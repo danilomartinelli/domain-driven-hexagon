@@ -1,10 +1,38 @@
 {
   "name": "domain-driven-hexagon",
-  "version": "2.0.0",
-  "description": "",
-  "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "version": "1.0.0",
+  "description": "A modern Domain-Driven Design (DDD) implementation using NestJS with Hexagonal Architecture. Features CQRS, Event Sourcing, TypeScript, Slonik for database operations, and comprehensive testing setup.",
+  "author": "Danilo Martinelli <danilo.martinelli@witek.com.br>",
+  "private": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danilomartinelli/domain-driven-hexagon.git"
+  },
+  "bugs": {
+    "url": "https://github.com/danilomartinelli/domain-driven-hexagon/issues"
+  },
+  "homepage": "https://github.com/danilomartinelli/domain-driven-hexagon#readme",
+  "keywords": [
+    "nodejs",
+    "nestjs",
+    "typescript",
+    "domain-driven-design",
+    "ddd",
+    "hexagonal-architecture",
+    "cqrs",
+    "event-sourcing",
+    "clean-architecture",
+    "microservices",
+    "postgresql",
+    "slonik",
+    "graphql",
+    "rest-api"
+  ],
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",

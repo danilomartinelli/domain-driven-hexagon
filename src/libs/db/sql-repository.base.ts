@@ -9,15 +9,11 @@ import {
   DatabasePool,
   DatabaseTransactionConnection,
   IdentifierSqlToken,
-  MixedRow,
-  PrimitiveValueExpression,
   QueryResult,
-  QueryResultRow,
   sql,
-  SqlSqlToken,
   UniqueIntegrityConstraintViolationError,
 } from 'slonik';
-import { ZodTypeAny, TypeOf, ZodObject } from 'zod';
+import { ZodObject } from 'zod';
 import { LoggerPort } from '../ports/logger.port';
 import { ObjectLiteral } from '../types';
 
@@ -38,28 +34,30 @@ export abstract class SqlRepositoryBase<
   ) {}
 
   async findOneById(id: string): Promise<Option<Aggregate>> {
-    const query = sql.type(this.schema)`SELECT * FROM ${sql.identifier([
+    const query = sql.unsafe`SELECT * FROM ${sql.identifier([
       this.tableName,
     ])} WHERE id = ${id}`;
 
     const result = await this.pool.query(query);
-    return result.rows[0] ? Some(this.mapper.toDomain(result.rows[0])) : None;
+    return result.rows[0]
+      ? Some(this.mapper.toDomain(this.schema.parse(result.rows[0])))
+      : None;
   }
 
   async findAll(): Promise<Aggregate[]> {
-    const query = sql.type(this.schema)`SELECT * FROM ${sql.identifier([
-      this.tableName,
-    ])}`;
+    const query = sql.unsafe`SELECT * FROM ${sql.identifier([this.tableName])}`;
 
     const result = await this.pool.query(query);
 
-    return result.rows.map(this.mapper.toDomain);
+    return result.rows.map((row) =>
+      this.mapper.toDomain(this.schema.parse(row)),
+    );
   }
 
   async findAllPaginated(
     params: PaginatedQueryParams,
   ): Promise<Paginated<Aggregate>> {
-    const query = sql.type(this.schema)`
+    const query = sql.unsafe`
     SELECT * FROM ${sql.identifier([this.tableName])}
     LIMIT ${params.limit}
     OFFSET ${params.offset}
@@ -67,7 +65,9 @@ export abstract class SqlRepositoryBase<
 
     const result = await this.pool.query(query);
 
-    const entities = result.rows.map(this.mapper.toDomain);
+    const entities = result.rows.map((row) =>
+      this.mapper.toDomain(this.schema.parse(row)),
+    );
     return new Paginated({
       data: entities,
       count: result.rowCount,
@@ -78,7 +78,7 @@ export abstract class SqlRepositoryBase<
 
   async delete(entity: Aggregate): Promise<boolean> {
     entity.validate();
-    const query = sql`DELETE FROM ${sql.identifier([
+    const query = sql.unsafe`DELETE FROM ${sql.identifier([
       this.tableName,
     ])} WHERE id = ${entity.id}`;
 
@@ -111,9 +111,7 @@ export abstract class SqlRepositoryBase<
     } catch (error) {
       if (error instanceof UniqueIntegrityConstraintViolationError) {
         this.logger.debug(
-          `[${RequestContextService.getRequestId()}] ${
-            (error.originalError as any).detail
-          }`,
+          `[${RequestContextService.getRequestId()}] ${error.message}`,
         );
         throw new ConflictException('Record already exists', error);
       }
@@ -127,20 +125,10 @@ export abstract class SqlRepositoryBase<
    * and does some debug logging.
    * For read queries use `this.pool` directly
    */
-  protected async writeQuery<T>(
-    sql: SqlSqlToken<
-      T extends MixedRow ? T : Record<string, PrimitiveValueExpression>
-    >,
+  protected async writeQuery<T = any>(
+    sqlQuery: unknown,
     entity: Aggregate | Aggregate[],
-  ): Promise<
-    QueryResult<
-      T extends MixedRow
-        ? T extends ZodTypeAny
-          ? TypeOf<ZodTypeAny & MixedRow & T>
-          : T
-        : T
-    >
-  > {
+  ): Promise<QueryResult<T>> {
     const entities = Array.isArray(entity) ? entity : [entity];
     entities.forEach((entity) => entity.validate());
     const entityIds = entities.map((e) => e.id);
@@ -151,14 +139,14 @@ export abstract class SqlRepositoryBase<
       } entities to "${this.tableName}" table: ${entityIds}`,
     );
 
-    const result = await this.pool.query(sql);
+    const result = await this.pool.query(sqlQuery as any);
 
     await Promise.all(
       entities.map((entity) =>
         entity.publishEvents(this.logger, this.eventEmitter),
       ),
     );
-    return result;
+    return result as QueryResult<T>;
   }
 
   /**
@@ -168,9 +156,7 @@ export abstract class SqlRepositoryBase<
    * Passing object with { name: string, email: string } will generate
    * a query: INSERT INTO "table" (name, email) VALUES ($1, $2)
    */
-  protected generateInsertQuery(
-    models: DbModel[],
-  ): SqlSqlToken<QueryResultRow> {
+  protected generateInsertQuery(models: DbModel[]): any {
     // TODO: generate query from an entire array to insert multiple records at once
     const entries = Object.entries(models[0]);
     const values: any = [];
@@ -187,12 +173,12 @@ export abstract class SqlRepositoryBase<
       }
     });
 
-    const query = sql`INSERT INTO ${sql.identifier([
+    const columnsFragment = sql.join(propertyNames, sql.fragment`, `);
+    const valuesFragment = sql.join(values, sql.fragment`, `);
+
+    const query = sql.unsafe`INSERT INTO ${sql.identifier([
       this.tableName,
-    ])} (${sql.join(propertyNames, sql`, `)}) VALUES (${sql.join(
-      values,
-      sql`, `,
-    )})`;
+    ])} (${columnsFragment}) VALUES (${valuesFragment})`;
 
     const parsedQuery = query;
     return parsedQuery;

@@ -28,8 +28,8 @@ defineFeature(feature, (test) => {
   });
 
   afterEach(async () => {
-    await pool.query(sql`TRUNCATE "users"`);
-    await pool.query(sql`TRUNCATE "wallets"`);
+    await pool.query(sql.unsafe`TRUNCATE "users"`);
+    await pool.query(sql.unsafe`TRUNCATE "wallets"`);
   });
 
   test('I can create a user', ({ given, when, then, and }) => {

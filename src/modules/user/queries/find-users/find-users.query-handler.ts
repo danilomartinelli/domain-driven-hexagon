@@ -4,7 +4,7 @@ import { PaginatedParams, PaginatedQueryBase } from '@libs/ddd/query.base';
 import { Paginated } from '@src/libs/ddd';
 import { InjectPool } from 'nestjs-slonik';
 import { DatabasePool, sql } from 'slonik';
-import { UserModel, userSchema } from '../../database/user.repository';
+import { UserModel } from '../../database/user.repository';
 
 export class FindUsersQuery extends PaginatedQueryBase {
   readonly country?: string;
@@ -41,13 +41,13 @@ export class FindUsersQueryHandler implements IQueryHandler<FindUsersQuery> {
      * Constructing a query with Slonik.
      * More info: https://contra.com/p/AqZWWoUB-writing-composable-sql-using-java-script
      */
-    const statement = sql.type(userSchema)`
+    const statement = sql.unsafe`
          SELECT *
          FROM users
          WHERE
-           ${query.country ? sql`country = ${query.country}` : true} AND
-           ${query.street ? sql`street = ${query.street}` : true} AND
-           ${query.postalCode ? sql`"postalCode" = ${query.postalCode}` : true}
+           ${query.country ? sql.unsafe`country = ${query.country}` : sql.unsafe`TRUE`} AND
+           ${query.street ? sql.unsafe`street = ${query.street}` : sql.unsafe`TRUE`} AND
+           ${query.postalCode ? sql.unsafe`"postalCode" = ${query.postalCode}` : sql.unsafe`TRUE`}
          LIMIT ${query.limit}
          OFFSET ${query.offset}`;
 

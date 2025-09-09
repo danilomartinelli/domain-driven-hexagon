@@ -31,9 +31,21 @@ lerna-debug.log*
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
-# .vscode/*
-# !.vscode/settings.json
-# !.vscode/tasks.json
-# !.vscode/launch.json
-# !.vscode/extensions.json
+# IDEs, editors and AI tools
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.cursor/
+.idea/
+*.sw?
+*~
+*.codekit-cache
+*.sublime-project
+*.code-workspace
+.claude/
+.windsurf/
+.muse/
+.phind/
+CLAUDE.md

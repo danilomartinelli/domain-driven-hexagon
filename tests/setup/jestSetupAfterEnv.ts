@@ -58,7 +58,7 @@ export function getConnectionPool(): DatabasePool {
   return pool;
 }
 
-export function getHttpServer(): request.SuperTest<request.Test> {
+export function getHttpServer(): any {
   const testServer = getTestServer();
   const httpServer = request(testServer.serverApplication.getHttpServer());
 

@@ -9,6 +9,7 @@ This project provides practical recommendations for designing scalable software 
 ## Technology Stack
 
 Code examples are implemented using:
+
 - **Runtime**: [NodeJS](https://nodejs.org/en/) with [TypeScript](https://www.typescriptlang.org/)
 - **Framework**: [NestJS](https://docs.nestjs.com/) with CQRS pattern support
 - **Database**: PostgreSQL with [Slonik](https://github.com/gajus/slonik) query builder
@@ -85,7 +86,7 @@ In real-world production applications, you will most likely only need a fraction
   - [Videos](#videos)
   - [Books](#books)
 
-# Architecture
+## Architecture
 
 This is an attempt to combine multiple architectural patterns and styles together, such as:
 
@@ -101,7 +102,7 @@ And many others (more links below in every chapter).
 
 Before we begin, here are the PROS and CONS of using a complete architecture like this:
 
-#### Pros
+### Pros
 
 - Independent of external frameworks, technologies, databases, etc. Frameworks and external resources can be plugged/unplugged with much less effort.
 - Easily testable and scalable.
@@ -110,16 +111,17 @@ Before we begin, here are the PROS and CONS of using a complete architecture lik
 - Easier to add new features. As the system grows over time, the difficulty in adding new features remains constant and relatively small.
 - If the solution is properly broken apart along [bounded context](https://martinfowler.com/bliki/BoundedContext.html) lines, it becomes easy to convert pieces of it into microservices if needed.
 
-#### Cons
+### Cons
 
 - This is a sophisticated architecture which requires a firm understanding of quality software principles, such as SOLID, Clean/Hexagonal Architecture, Domain-Driven Design, etc. Any team implementing such a solution will almost certainly require an expert to drive the solution and keep it from evolving the wrong way and accumulating technical debt.
 
 - Some practices presented here are not recommended for small-medium sized applications with not a lot of business logic. There is added up-front complexity to support all those building blocks and layers, boilerplate code, abstractions, data mapping etc. Thus, implementing a complete architecture like this is generally ill-suited to simple [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) applications and could over-complicate such solutions. Some principles which are described below can be used in smaller sized applications, but must be implemented only after analyzing and understanding all pros and cons.
 
-# Diagram
+## Diagram
 
 ![Domain-Driven Hexagon](assets/images/DomainDrivenHexagon.png)
-<sup>Diagram is mostly based on [this one](https://github.com/hgraca/explicit-architecture-php#explicit-architecture-1) + others found online</sup>
+
+*Diagram is mostly based on [this explicit architecture example](https://github.com/hgraca/explicit-architecture-php#explicit-architecture-1) and other architectural resources found online.*
 
 In short, data flow looks like this (from left to right):
 
@@ -138,7 +140,7 @@ General recommendation for any project: analyze how big/complex the application 
 
 More in details on each step below.
 
-# Modules
+## Modules
 
 This project's code examples use separation by modules (also called components). Each module's name should reflect an important concept from the Domain and have its own folder with a dedicated codebase. Each business use case inside that module gets its own folder to store most of the things it needs (this is also called _Vertical Slicing_). It's easier to work on things that change together if those things are gathered relatively close to each other. Think of a module as a "box" that groups together related business logic.
 
@@ -169,7 +171,7 @@ Read more:
 
 Each module consists of layers described below.
 
-# Application Core
+## Application Core
 
 This is the core of the system which is built using [DDD building blocks](https://dzone.com/articles/ddd-part-ii-ddd-building-blocks):
 
@@ -191,7 +193,7 @@ This is the core of the system which is built using [DDD building blocks](https:
 
 ---
 
-# Application layer
+## Application layer
 
 ## Application Services
 
@@ -283,7 +285,7 @@ By enforcing `Command` and `Query` separation, the code becomes simpler to under
 
 Also, following CQS from the start will facilitate separating write and read models into different databases if someday in the future the need for it arises.
 
-**Note**: this repo uses [NestJS CQRS](https://docs.nestjs.com/recipes/cqrs) package that provides a command/query bus.
+**Note**: this project uses the [NestJS CQRS package](https://docs.nestjs.com/recipes/cqrs) that provides a command/query bus implementation.
 
 Read more about CQS and CQRS:
 
@@ -326,7 +328,7 @@ Read more:
 
 ---
 
-# Domain Layer
+## Domain Layer
 
 This layer contains the application's business rules.
 
@@ -863,7 +865,7 @@ Read more:
 
 ---
 
-# Interface Adapters
+## Interface Adapters
 
 Interface adapters (also called driving/primary adapters) are user-facing interfaces that take input data from the user and repackage it in a form that is convenient for the use cases(services/command handlers) and entities. Then they take the output from those use cases and entities and repackage it in a form that is convenient for displaying it back for the user. User can be either a person using an application or another server.
 
@@ -930,7 +932,7 @@ So why do we need DTOs if we already have Command objects that carry properties?
 
 > Because commands and DTOs are different things, they tackle different problems. Commands are serializable method calls - calls of the methods in the domain model. Whereas DTOs are the data contracts. The main reason to introduce this separate layer with data contracts is to provide backward compatibility for the clients of your API. Without the DTOs, the API will have breaking changes with every modification of the domain model.
 
-More info on this subject here: [Are CQRS commands part of the domain model?](https://enterprisecraftsmanship.com/posts/cqrs-commands-part-domain-model/) (read "_Commands vs DTOs_" section).
+More info on this subject: [Are CQRS commands part of the domain model?](https://enterprisecraftsmanship.com/posts/cqrs-commands-part-domain-model/) (read the "_Commands vs DTOs_" section).
 
 ### Additional recommendations
 
@@ -954,7 +956,7 @@ Though you may want to introduce Local DTOs when you need to decouple modules pr
 
 ---
 
-# Infrastructure layer
+## Infrastructure layer
 
 The Infrastructure layer is responsible for encapsulating technology. You can find there the implementations of database repositories for storing/retrieving business entities, message brokers to emit messages/events, I/O services to access external resources, framework related code and any other code that represents a replaceable detail for the architecture.
 
@@ -1043,7 +1045,7 @@ Read more:
 
 ---
 
-# Other recommendations
+## Other recommendations
 
 ## General recommendations on architectures, best practices, design patterns and principles
 
@@ -1265,7 +1267,7 @@ Read more:
 
 ---
 
-# Additional Resources
+## Additional Resources
 
 This section contains curated resources for deepening your understanding of domain-driven design, clean architecture, and software engineering best practices.
 

@@ -1,0 +1,128 @@
+# Multi-stage Production Dockerfile for NestJS Domain-Driven Hexagon
+# Optimized for size, security, and performance
+
+# Stage 1: Base configuration
+FROM node:20-alpine AS base
+
+# Install security updates and essential tools
+RUN apk update && apk upgrade && \
+    apk add --no-cache dumb-init && \
+    rm -rf /var/cache/apk/*
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001 -G nodejs
+
+# Set working directory
+WORKDIR /app
+
+# Stage 2: Dependencies
+FROM base AS dependencies
+
+# Copy package files for dependency installation
+COPY --chown=nestjs:nodejs package*.json ./
+
+# Install all dependencies (including dev for build stage)
+RUN npm ci --include=dev --frozen-lockfile --no-audit --no-fund && \
+    npm cache clean --force
+
+# Stage 3: Build
+FROM dependencies AS build
+
+# Copy source code
+COPY --chown=nestjs:nodejs . .
+
+# Build the application
+RUN npm run build
+
+# Run tests during build (fail fast on test failures)
+RUN npm run test
+
+# Run linting
+RUN npm run lint
+
+# Validate dependencies
+RUN npm run deps:validate
+
+# Stage 4: Production dependencies
+FROM base AS prod-deps
+
+# Copy package files
+COPY --chown=nestjs:nodejs package*.json ./
+
+# Install only production dependencies
+RUN npm ci --omit=dev --frozen-lockfile --no-audit --no-fund && \
+    npm cache clean --force
+
+# Stage 5: Runtime
+FROM base AS runtime
+
+# Set production environment variables
+ENV NODE_ENV=production \
+    NODE_OPTIONS="--max-old-space-size=1024 --optimize-for-size" \
+    NPM_CONFIG_LOGLEVEL=warn \
+    PNPM_HOME="/pnpm" \
+    PATH="$PNPM_HOME:$PATH"
+
+# Create app directory with proper permissions
+RUN mkdir -p /app/logs /app/tmp && \
+    chown -R nestjs:nodejs /app
+
+WORKDIR /app
+
+# Copy production dependencies
+COPY --from=prod-deps --chown=nestjs:nodejs /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
+COPY --from=build --chown=nestjs:nodejs /app/package*.json ./
+
+# Copy database migrations and configurations
+COPY --from=build --chown=nestjs:nodejs /app/database ./database
+
+# Create healthcheck script
+COPY --chown=nestjs:nodejs <<EOF /app/healthcheck.js
+const http = require('http');
+
+const options = {
+  host: 'localhost',
+  port: process.env.APP_PORT || 3000,
+  path: '/health',
+  timeout: 2000,
+  method: 'GET'
+};
+
+const request = http.request(options, (res) => {
+  console.log('Health check status:', res.statusCode);
+  process.exit(res.statusCode === 200 ? 0 : 1);
+});
+
+request.on('error', (err) => {
+  console.error('Health check failed:', err);
+  process.exit(1);
+});
+
+request.on('timeout', () => {
+  console.error('Health check timeout');
+  request.destroy();
+  process.exit(1);
+});
+
+request.end();
+EOF
+
+# Security: Switch to non-root user
+USER nestjs
+
+# Expose application port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ["node", "healthcheck.js"]
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "dist/main"]

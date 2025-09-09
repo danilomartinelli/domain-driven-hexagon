@@ -1,0 +1,128 @@
+# Development-Optimized Docker Compose for Domain-Driven Hexagon
+version: '3.9'
+
+name: ddh-development
+
+networks:
+  dev-network:
+    driver: bridge
+
+volumes:
+  postgres-dev-data:
+    driver: local
+  node-modules:
+    driver: local
+
+services:
+  # Development Application with hot reload
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+      target: development
+    container_name: ddh-app-dev
+    restart: unless-stopped
+    
+    # Development Environment
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://user:password@postgres:5432/ddh
+      LOG_LEVEL: debug
+      HOT_RELOAD: "true"
+    
+    # Port mapping for debugging
+    ports:
+      - "3000:3000"
+      - "9229:9229"  # Debug port
+    
+    # Volume mounts for development
+    volumes:
+      - ..:/app
+      - node-modules:/app/node_modules
+      - /app/dist
+    
+    # Networking
+    networks:
+      - dev-network
+    
+    # Dependencies
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    # Development command
+    command: npm run start:debug
+
+  # PostgreSQL for development
+  postgres:
+    container_name: ddh-postgres-dev
+    image: postgres:16-alpine
+    restart: unless-stopped
+    
+    # Development ports (exposed for direct access)
+    ports:
+      - "5432:5432"
+    
+    # Environment
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ddh
+    
+    # Health Check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d ddh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    
+    # Storage
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ../database/init:/docker-entrypoint-initdb.d:ro
+    
+    # Networking
+    networks:
+      - dev-network
+
+  # PgAdmin for development
+  pgadmin:
+    container_name: ddh-pgadmin-dev
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    
+    # Environment
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ddh.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    
+    # Ports
+    ports:
+      - "5050:80"
+    
+    # Networking
+    networks:
+      - dev-network
+    
+    # Dependencies
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Redis for development
+  redis:
+    image: redis:7-alpine
+    container_name: ddh-redis-dev
+    restart: unless-stopped
+    
+    # Ports
+    ports:
+      - "6379:6379"
+    
+    # Networking
+    networks:
+      - dev-network
+    
+    # Simple configuration for development
+    command: redis-server --appendonly yes

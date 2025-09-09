@@ -1,0 +1,49 @@
+# Multi-stage Development Dockerfile for NestJS Domain-Driven Hexagon
+# Optimized for development workflow with hot reload
+
+# Base stage with development tools
+FROM node:20-alpine AS base
+
+# Install development dependencies
+RUN apk add --no-cache \
+    git \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/cache/apk/*
+
+# Create development user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nestjs -u 1001 -G nodejs
+
+WORKDIR /app
+
+# Development stage
+FROM base AS development
+
+# Set development environment
+ENV NODE_ENV=development \
+    LOG_LEVEL=debug \
+    NPM_CONFIG_LOGLEVEL=info
+
+# Copy package files
+COPY --chown=nestjs:nodejs package*.json ./
+
+# Install all dependencies including dev dependencies
+RUN npm ci --include=dev --no-audit --no-fund
+
+# Copy source code
+COPY --chown=nestjs:nodejs . .
+
+# Create directories for development
+RUN mkdir -p logs tmp && \
+    chown -R nestjs:nodejs logs tmp
+
+# Switch to development user
+USER nestjs
+
+# Expose ports for application and debugging
+EXPOSE 3000 9229
+
+# Default command for development with debugging
+CMD ["npm", "run", "start:debug"]

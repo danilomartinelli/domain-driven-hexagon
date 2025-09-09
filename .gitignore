@@ -32,11 +32,7 @@ lerna-debug.log*
 *.sublime-workspace
 
 # IDEs, editors and AI tools
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+.vscode/
 .cursor/
 .idea/
 *.sw?
@@ -49,3 +45,8 @@ lerna-debug.log*
 .muse/
 .phind/
 CLAUDE.md
+
+# Docker SSL certificates (sensitive files)
+docker/nginx/ssl/*.pem
+docker/nginx/ssl/*.crt
+docker/nginx/ssl/*.key

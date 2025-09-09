@@ -1,153 +1,280 @@
-# Docker Commands for Domain-Driven Hexagon
+# Docker Commands and Operations Guide
 
-This guide provides the correct commands to use with the Docker configuration in the `docker/` folder.
+## Overview
 
-## Quick Start Commands
+This document provides comprehensive guidance for using Docker with the Domain-Driven Hexagon project. The setup has been optimized for both development and production environments.
 
-### Production Environment
+## Quick Start
 
+For new developers, use the automated quick-start:
 ```bash
-# From project root
-cd docker
-docker-compose -f compose.prod.yml up -d
-
-# Or from anywhere in the project
-docker-compose -f docker/compose.prod.yml up -d
+make quick-start
 ```
+
+This command will:
+1. Check system requirements
+2. Install dependencies
+3. Generate SSL certificates
+4. Build Docker images
+5. Start development environment
+6. Run database migrations
+
+## Manual Setup Commands
+
+### Initial Setup
+```bash
+# Generate SSL certificates for HTTPS
+make ssl
+
+# Build all images
+make build-all
+
+# Start development environment
+make dev
+
+# Run database migrations
+make db-migrate-dev
+```
+
+### Development Commands
+```bash
+# Start development environment
+make dev
+
+# Follow development logs
+make dev-logs
+
+# Stop development environment
+make dev-stop
+
+# Restart development environment
+make dev-restart
+
+# Access application shell
+make shell
+```
+
+### Production Commands
+```bash
+# Start production environment
+make prod
+
+# Start production with Nginx (HTTPS)
+make prod-with-nginx
+
+# Follow production logs
+make prod-logs
+
+# Stop production environment
+make prod-stop
+```
+
+### Database Commands
+```bash
+# Run migrations (development)
+make db-migrate-dev
+
+# Run migrations (production)
+make db-migrate
+
+# Access database console (development)
+make db-console-dev
+
+# Access database console (production)
+make db-console
+
+# Run database seeds
+make db-seed
+```
+
+### Testing Commands
+```bash
+# Run tests in container
+make test
+
+# Run tests with coverage
+make test-cov
+
+# Run end-to-end tests
+make test-e2e
+
+# Run linting
+make lint
+```
+
+### Monitoring Commands
+```bash
+# Show container status
+make status
+
+# Monitor containers with metrics
+make monitor
+
+# Check health status
+make health
+
+# Show logs (interactive environment selection)
+make logs
+```
+
+### Build Commands
+```bash
+# Build production image
+make build
+
+# Build development image
+make build-dev
+
+# Build optimized image with script
+make build-optimized
+
+# Build all images
+make build-all
+```
+
+### Cleanup Commands
+```bash
+# Stop and remove containers
+make clean
+
+# Remove containers and volumes (⚠️ DATA LOSS!)
+make clean-volumes
+
+# Remove built images
+make clean-images
+
+# Full cleanup
+make clean-all
+
+# Clean and rebuild
+make rebuild
+
+# Full reset (containers, volumes, rebuild)
+make reset
+```
+
+### Information Commands
+```bash
+# Show environment information
+make env
+
+# Show application URLs
+make urls
+
+# Show all available commands
+make help
+```
+
+## Service URLs
 
 ### Development Environment
+- **Application**: http://localhost:3000
+- **PgAdmin**: http://localhost:5050 (admin@ddh.local / admin)
+- **Database**: localhost:5432 (user / password / ddh)
+- **Redis**: localhost:6379
 
-```bash
-# From project root
-cd docker
-docker-compose -f compose.dev.yml up -d
-
-# Or from anywhere in the project  
-docker-compose -f docker/compose.dev.yml up -d
-```
-
-## Build Commands
-
-### Building Images
-
-```bash
-# From docker directory
-cd docker
-docker build -f Dockerfile.prod -t ddh/app:latest ..
-docker build -f Dockerfile.dev -t ddh/app:dev ..
-
-# From project root
-docker build -f docker/Dockerfile.prod -t ddh/app:latest .
-docker build -f docker/Dockerfile.dev -t ddh/app:dev .
-```
-
-### Using Build Script
-
-```bash
-# From docker directory
-cd docker/scripts
-./docker-build.sh ddh/app latest production
-
-# Make script executable if needed
-chmod +x docker-build.sh
-```
-
-## Environment-Specific Commands
-
-### Production with Nginx
-
-```bash
-cd docker
-docker-compose -f compose.prod.yml --profile production up -d
-```
-
-### Development with PgAdmin
-
-```bash
-cd docker  
-docker-compose -f compose.dev.yml up -d
-```
-
-## Monitoring Commands
-
-### Container Status
-
-```bash
-cd docker
-docker-compose -f compose.prod.yml ps
-docker-compose -f compose.prod.yml logs -f app
-```
-
-### Using Monitor Script
-
-```bash
-cd docker/scripts
-./container-monitor.sh ../compose.prod.yml status
-./container-monitor.sh ../compose.prod.yml monitor
-```
-
-## Database Commands
-
-### Migrations (from project root)
-
-```bash
-# Run migrations in container
-docker-compose -f docker/compose.prod.yml exec app npm run migration:up
-
-# Access database directly
-docker-compose -f docker/compose.prod.yml exec postgres psql -U user -d ddh
-```
-
-## Cleanup Commands
-
-```bash
-# Stop all services
-cd docker
-docker-compose -f compose.prod.yml down
-
-# Remove volumes (careful!)
-docker-compose -f compose.prod.yml down -v
-
-# Clean up unused Docker resources
-docker system prune -f
-```
-
-## File Structure Reference
-
-```
-docker/
-├── compose.prod.yml      # Production compose file
-├── compose.dev.yml       # Development compose file
-├── Dockerfile.prod       # Production Dockerfile
-├── Dockerfile.dev        # Development Dockerfile
-├── nginx/
-│   └── nginx.conf       # Nginx configuration
-└── scripts/
-    ├── docker-build.sh   # Build automation
-    └── container-monitor.sh # Monitoring script
-```
-
-## Path Context Notes
-
-- **Build context**: Always `..` (parent directory) when running from docker/
-- **Volume mounts**: Use `../` prefix for project files when in docker/
-- **Scripts**: Run from `docker/scripts/` directory or adjust paths accordingly
+### Production Environment
+- **Application**: http://localhost:3000
+- **With Nginx**: http://localhost:80 | https://localhost:443
+- **Database**: localhost:5432 (internal access only)
+- **Redis**: localhost:6379 (internal access only)
 
 ## Environment Variables
 
-Create a `.env` file in the docker directory:
+You can customize the setup using these variables:
 
 ```bash
-# docker/.env
-POSTGRES_PASSWORD=secure_password
-PGADMIN_PASSWORD=admin_password
-APP_IMAGE=ddh/app
-VERSION=latest
+# Change image version
+make build VERSION=v1.2.3
+
+# Change build environment
+make build-optimized ENVIRONMENT=development
+
+# Custom app name
+make build APP_NAME=myapp/ddh
 ```
 
-## Common Issues and Solutions
+## SSL Certificates
 
-1. **Build context errors**: Ensure you're using `..` as build context from docker/
-2. **Volume mount issues**: Use relative paths `../` when running from docker/
-3. **Permission errors**: Check that scripts are executable with `chmod +x`
-4. **Port conflicts**: Adjust ports in compose files if needed
+For HTTPS support in production:
+
+1. **Development**: Use `make ssl` to generate self-signed certificates
+2. **Production**: Replace certificates in `ssl/` directory with CA-signed certificates
+
+## File Structure
+
+```
+docker/
+├── compose.dev.yml          # Development environment
+├── compose.prod.yml         # Production environment
+├── Dockerfile.dev           # Development image
+├── Dockerfile.prod          # Production image
+├── nginx/
+│   ├── nginx.conf          # Main nginx configuration
+│   └── conf.d/             # Server configurations
+└── scripts/
+    ├── docker-build.sh     # Optimized build script
+    ├── container-monitor.sh # Container monitoring
+    ├── generate-ssl.sh     # SSL certificate generation
+    └── quick-start.sh      # Automated setup script
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port conflicts**: Stop other services using ports 3000, 5432, 5050, 6379
+2. **Permission issues**: Ensure Docker has proper permissions
+3. **SSL issues**: Regenerate certificates with `make ssl`
+4. **Database connection**: Wait for PostgreSQL to be ready (health checks included)
+
+### Debug Commands
+
+```bash
+# Check container logs
+make dev-logs
+
+# Access application shell
+make shell
+
+# Check container health
+make health
+
+# Show detailed status
+make status
+```
+
+### Performance
+
+The setup includes optimizations:
+- Multi-stage builds for minimal image size
+- Health checks for reliability  
+- Resource limits for stability
+- Nginx reverse proxy for production
+- Redis caching layer
+- PostgreSQL performance tuning
+
+## Security Features
+
+- Non-root user containers
+- Read-only filesystems where possible
+- Security headers in Nginx
+- Isolated networks
+- SSL/TLS encryption
+- Minimal base images (Alpine Linux)
+
+## Monitoring
+
+Use the monitoring commands to track:
+- Container health and status
+- Resource usage (CPU, memory)
+- Network connections
+- Log aggregation
+- Performance metrics
+
+For detailed monitoring, use:
+```bash
+make monitor
+```
+
+This provides real-time metrics and alerts for container issues.

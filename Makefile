@@ -77,6 +77,17 @@ prod-restart: prod-stop prod ## Restart production environment
 
 ##@ Build Commands
 
+.PHONY: ssl
+ssl: ## Generate SSL certificates for development
+	@echo "$(BLUE)Generating SSL certificates...$(NC)"
+	@if [ -x "$(DOCKER_DIR)/scripts/generate-ssl.sh" ]; then \
+		cd $(DOCKER_DIR)/scripts && ./generate-ssl.sh; \
+	else \
+		echo "$(RED)SSL generation script not found or not executable$(NC)"; \
+		echo "$(YELLOW)Run: chmod +x $(DOCKER_DIR)/scripts/generate-ssl.sh$(NC)"; \
+		exit 1; \
+	fi
+
 .PHONY: build
 build: ## Build production Docker image
 	@echo "$(BLUE)Building production image: $(APP_NAME):$(VERSION)$(NC)"
@@ -273,6 +284,17 @@ setup: ## Initial setup: build and start development environment
 	@echo "$(GREEN)Setup completed!$(NC)"
 	@echo "$(YELLOW)Access your application at: http://localhost:3000$(NC)"
 	@echo "$(YELLOW)Access PgAdmin at: http://localhost:5050$(NC)"
+
+.PHONY: quick-start
+quick-start: ## Complete automated setup with guided experience
+	@echo "$(BLUE)Starting automated setup...$(NC)"
+	@if [ -x "$(DOCKER_DIR)/scripts/quick-start.sh" ]; then \
+		cd $(DOCKER_DIR)/scripts && ./quick-start.sh; \
+	else \
+		echo "$(RED)Quick-start script not found or not executable$(NC)"; \
+		echo "$(YELLOW)Run: chmod +x $(DOCKER_DIR)/scripts/quick-start.sh$(NC)"; \
+		exit 1; \
+	fi
 
 ##@ Information Commands
 

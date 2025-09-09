@@ -1,5 +1,4 @@
 # Development-Optimized Docker Compose for Domain-Driven Hexagon
-version: '3.9'
 
 name: ddh-development
 

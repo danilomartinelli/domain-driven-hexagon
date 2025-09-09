@@ -28,6 +28,80 @@ While this implementation uses the technologies above, the patterns and principl
 
 In real-world production applications, you will most likely only need a fraction of these patterns depending on your use cases, team size, and business complexity. More guidance on this topic can be found in the [architectural recommendations](#general-recommendations-on-architectures-best-practices-design-patterns-and-principles) section.
 
+## 🚀 Getting Started
+
+### First Time Setup
+
+For new developers or first-time setup, run the complete automated setup:
+
+```bash
+# Install dependencies and set up the entire development environment
+make setup
+```
+
+This command will:
+
+- Build Docker images (development and production)
+- Start the development environment (app, database, Redis, PgAdmin)
+- Run database migrations
+- Display access URLs
+
+**Access your application:**
+
+- **App**: <http://localhost:3000>
+- **PgAdmin**: <http://localhost:5050> (<admin@ddh.local> / admin)
+- **Database**: localhost:5432 (user / password)
+- **Redis**: localhost:6379
+
+### Subsequent Development Runs
+
+For daily development after the initial setup:
+
+```bash
+# Start development environment
+make dev
+
+# View logs (in another terminal)
+make dev-logs
+
+# Run tests
+make test
+
+# Stop environment
+make dev-stop
+```
+
+### Production Deployment
+
+```bash
+# Generate SSL certificates
+make ssl
+
+# Build production images
+make build-all
+
+# Start production with HTTPS
+make prod-with-nginx
+```
+
+### Common Commands
+
+```bash
+make help           # Show all available commands
+make status         # Check container status
+make db-console-dev # Access database console
+make shell          # Access container shell
+make clean          # Stop and cleanup containers
+```
+
+### Troubleshooting
+
+- **Port conflicts**: Stop other services using ports 3000, 5432, 5050, 6379
+- **Permission errors**: Run `chmod +x docker/scripts/*.sh`
+- **Database issues**: Run `make clean-volumes` (⚠️ deletes data)
+
+For detailed Docker commands and configuration, see [docker/docker-commands.md](docker/docker-commands.md).
+
 ---
 
 - [Domain-Driven Hexagon](#domain-driven-hexagon)
@@ -142,7 +216,7 @@ More in details on each step below.
 
 ## Modules
 
-This project's code examples use separation by modules (also called components). Each module's name should reflect an important concept from the Domain and have its own folder with a dedicated codebase. Each business use case inside that module gets its own folder to store most of the things it needs (this is also called _Vertical Slicing_). It's easier to work on things that change together if those things are gathered relatively close to each other. Think of a module as a "box" that groups together related business logic.
+This project's code examples use separation by modules (also called components). Each module's name should reflect an important concept from the Domain and have its own folder with a dedicated codebase. Each business use case inside that module gets its own folder to store most of the things it needs (this is also called *Vertical Slicing*). It's easier to work on things that change together if those things are gathered relatively close to each other. Think of a module as a "box" that groups together related business logic.
 
 Using modules is a great way to [encapsulate](<https://en.wikipedia.org/wiki/Encapsulation_(computer_programming)>) parts of highly [cohesive](<https://en.wikipedia.org/wiki/Cohesion_(computer_science)>) business domain rules.
 
@@ -387,7 +461,7 @@ Read more:
 - Aggregate root is a gateway to entire aggregate. Any references from outside the aggregate should **only** go to the aggregate root.
 - Any operations on an aggregate must be [transactional operations](https://en.wikipedia.org/wiki/Database_transaction). Either everything gets saved/updated/deleted or nothing.
 - Only Aggregate Roots can be obtained directly with database queries. Everything else must be done through traversal.
-- Similar to `Entities`, aggregates must protect their invariants through entire lifecycle. When a change to any object within the Aggregate boundary is committed, all invariants of the whole Aggregate must be satisfied. Simply said, all objects in an aggregate must be consistent, meaning that if one object inside an aggregate changes state, this shouldn't conflict with other domain objects inside this aggregate (this is called _Consistency Boundary_).
+- Similar to `Entities`, aggregates must protect their invariants through entire lifecycle. When a change to any object within the Aggregate boundary is committed, all invariants of the whole Aggregate must be satisfied. Simply said, all objects in an aggregate must be consistent, meaning that if one object inside an aggregate changes state, this shouldn't conflict with other domain objects inside this aggregate (this is called *Consistency Boundary*).
 - Objects within the Aggregate can reference other Aggregate roots via their globally unique identifier (id). Avoid holding a direct object reference.
 - Try to avoid aggregates that are too big, this can lead to performance and maintaining problems.
 - Aggregates can publish `Domain Events` (more on that below).
@@ -580,7 +654,7 @@ Using `Value Objects` instead of primitives:
 - Improves security by ensuring invariants of every property.
 - Encapsulates specific business rules associated with a value.
 
-`Value Object` can represent a typed value in domain (a _domain primitive_). The goal here is to encapsulate validations and business logic related only to the represented fields and make it impossible to pass around raw values by forcing a creation of valid `Value Objects` first. This object only accepts values which make sense in its context.
+`Value Object` can represent a typed value in domain (a *domain primitive*). The goal here is to encapsulate validations and business logic related only to the represented fields and make it impossible to pass around raw values by forcing a creation of valid `Value Objects` first. This object only accepts values which make sense in its context.
 
 If every argument and return value of a method is valid by definition, you’ll have input and output validation in every single method in your codebase without any extra effort. This will make application more resilient to errors and will protect it from a whole class of bugs and security vulnerabilities caused by invalid input data.
 
@@ -598,7 +672,7 @@ Also, an alternative for creating an object may be a [type alias](https://www.ty
 
 **Note**: if you are using nodejs, [Runtypes](https://www.npmjs.com/package/runtypes) is a nice library that you can use instead of creating your own value objects for primitives.
 
-**Note**: Some people say that _primitive obsession_ is a code smell, some people consider making a class/object for every primitive may be overengineering (unless you are using Scala with its value classes). For less complex and smaller projects it's definitely an overkill. For bigger projects, there are people who advocate for and against this approach. If you notice that creating a class for every primitive doesn't give you much benefit, create classes just for those primitives that have specific rules or behavior, or just validate only outside of domain using some validation framework. Here are some thoughts on this topic: [From Primitive Obsession to Domain Modelling - Over-engineering?](https://blog.ploeh.dk/2015/01/19/from-primitive-obsession-to-domain-modelling/#7172fd9ca69c467e8123a20f43ea76c2).
+**Note**: Some people say that *primitive obsession* is a code smell, some people consider making a class/object for every primitive may be overengineering (unless you are using Scala with its value classes). For less complex and smaller projects it's definitely an overkill. For bigger projects, there are people who advocate for and against this approach. If you notice that creating a class for every primitive doesn't give you much benefit, create classes just for those primitives that have specific rules or behavior, or just validate only outside of domain using some validation framework. Here are some thoughts on this topic: [From Primitive Obsession to Domain Modelling - Over-engineering?](https://blog.ploeh.dk/2015/01/19/from-primitive-obsession-to-domain-modelling/#7172fd9ca69c467e8123a20f43ea76c2).
 
 Recommended reading:
 
@@ -654,7 +728,7 @@ type ContactInfo = Email | Phone | [Email, Phone];
 
 Now only either `Email`, or `Phone`, or both must be provided. If nothing is provided, the IDE will show a type error right away. Now business rule validation is moved from runtime to **compile time**, which makes the application more secure and gives a faster feedback when something is not used as intended.
 
-This is called a _typestate pattern_.
+This is called a *typestate pattern*.
 
 > The typestate pattern is an API design pattern that encodes information about an object’s run-time state in its compile-time type.
 
@@ -691,7 +765,7 @@ You may have noticed that we do validation in multiple places:
 1. First when user input is sent to our application. In our example we use DTO decorators: [create-user.request-dto.ts](src/modules/user/commands/create-user/create-user.request.dto.ts).
 2. Second time in domain objects, for example: [address.value-object.ts](src/modules/user/domain/value-objects/address.value-object.ts).
 
-So, why are we validating things twice? Let's call a second validation "_guarding_", and distinguish between guarding and validating:
+So, why are we validating things twice? Let's call a second validation "*guarding*", and distinguish between guarding and validating:
 
 - Guarding is a failsafe mechanism. Domain layer views it as invariants to comply with always-valid domain model.
 - Validation is a filtration mechanism. Outside layers view them as input validation rules.
@@ -718,7 +792,7 @@ Read more:
 <details>
 <summary><b>Note</b>: Using validation library instead of custom guards</summary>
 
-Instead of using custom _guards_ you could use an external validation library, but it's not a good practice to tie domain to external libraries and is not usually recommended.
+Instead of using custom *guards* you could use an external validation library, but it's not a good practice to tie domain to external libraries and is not usually recommended.
 
 Although exceptions can be made if needed, especially for very specific validation libraries that validate only one thing (like specific IDs, for example bitcoin wallet address). Tying only one or just few `Value Objects` to such a specific library won't cause any harm. Unlike general purpose validation libraries which will be tied to domain everywhere, and it will be troublesome to change it in every `Value Object` in case when old library is no longer maintained, contains critical bugs or is compromised by hackers etc.
 
@@ -796,7 +870,7 @@ function createUser(
 This approach gives us a fixed set of expected error types, so we can decide what to do with each:
 
 ```typescript
-/* in HTTP context we want to convert each error to an 
+/* in HTTP context we want to convert each error to an
 error with a corresponding HTTP status code: 409, 400 or 500 */
 const result = await this.commandBus.execute(command);
 return match(result, {
@@ -932,12 +1006,12 @@ So why do we need DTOs if we already have Command objects that carry properties?
 
 > Because commands and DTOs are different things, they tackle different problems. Commands are serializable method calls - calls of the methods in the domain model. Whereas DTOs are the data contracts. The main reason to introduce this separate layer with data contracts is to provide backward compatibility for the clients of your API. Without the DTOs, the API will have breaking changes with every modification of the domain model.
 
-More info on this subject: [Are CQRS commands part of the domain model?](https://enterprisecraftsmanship.com/posts/cqrs-commands-part-domain-model/) (read the "_Commands vs DTOs_" section).
+More info on this subject: [Are CQRS commands part of the domain model?](https://enterprisecraftsmanship.com/posts/cqrs-commands-part-domain-model/) (read the "*Commands vs DTOs*" section).
 
 ### Additional recommendations
 
 - DTOs should be data-oriented, not object-oriented. Its properties should be mostly primitives. We are not modeling anything here, just sending flat data around.
-- When returning a `Response` prefer _whitelisting_ properties over _blacklisting_. This ensures that no sensitive data will leak in case if programmer forgets to blacklist newly added properties that shouldn't be returned to the user.
+- When returning a `Response` prefer *whitelisting* properties over *blacklisting*. This ensures that no sensitive data will leak in case if programmer forgets to blacklist newly added properties that shouldn't be returned to the user.
 - If you use the same DTOs in multiple apps (frontend and backend, or between microservices), you can keep them somewhere in a shared directory instead of module directory and create a git submodule or a separate package for sharing them.
 - `Request`/`Response` DTO classes may be a good place to use validation and sanitization decorators like [class-validator](https://www.npmjs.com/package/class-validator) and [class-sanitizer](https://www.npmjs.com/package/class-sanitizer) (make sure that all validation errors are gathered first and only then return them to the user, this is called [Notification pattern](https://martinfowler.com/eaaDev/Notification.html). Class-validator does this by default).
 - `Request`/`Response` DTO classes may also be a good place to use Swagger/OpenAPI library decorators that [NestJS provides](https://docs.nestjs.com/openapi/types-and-parameters).
@@ -1084,7 +1158,7 @@ For example:
 
 [DDD](https://en.wikipedia.org/wiki/Domain-driven_design) and other practices described here are mostly about creating software with complex business logic. But what would be a better approach for simpler applications?
 
-For applications with not a lot of business logic, where code mostly exists as a glue between database and a client, consider other architectures. The most popular is probably [MVC](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller). _Model-View-Controller_ is better suited for [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) applications with little business logic since it tends to favor designs where software is mostly the view of the database.
+For applications with not a lot of business logic, where code mostly exists as a glue between database and a client, consider other architectures. The most popular is probably [MVC](https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93controller). *Model-View-Controller* is better suited for [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) applications with little business logic since it tends to favor designs where software is mostly the view of the database.
 
 Additional resources:
 
@@ -1180,7 +1254,7 @@ This is called [The Common Closure Principle (CCP)](https://ericbackhage.net/cle
 Keep in mind that this project's folder/file structure is an example and might not work for everyone. The main recommendations here are:
 
 - Separate your application into modules;
-- Keep files that change together close to each other (_Common Closure Principle_ and _Vertical Slicing_);
+- Keep files that change together close to each other (*Common Closure Principle* and *Vertical Slicing*);
 - Group files by their behavior that changes together, not by a type of functionality that file provides;
 - Keep files that are reused by multiple components apart;
 - Respect boundaries in your code, keeping files together doesn't mean inner layers can import outer layers;

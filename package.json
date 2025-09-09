@@ -47,7 +47,6 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest -i --config jest-e2e.json",
-    "docker:env": "docker-compose --file docker/docker-compose.yml up --build",
     "migration:create": "ts-node database/migrate create --name",
     "migration:up": "ts-node database/migrate up",
     "migration:up:tests": "NODE_ENV=test ts-node database/migrate up",

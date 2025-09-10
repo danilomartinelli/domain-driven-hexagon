@@ -1,0 +1,225 @@
+# Docker Compose for Production Environment
+# Optimized for production deployment with security and performance
+
+version: '3.9'
+
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+  db-network:
+    driver: bridge
+    internal: true
+
+volumes:
+  postgres_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  redis_data:
+    driver: local
+
+services:
+  # Application service (Production)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: ddh/app:latest
+    container_name: ddh-app-prod
+    restart: unless-stopped
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50m
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://user:${POSTGRES_PASSWORD:-password}@postgres:5432/ddh
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://user:${RABBITMQ_PASSWORD:-password}@rabbitmq:5672/ddh
+      LOG_LEVEL: info
+      APP_PORT: 3000
+    
+    ports:
+      - "127.0.0.1:3000:3000"
+    
+    networks:
+      - app-network
+      - db-network
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    volumes:
+      - type: tmpfs
+        target: /app/logs
+        tmpfs:
+          size: 100M
+
+  # PostgreSQL (Production)
+  postgres:
+    image: postgres:16-alpine
+    container_name: ddh-postgres-prod
+    restart: unless-stopped
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ddh
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      # Performance tuning
+      POSTGRES_SHARED_BUFFERS: 128MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 256MB
+    
+    volumes:
+      - postgres_data:/var/lib/postgresql/data:Z
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    
+    networks:
+      - db-network
+    
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d ddh"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    
+    # PostgreSQL optimization
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.max=10000
+      -c log_min_duration_statement=1000
+      -c log_checkpoints=on
+      -c log_connections=on
+
+  # RabbitMQ (Production)
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ddh-rabbitmq-prod
+    restart: unless-stopped
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-password}
+      RABBITMQ_DEFAULT_VHOST: ddh
+      RABBITMQ_MANAGEMENT_PATH_PREFIX: /rabbitmq
+    
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq:Z
+    
+    networks:
+      - app-network
+      - db-network
+    
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Redis (Production)
+  redis:
+    image: redis:7-alpine
+    container_name: ddh-redis-prod
+    restart: unless-stopped
+    
+    # Security
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    ports:
+      - "127.0.0.1:6379:6379"
+    
+    volumes:
+      - redis_data:/data:Z
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 10M
+    
+    networks:
+      - db-network
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    
+    # Redis production configuration
+    command: >
+      redis-server
+      --maxmemory 200mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --save 300 10
+      --tcp-keepalive 60

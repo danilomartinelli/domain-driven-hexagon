@@ -42,7 +42,8 @@ export abstract class SqlRepositoryBase<
   protected abstract schema: ZodSchema<DbModel>;
 
   /** Optional schema for validating entity IDs */
-  protected idSchema?: ZodType<EntityId> = z.string() as unknown as ZodType<EntityId>;
+  protected idSchema?: ZodType<EntityId> =
+    z.string() as unknown as ZodType<EntityId>;
 
   protected constructor(
     private readonly _pool: DatabasePool,
@@ -304,7 +305,9 @@ export abstract class SqlRepositoryBase<
         );
         throw new ConflictException('Record already exists', error);
       }
-      this.handleRepositoryError(error as Error, 'insert', { count: entities.length });
+      this.handleRepositoryError(error as Error, 'insert', {
+        count: entities.length,
+      });
       throw error;
     }
   }
@@ -322,12 +325,18 @@ export abstract class SqlRepositoryBase<
         ? this.idSchema.parse(entity.id)
         : entity.id;
 
-      const query = this.generateUpdateQuery(validatedModel, validatedId as EntityId);
+      const query = this.generateUpdateQuery(
+        validatedModel,
+        validatedId as EntityId,
+      );
 
       const result = await this.executeWriteQuery(query, entity, 'update');
 
       if (result.rowCount === 0) {
-        throw new NotFoundError(`Entity with id ${entity.id} not found`, { sql: 'UPDATE query', values: [] });
+        throw new NotFoundError(`Entity with id ${entity.id} not found`, {
+          sql: 'UPDATE query',
+          values: [],
+        });
       }
 
       await entity.publishEvents(this.logger, this.eventEmitter);
@@ -392,7 +401,10 @@ export abstract class SqlRepositoryBase<
       const duration = Date.now() - startTime;
       this.logger.error(
         `[${RequestContextService.getRequestId()}] ${operation} failed after ${duration}ms`,
-        { error: error instanceof Error ? error.message : 'Unknown error', entityIds },
+        {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          entityIds,
+        },
       );
       throw error;
     }
@@ -528,7 +540,8 @@ export abstract class SqlRepositoryBase<
   /**
    * Format value for SQL query with proper type handling
    */
-  protected formatValueForQuery(value: unknown): any { // ValueExpressionToken not available in v48
+  protected formatValueForQuery(value: unknown): any {
+    // ValueExpressionToken not available in v48
     if (value === null || value === undefined) {
       return sql.fragment`NULL`;
     }
@@ -600,7 +613,10 @@ export abstract class SqlRepositoryBase<
 
         this.logger.error(
           `[${requestId}] Transaction failed and rolled back after ${duration}ms`,
-          { error: error instanceof Error ? error.message : 'Unknown error', table: this.tableName },
+          {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            table: this.tableName,
+          },
         );
 
         throw error;

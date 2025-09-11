@@ -1,4 +1,4 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
 import { get } from 'env-var';
 import { z } from 'zod';
 import {
@@ -108,20 +108,39 @@ export type ValidatedDatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
 /**
  * Service for managing database configuration with validation and type safety.
  * Handles environment variable loading, validation, and provides type-safe access to config values.
+ *
  */
 @Injectable()
 export class DatabaseConfigService implements OnModuleInit {
+  private readonly logger = new Logger(DatabaseConfigService.name);
   private _config: ValidatedDatabaseConfig | null = null;
   private _connectionUri: string | null = null;
-
   constructor(
     @Inject(DATABASE_MODULE_OPTIONS_TOKEN)
     private readonly options: DatabaseModuleOptions,
   ) {}
 
   async onModuleInit(): Promise<void> {
-    this._config = await this.validateAndParseConfig();
-    this._connectionUri = this.buildConnectionUri();
+    try {
+      // Load and validate configuration
+      this._config = await this.validateAndParseConfig();
+      this._connectionUri = this.buildSecureConnectionUri();
+
+      // Log configuration initialization without credentials
+      this.logger.log('Database configuration initialized', {
+        environment: process.env.NODE_ENV || 'development',
+        host: this._config.host,
+        port: this._config.port,
+        database: this._config.database,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Failed to initialize database configuration', {
+        error: errorMessage,
+      });
+      throw new Error(`Configuration initialization failed: ${errorMessage}`);
+    }
   }
 
   /**
@@ -335,67 +354,121 @@ export class DatabaseConfigService implements OnModuleInit {
           `Database configuration validation failed:\n${errorMessages.join('\n')}`,
         );
       }
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(
-        `Failed to load database configuration: ${errorMessage}`,
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to load database configuration: ${errorMessage}`);
     }
   }
 
   /**
-   * Validate pool configuration constraints
+   * Validate pool configuration constraints with enhanced logging
    */
   private validatePoolConfiguration(config: ValidatedDatabaseConfig): void {
     if (config.minimumPoolSize > config.maximumPoolSize) {
       throw new Error('minimumPoolSize cannot be greater than maximumPoolSize');
     }
 
-    // Warn about potentially problematic configurations
+    // Enhanced warnings with structured logging
     if (config.maximumPoolSize > 50 && !this.isProduction) {
-      console.warn(
-        'Warning: Large pool size detected in non-production environment',
+      this.logger.warn(
+        'Large pool size detected in non-production environment',
+        {
+          maximumPoolSize: config.maximumPoolSize,
+          environment: process.env.NODE_ENV || 'unknown',
+        },
       );
+    }
+
+    if (config.maximumPoolSize > 100) {
+      this.logger.warn('Very large pool size detected', {
+        maximumPoolSize: config.maximumPoolSize,
+        recommendation:
+          'Consider reducing pool size for better resource management',
+      });
     }
   }
 
   /**
-   * Validate timeout configuration constraints
+   * Validate timeout configuration constraints with enhanced logging
    */
   private validateTimeoutConfiguration(config: ValidatedDatabaseConfig): void {
     if (config.statementTimeoutMillis < config.connectionTimeoutMillis) {
-      console.warn(
-        'Warning: Statement timeout is less than connection timeout',
-      );
+      this.logger.warn('Statement timeout is less than connection timeout', {
+        statementTimeout: config.statementTimeoutMillis,
+        connectionTimeout: config.connectionTimeoutMillis,
+        recommendation: 'Consider increasing statement timeout',
+      });
     }
 
     if (config.queryTimeoutMillis > config.statementTimeoutMillis) {
-      console.warn('Warning: Query timeout is greater than statement timeout');
+      this.logger.warn('Query timeout is greater than statement timeout', {
+        queryTimeout: config.queryTimeoutMillis,
+        statementTimeout: config.statementTimeoutMillis,
+        recommendation: 'Consider adjusting timeout values',
+      });
+    }
+
+    // Additional timeout validations
+    if (config.connectionTimeoutMillis < 5000) {
+      this.logger.warn('Very short connection timeout detected', {
+        connectionTimeout: config.connectionTimeoutMillis,
+        recommendation:
+          'Consider increasing connection timeout for better reliability',
+      });
     }
   }
 
   /**
-   * Build PostgreSQL connection URI from configuration
+   * Get secure connection info for logging (no credentials)
    */
-  private buildConnectionUri(): string {
+  getSecureConnectionInfo(): Record<string, unknown> {
+    return {
+      host: this.config.host,
+      port: this.config.port,
+      database: this.config.database,
+      ssl: this.config.ssl,
+      poolSize: {
+        min: this.config.minimumPoolSize,
+        max: this.config.maximumPoolSize,
+      },
+    };
+  }
+
+  /**
+   * Build PostgreSQL connection URI from configuration with enhanced security
+   */
+  private buildSecureConnectionUri(): string {
     if (this.options.connectionUri) {
+      // Validate that provided URI doesn't expose credentials in logs
+      this.logger.log('Using provided connection URI');
       return this.options.connectionUri;
     }
 
     const config = this.config;
-    const auth = `${encodeURIComponent(config.username)}:${encodeURIComponent(config.password)}`;
-    const host = config.host;
-    const port = config.port;
-    const database = config.database;
 
-    let uri = `postgres://${auth}@${host}:${port}/${database}`;
+    // Use secure encoding for credentials
+    const encodedUsername = encodeURIComponent(config.username);
+    const encodedPassword = encodeURIComponent(config.password);
+    const encodedDatabase = encodeURIComponent(config.database);
 
-    // Add SSL parameter if needed
+    let uri = `postgres://${encodedUsername}:${encodedPassword}@${config.host}:${config.port}/${encodedDatabase}`;
+
+    // Add SSL parameters if needed
     if (config.ssl) {
       uri += '?sslmode=require';
       if (!config.sslRejectUnauthorized) {
         uri += '&sslcert=disable';
       }
     }
+
+    // Log connection attempt without exposing credentials
+    this.logger.log('Built database connection URI', {
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      ssl: config.ssl,
+      hasCredentials: true,
+    });
 
     return uri;
   }

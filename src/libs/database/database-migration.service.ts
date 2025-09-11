@@ -93,7 +93,10 @@ export class DatabaseMigrationService {
       );
       return results;
     } catch (error) {
-      this.logger.error('Migration process failed', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Migration process failed',
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -133,7 +136,10 @@ export class DatabaseMigrationService {
         checksum: lastMigration.checksum,
       };
     } catch (error) {
-      this.logger.error('Rollback process failed', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Rollback process failed',
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -160,7 +166,10 @@ export class DatabaseMigrationService {
         };
       });
     } catch (error) {
-      this.logger.error('Failed to get migration status', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Failed to get migration status',
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -259,7 +268,8 @@ export class DatabaseMigrationService {
         errors,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       errors.push(`Validation failed: ${errorMessage}`);
       return {
         valid: false,
@@ -299,7 +309,11 @@ export class DatabaseMigrationService {
       // Sort by timestamp
       return migrations.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     } catch (error) {
-      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'ENOENT'
+      ) {
         this.logger.warn(`Migrations directory not found: ${migrationsPath}`);
         return [];
       }

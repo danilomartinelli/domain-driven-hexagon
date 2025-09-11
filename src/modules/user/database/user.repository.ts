@@ -105,7 +105,11 @@ export class UserRepository
         return this.mapper.toDomain(validatedUser);
       });
     } catch (error) {
-      this.handleRepositoryError(error as Error, 'findByRole', { role, limit, offset });
+      this.handleRepositoryError(error as Error, 'findByRole', {
+        role,
+        limit,
+        offset,
+      });
       return [];
     }
   }

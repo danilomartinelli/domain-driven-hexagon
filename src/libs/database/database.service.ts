@@ -191,7 +191,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
       return this.lastHealthCheck;
     } catch (error) {
-      this.logger.error('Health check failed', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Health check failed',
+        error instanceof Error ? error.stack : undefined,
+      );
 
       this.lastHealthCheck = {
         status: 'unhealthy',
@@ -235,7 +238,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         minimumPoolSize: config.minimumPoolSize,
       };
     } catch (error) {
-      this.logger.warn('Failed to get pool statistics', error instanceof Error ? error.message : 'Unknown error');
+      this.logger.warn(
+        'Failed to get pool statistics',
+        error instanceof Error ? error.message : 'Unknown error',
+      );
 
       const config = this.configService.config;
       return {
@@ -257,7 +263,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.pool.oneFirst(sql.unsafe`SELECT 1`);
       return true;
     } catch (error) {
-      this.logger.error('Connection test failed', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Connection test failed',
+        error instanceof Error ? error.stack : undefined,
+      );
       return false;
     }
   }
@@ -270,7 +279,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       const version = await this.pool.oneFirst(sql.unsafe`SELECT version()`);
       return version as string;
     } catch (error) {
-      this.logger.error('Failed to get database version', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Failed to get database version',
+        error instanceof Error ? error.stack : undefined,
+      );
       throw error;
     }
   }
@@ -280,9 +292,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
    */
   async rawQuery<T = any>(
     sqlString: string,
-    parameters: any[] = [],
+    _parameters: any[] = [],
     context?: QueryContext,
   ): Promise<QueryResult<T>> {
+    // Note: parameters are not used with sql.unsafe
+    void _parameters;
     this.logger.warn('Executing raw SQL query', {
       sql: sqlString,
       requestId: context?.requestId,
@@ -305,7 +319,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         try {
           await this.getHealthStatus(true);
         } catch (error) {
-          this.logger.error('Periodic health check failed', error instanceof Error ? error.stack : undefined);
+          this.logger.error(
+            'Periodic health check failed',
+            error instanceof Error ? error.stack : undefined,
+          );
         }
       }, intervalMs);
 
@@ -330,7 +347,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.pool.end();
       this.logger.log('Database pool closed successfully');
     } catch (error) {
-      this.logger.error('Failed to close database pool', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Failed to close database pool',
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 }

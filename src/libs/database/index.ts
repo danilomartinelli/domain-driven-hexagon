@@ -12,13 +12,18 @@ export { DatabaseConfigService } from './database-config.service';
 export { DatabaseMigrationService } from './database-migration.service';
 export { DatabaseConnectionFactory } from './database-connection.factory';
 
+// Enhanced services and configuration
+
 // Constants and tokens
 export {
   DATABASE_POOL_TOKEN,
   DATABASE_CONFIG_TOKEN,
   DATABASE_MODULE_OPTIONS_TOKEN,
   DEFAULT_DATABASE_CONFIG,
+  DATABASE_CONFIG_PROFILES,
   DATABASE_ENV_VARS,
+  CONNECTION_VALIDATION,
+  DATABASE_CONFIG_LIMITS,
 } from './database.constants';
 
 // Interfaces and types

@@ -68,7 +68,8 @@ class MigrationCLI {
 
       console.log('Database connection initialized successfully');
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error('Failed to initialize database connection:', errorMessage);
       process.exit(1);
     }
@@ -83,7 +84,8 @@ class MigrationCLI {
         await this.pool.end();
         console.log('Database connection closed');
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
         console.error('Error closing database connection:', errorMessage);
       }
     }
@@ -107,7 +109,8 @@ class MigrationCLI {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Migration failed:', errorMessage);
       throw error;
     }
@@ -128,7 +131,8 @@ class MigrationCLI {
         console.log(`✅ Successfully rolled back migration: ${result.name}`);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Rollback failed:', errorMessage);
       throw error;
     }
@@ -165,7 +169,8 @@ class MigrationCLI {
       const pendingCount = migrations.filter((m) => !m.executed).length;
       console.log(`\n📊 Total: ${migrations.length}, Pending: ${pendingCount}`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Failed to get migration status:', errorMessage);
       throw error;
     }
@@ -186,7 +191,8 @@ class MigrationCLI {
       const filePath = await this.migrationService.createMigration(name);
       console.log(`✅ Created migration file: ${filePath}`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Failed to create migration:', errorMessage);
       throw error;
     }
@@ -211,7 +217,8 @@ class MigrationCLI {
         process.exit(1);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Validation failed:', errorMessage);
       throw error;
     }
@@ -235,7 +242,8 @@ class MigrationCLI {
         });
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       console.error('❌ Failed to get pending migrations:', errorMessage);
       throw error;
     }

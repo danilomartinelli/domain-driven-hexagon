@@ -47,7 +47,8 @@ export class DatabaseConnectionFactory {
 
       return pool;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
         'Failed to create database connection pool',
@@ -172,8 +173,13 @@ export class DatabaseConnectionFactory {
         beforePoolConnection: async (context, query) => {
           if (config.logLevel === 'debug') {
             this.logger.debug('Executing query', {
-              sql: query.sql,
-              values: query.values,
+              sql:
+                query.sql.substring(0, 200) +
+                (query.sql.length > 200 ? '...' : ''),
+              // Only log values in development for security
+              ...(process.env.NODE_ENV === 'development' && {
+                values: query.values,
+              }),
             });
           }
           return null;
@@ -189,10 +195,14 @@ export class DatabaseConnectionFactory {
           return null;
         },
         queryExecutionError: async (context, query, error) => {
+          // Only log query values in development for security
+          const config = this.configService.config;
           this.logger.error('Query execution error', {
-            sql: query.sql,
-            values: query.values,
+            sql:
+              query.sql.substring(0, 200) +
+              (query.sql.length > 200 ? '...' : ''),
             error: error.message,
+            ...(config.logLevel === 'debug' && { values: query.values }),
           });
           return null;
         },
@@ -228,8 +238,12 @@ export class DatabaseConnectionFactory {
         return null;
       },
       poolConnectionError: async (context, error) => {
+        // Create database error with secure context
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+
         this.logger.error('Pool connection error', {
-          error: error.message,
+          error: errorMessage,
           context: context.poolId,
         });
         return null;
@@ -265,7 +279,8 @@ export class DatabaseConnectionFactory {
         );
       }
 
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Connection validation failed: ${errorMessage}`);
     }
   }

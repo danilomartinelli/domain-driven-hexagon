@@ -1,0 +1,30 @@
+{
+  "displayName": "Database Tests",
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "coverageDirectory": "./coverage/database",
+  "setupFilesAfterEnv": ["./tests/setup/jestSetupAfterEnv.ts"],
+  "globalSetup": "<rootDir>/tests/setup/jestGlobalSetup.ts",
+  "testRegex": "tests/database/.*\\.spec\\.ts$",
+  "moduleNameMapper": {
+    "@src/(.*)$": "<rootDir>/src/$1",
+    "@modules/(.*)$": "<rootDir>/src/modules/$1",
+    "@config/(.*)$": "<rootDir>/src/configs/$1",
+    "@libs/(.*)$": "<rootDir>/src/libs/$1",
+    "@exceptions$": "<rootDir>/src/libs/exceptions",
+    "@tests/(.*)$": "<rootDir>/tests/$1"
+  },
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "collectCoverageFrom": [
+    "src/libs/db/**/*.(t|j)s",
+    "src/modules/**/database/**/*.(t|j)s",
+    "src/configs/database.config.ts",
+    "database/**/*.(t|j)s"
+  ],
+  "coverageReporters": ["text", "lcov", "html"],
+  "testTimeout": 30000,
+  "verbose": true
+}

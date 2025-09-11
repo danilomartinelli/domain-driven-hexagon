@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 
-import { SlonikMigrator } from '@slonik/migrator';
 import { createPool } from 'slonik';
+import { DatabaseMigrationService } from '../src/libs/database/database-migration.service';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
@@ -17,11 +17,18 @@ export async function getMigrator() {
     `postgres://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}/${process.env.DB_NAME}`,
   );
 
-  const migrator = new SlonikMigrator({
-    migrationsPath: path.resolve(__dirname, 'migrations'),
-    migrationTableName: 'migration',
-    slonik: pool,
-  } as any);
+  // Create mock config service for migrations
+  const configService = {
+    config: {
+      migrationsPath: path.resolve(__dirname, 'migrations'),
+      migrationTableName: 'migration'
+    }
+  } as any;
+
+  const migrator = new DatabaseMigrationService(pool, configService);
 
   return { pool, migrator };
 }
+
+// Legacy export for backward compatibility
+export const SlonikMigrator = DatabaseMigrationService;

@@ -1,13 +1,13 @@
-import { InjectPool } from 'nestjs-slonik';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabasePool, sql } from 'slonik';
-import { UserRepositoryPort } from './user.repository.port';
 import { z } from 'zod';
+import { DATABASE_POOL_TOKEN } from '@libs/database';
+import { SqlRepositoryBase } from '@src/libs/db/sql-repository.base';
+import { UserRepositoryPort } from './user.repository.port';
 import { UserMapper } from '../user.mapper';
 import { UserRoles } from '../domain/user.types';
 import { UserEntity } from '../domain/user.entity';
-import { SqlRepositoryBase } from '@src/libs/db/sql-repository.base';
-import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 
 /**
  * Runtime validation of user object for extra safety (in case database schema changes).
@@ -40,7 +40,7 @@ export class UserRepository
   protected schema = userSchema;
 
   constructor(
-    @InjectPool()
+    @Inject(DATABASE_POOL_TOKEN)
     pool: DatabasePool,
     mapper: UserMapper,
     eventEmitter: EventEmitter2,
@@ -51,18 +51,79 @@ export class UserRepository
   async updateAddress(user: UserEntity): Promise<void> {
     const address = user.getProps().address;
     const statement = sql.type(userSchema)`
-    UPDATE "users" SET
-    street = ${address.street}, country = ${address.country}, "postalCode" = ${address.postalCode}
-    WHERE id = ${user.id}`;
+      UPDATE "users" SET
+        street = ${address.street}, 
+        country = ${address.country}, 
+        "postalCode" = ${address.postalCode},
+        "updatedAt" = ${sql.timestamp(new Date())}
+      WHERE id = ${user.id}
+    `;
 
-    await this.writeQuery(statement, user);
+    await this.executeWriteQuery(statement, user, 'updateAddress');
   }
 
-  async findOneByEmail(email: string): Promise<UserEntity> {
-    const user = await this.pool.one(
-      sql.type(userSchema)`SELECT * FROM "users" WHERE email = ${email}`,
-    );
+  async findOneByEmail(email: string): Promise<UserEntity | null> {
+    try {
+      const result = await this.executeQuery(
+        sql.type(userSchema)`SELECT * FROM "users" WHERE email = ${email}`,
+        'findOneByEmail',
+      );
 
-    return this.mapper.toDomain(user);
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const validatedUser = this.schema.parse(result.rows[0]);
+      return this.mapper.toDomain(validatedUser);
+    } catch (error) {
+      this.handleRepositoryError(error as Error, 'findOneByEmail', { email });
+      return null;
+    }
+  }
+
+  /**
+   * Find users by role with pagination support
+   */
+  async findByRole(
+    role: UserRoles,
+    limit = 50,
+    offset = 0,
+  ): Promise<UserEntity[]> {
+    try {
+      const result = await this.executeQuery(
+        sql.type(userSchema)`
+          SELECT * FROM "users" 
+          WHERE role = ${role}
+          ORDER BY "createdAt" DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `,
+        'findByRole',
+      );
+
+      return result.rows.map((row) => {
+        const validatedUser = this.schema.parse(row);
+        return this.mapper.toDomain(validatedUser);
+      });
+    } catch (error) {
+      this.handleRepositoryError(error as Error, 'findByRole', { role, limit, offset });
+      return [];
+    }
+  }
+
+  /**
+   * Check if user exists by email
+   */
+  async existsByEmail(email: string): Promise<boolean> {
+    try {
+      const result = await this.executeQuery(
+        sql.unsafe`SELECT 1 FROM "users" WHERE email = ${email} LIMIT 1`,
+        'existsByEmail',
+      );
+
+      return result.rows.length > 0;
+    } catch (error) {
+      this.handleRepositoryError(error as Error, 'existsByEmail', { email });
+      return false;
+    }
   }
 }

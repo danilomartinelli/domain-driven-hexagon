@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
-import { SlonikModule } from 'nestjs-slonik';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { UserModule } from '@modules/user/user.module';
 import { WalletModule } from '@modules/wallet/wallet.module';
@@ -8,7 +7,8 @@ import { RequestContextModule } from 'nestjs-request-context';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ContextInterceptor } from './libs/application/context/ContextInterceptor';
 import { ExceptionInterceptor } from '@libs/application/interceptors/exception.interceptor';
-import { postgresConnectionUri } from './configs/database.config';
+import { getDatabaseConfig } from './configs/database.config';
+import { DatabaseModule } from '@libs/database';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 
@@ -27,16 +27,17 @@ const interceptors = [
   imports: [
     EventEmitterModule.forRoot(),
     RequestContextModule,
-    SlonikModule.forRoot({
-      connectionUri: postgresConnectionUri,
-    }),
+
+    // New enhanced database module
+    DatabaseModule.forRoot(getDatabaseConfig()),
+
     CqrsModule,
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
     }),
 
-    // Modules
+    // Business modules
     UserModule,
     WalletModule,
   ],

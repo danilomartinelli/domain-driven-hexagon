@@ -1,7 +1,7 @@
 # Docker Compose for Domain-Driven Hexagon
 # Development environment with PostgreSQL and RabbitMQ
 
-version: '3.9'
+name: 'domain-driven-hexagon'
 
 networks:
   app-network:
@@ -22,32 +22,32 @@ services:
       target: development
     container_name: ddh-app
     restart: unless-stopped
-    
+
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://user:password@postgres:5432/ddh
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://user:password@rabbitmq:5672
       LOG_LEVEL: debug
-    
+
     ports:
-      - "3000:3000"
-      - "9229:9229"  # Debug port
-    
+      - '3000:3000'
+      - '9229:9229' # Debug port
+
     volumes:
       - .:/app
       - /app/node_modules
       - /app/dist
-    
+
     networks:
       - app-network
-    
+
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    
+
     command: dumb-init npm run start:debug
 
   # PostgreSQL database
@@ -55,25 +55,25 @@ services:
     image: postgres:16-alpine
     container_name: ddh-postgres
     restart: unless-stopped
-    
+
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       POSTGRES_DB: ddh
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
-    
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256'
+
     ports:
-      - "5432:5432"
-    
+      - '5432:5432'
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d:ro
-    
+
     networks:
       - app-network
-    
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d ddh"]
+      test: ['CMD-SHELL', 'pg_isready -U user -d ddh']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -84,24 +84,24 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: ddh-rabbitmq
     restart: unless-stopped
-    
+
     environment:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: password
       RABBITMQ_DEFAULT_VHOST: ddh
-    
+
     ports:
-      - "5672:5672"   # AMQP port
-      - "15672:15672" # Management UI
-    
+      - '5672:5672' # AMQP port
+      - '15672:15672' # Management UI
+
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    
+
     networks:
       - app-network
-    
+
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: ['CMD', 'rabbitmq-diagnostics', 'check_port_connectivity']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -112,17 +112,17 @@ services:
     image: redis:7-alpine
     container_name: ddh-redis
     restart: unless-stopped
-    
+
     ports:
-      - "6379:6379"
-    
+      - '6379:6379'
+
     networks:
       - app-network
-    
+
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 3s
       retries: 3
-    
+
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru

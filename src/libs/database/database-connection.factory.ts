@@ -37,7 +37,7 @@ export class DatabaseConnectionFactory {
 
       const pool = await createPool(
         this.configService.connectionUri,
-        clientConfiguration as any, // Temporary fix for Slonik v48 compatibility
+        clientConfiguration,
       );
 
       // Validate connection on startup
@@ -61,10 +61,10 @@ export class DatabaseConnectionFactory {
   /**
    * Create Slonik pool configuration with interceptors and type parsers
    */
-  private createPoolConfiguration() {
+  private createPoolConfiguration(): Record<string, any> {
     const config = this.configService.config;
 
-    return {
+    const poolConfig: Record<string, any> = {
       // Connection pool configuration
       maximumPoolSize: config.maximumPoolSize,
       minimumPoolSize: config.minimumPoolSize,
@@ -88,41 +88,44 @@ export class DatabaseConnectionFactory {
 
       // Interceptors for logging and monitoring
       interceptors: this.createInterceptors(),
-
-      // Additional client configuration from options (if available)
-      // ...this.configService.options.clientConfiguration,
     };
+
+    return poolConfig;
   }
 
   /**
    * Create type parsers for PostgreSQL data types
    */
-  private createTypeParsers() {
-    return [
-      ...createTypeParserPreset(),
-
+  private createTypeParsers(): Array<{
+    name: string;
+    parse: (value: string) => any;
+  }> {
+    const customParsers: Array<{
+      name: string;
+      parse: (value: string) => any;
+    }> = [
       // Custom type parsers for specific PostgreSQL types
       {
         name: 'timestamptz',
-        parse: (value: string) => {
+        parse: (value: string): Date => {
           return new Date(value);
         },
       },
       {
         name: 'timestamp',
-        parse: (value: string) => {
+        parse: (value: string): Date => {
           return new Date(value);
         },
       },
       {
         name: 'date',
-        parse: (value: string) => {
+        parse: (value: string): Date => {
           return new Date(value);
         },
       },
       {
         name: 'json',
-        parse: (value: string) => {
+        parse: (value: string): any => {
           try {
             return JSON.parse(value);
           } catch {
@@ -132,7 +135,7 @@ export class DatabaseConnectionFactory {
       },
       {
         name: 'jsonb',
-        parse: (value: string) => {
+        parse: (value: string): any => {
           try {
             return JSON.parse(value);
           } catch {
@@ -142,14 +145,14 @@ export class DatabaseConnectionFactory {
       },
       {
         name: 'numeric',
-        parse: (value: string) => {
+        parse: (value: string): number | string => {
           const num = parseFloat(value);
           return isNaN(num) ? value : num;
         },
       },
       {
         name: 'bigint',
-        parse: (value: string) => {
+        parse: (value: string): bigint | string => {
           try {
             return BigInt(value);
           } catch {
@@ -158,19 +161,28 @@ export class DatabaseConnectionFactory {
         },
       },
     ];
+
+    try {
+      // Try to use the preset parsers if available
+      const presetParsers = createTypeParserPreset();
+      return [...presetParsers, ...customParsers];
+    } catch {
+      // If preset parsers are not available, just use custom ones
+      return customParsers;
+    }
   }
 
   /**
    * Create interceptors for query logging, monitoring, and error handling
    */
-  private createInterceptors() {
+  private createInterceptors(): Array<Record<string, any>> {
     const config = this.configService.config;
-    const interceptors: any[] = []; // createInterceptorPreset() may not exist in v48
+    const interceptors: Array<Record<string, any>> = [];
 
     // Add query logging interceptor if enabled
     if (config.enableQueryLogging) {
       interceptors.push({
-        beforePoolConnection: async (context, query) => {
+        beforePoolConnection: async (context: any, query: any) => {
           if (config.logLevel === 'debug') {
             this.logger.debug('Executing query', {
               sql:
@@ -184,19 +196,18 @@ export class DatabaseConnectionFactory {
           }
           return null;
         },
-        afterPoolConnection: async (context, query, result) => {
+        afterPoolConnection: async (context: any, query: any, result: any) => {
           if (config.logLevel === 'debug') {
             this.logger.debug('Query completed', {
               sql: query.sql,
               rowCount: result.rowCount,
-              duration: `${Date.now() - context.connectionId}ms`,
+              duration: `${Date.now() - (context.startTime || Date.now())}ms`,
             });
           }
           return null;
         },
-        queryExecutionError: async (context, query, error) => {
+        queryExecutionError: async (context: any, query: any, error: Error) => {
           // Only log query values in development for security
-          const config = this.configService.config;
           this.logger.error('Query execution error', {
             sql:
               query.sql.substring(0, 200) +
@@ -211,11 +222,11 @@ export class DatabaseConnectionFactory {
 
     // Add performance monitoring interceptor
     interceptors.push({
-      beforePoolConnection: async (context) => {
+      beforePoolConnection: async (context: any) => {
         context.startTime = Date.now();
         return null;
       },
-      afterPoolConnection: async (context, query, result) => {
+      afterPoolConnection: async (context: any, query: any, result: any) => {
         const duration = Date.now() - (context.startTime || Date.now());
 
         // Log slow queries (> 1 second)
@@ -237,14 +248,14 @@ export class DatabaseConnectionFactory {
         // Track connection attempts for health monitoring
         return null;
       },
-      poolConnectionError: async (context, error) => {
+      poolConnectionError: async (context: any, error: Error) => {
         // Create database error with secure context
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown error';
 
         this.logger.error('Pool connection error', {
           error: errorMessage,
-          context: context.poolId,
+          context: context.poolId || 'unknown',
         });
         return null;
       },

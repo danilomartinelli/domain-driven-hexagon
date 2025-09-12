@@ -1,15 +1,13 @@
 import { createPool, DatabasePool, sql } from 'slonik';
-import {
-  databaseConfig,
-  postgresConnectionUri,
-} from '@src/configs/database.config';
+import { databaseConfig } from '@src/configs/database.config';
+import { buildTestConnectionUri } from '../utils/database-test.utils';
 
 describe('Slonik Database Connection', () => {
   let pool: DatabasePool;
 
   beforeAll(async () => {
     // Ensure we're using test database
-    if (!databaseConfig.database.includes('test')) {
+    if (!databaseConfig.database?.includes('test')) {
       throw new Error('Tests must use a test database');
     }
   });
@@ -22,7 +20,7 @@ describe('Slonik Database Connection', () => {
 
   describe('Connection Pool Management', () => {
     it('should create a valid database pool', async () => {
-      pool = await createPool(postgresConnectionUri);
+      pool = await createPool(buildTestConnectionUri());
 
       expect(pool).toBeDefined();
       expect(typeof pool.query).toBe('function');
@@ -45,7 +43,7 @@ describe('Slonik Database Connection', () => {
     });
 
     it('should execute simple queries successfully', async () => {
-      pool = await createPool(postgresConnectionUri);
+      pool = await createPool(buildTestConnectionUri());
 
       const result = await pool.query(sql.unsafe`SELECT 1 as test_value`);
 
@@ -54,7 +52,7 @@ describe('Slonik Database Connection', () => {
     });
 
     it('should handle pool configuration options', async () => {
-      pool = await createPool(postgresConnectionUri, {
+      pool = await createPool(buildTestConnectionUri(), {
         maximumPoolSize: 5,
         idleTimeout: 5000,
         idleInTransactionSessionTimeout: 1000,
@@ -68,7 +66,7 @@ describe('Slonik Database Connection', () => {
 
   describe('Transaction Management', () => {
     beforeEach(async () => {
-      pool = await createPool(postgresConnectionUri);
+      pool = await createPool(buildTestConnectionUri());
 
       // Create test table for transaction tests
       await pool.query(sql.unsafe`
@@ -115,7 +113,7 @@ describe('Slonik Database Connection', () => {
           throw new Error('Forced transaction error');
         });
       } catch (error) {
-        expect(error.message).toBe('Forced transaction error');
+        expect((error as Error).message).toBe('Forced transaction error');
       }
 
       const result = await pool.query(sql.unsafe`
@@ -168,7 +166,7 @@ describe('Slonik Database Connection', () => {
 
   describe('Connection Pool Resilience', () => {
     beforeEach(async () => {
-      pool = await createPool(postgresConnectionUri);
+      pool = await createPool(buildTestConnectionUri());
     });
 
     it('should handle multiple concurrent queries', async () => {
@@ -190,7 +188,7 @@ describe('Slonik Database Connection', () => {
 
       // Simulate connection recovery by creating new pool
       await pool.end();
-      pool = await createPool(postgresConnectionUri);
+      pool = await createPool(buildTestConnectionUri());
 
       // Should work again
       const result = await pool.query(sql.unsafe`SELECT 2 as recovered`);
@@ -199,7 +197,7 @@ describe('Slonik Database Connection', () => {
 
     it('should handle pool exhaustion gracefully', async () => {
       // Create pool with very limited connections
-      const limitedPool = await createPool(postgresConnectionUri, {
+      const limitedPool = await createPool(buildTestConnectionUri(), {
         maximumPoolSize: 2,
       });
 
@@ -222,7 +220,7 @@ describe('Slonik Database Connection', () => {
 
   describe('SQL Injection Protection', () => {
     beforeEach(async () => {
-      pool = await createPool(postgresConnectionUri);
+      pool = await createPool(buildTestConnectionUri());
 
       await pool.query(sql.unsafe`
         CREATE TABLE IF NOT EXISTS test_injection (

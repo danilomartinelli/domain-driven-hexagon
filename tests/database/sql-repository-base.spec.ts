@@ -7,12 +7,19 @@ import { AggregateRoot } from '@libs/ddd';
 import { Mapper } from '@libs/ddd';
 import { Logger } from '@nestjs/common';
 // import { RequestContextService } from '@libs/application/context/AppRequestContext';
-import { postgresConnectionUri } from '@src/configs/database.config';
+import { buildTestConnectionUri } from '../utils/database-test.utils';
 
 // Test aggregate for testing purposes
 class TestAggregate extends AggregateRoot<{ name: string; email: string }> {
-  constructor(props: { name: string; email: string }, id?: string) {
-    super(props, id);
+  protected _id: string;
+
+  constructor(createProps: {
+    id: string;
+    props: { name: string; email: string };
+    createdAt?: Date;
+    updatedAt?: Date;
+  }) {
+    super(createProps);
   }
 
   validate(): void {
@@ -28,7 +35,10 @@ class TestAggregate extends AggregateRoot<{ name: string; email: string }> {
     props: { name: string; email: string },
     id?: string,
   ): TestAggregate {
-    return new TestAggregate(props, id);
+    return new TestAggregate({
+      id: id || 'test-id',
+      props,
+    });
   }
 }
 
@@ -57,10 +67,23 @@ class TestMapper implements Mapper<TestAggregate, TestModel> {
   }
 
   toDomain(model: TestModel): TestAggregate {
-    return new TestAggregate(
-      { name: model.name, email: model.email },
-      model.id,
-    );
+    return new TestAggregate({
+      id: model.id,
+      props: { name: model.name, email: model.email },
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    });
+  }
+
+  toResponse(aggregate: TestAggregate): any {
+    const props = aggregate.getProps();
+    return {
+      id: aggregate.id,
+      createdAt: aggregate.createdAt,
+      updatedAt: aggregate.updatedAt,
+      name: props.name,
+      email: props.email,
+    };
   }
 }
 
@@ -108,7 +131,7 @@ describe('SqlRepositoryBase', () => {
     logger = module.get<Logger>(Logger);
     mapper = module.get<TestMapper>(TestMapper);
 
-    pool = await createPool(postgresConnectionUri);
+    pool = await createPool(buildTestConnectionUri());
 
     // Create test table
     await pool.query(sql.unsafe`
@@ -234,6 +257,7 @@ describe('SqlRepositoryBase', () => {
         limit: 2,
         offset: 0,
         page: 1,
+        orderBy: { field: 'createdAt', param: 'asc' },
       });
 
       expect(paginated.data).toHaveLength(2);
@@ -324,7 +348,7 @@ describe('SqlRepositoryBase', () => {
           throw new Error('Force rollback');
         });
       } catch (error) {
-        expect(error.message).toBe('Force rollback');
+        expect((error as Error).message).toBe('Force rollback');
       }
 
       const all = await repository.findAll();
@@ -426,8 +450,8 @@ describe('SqlRepositoryBase', () => {
         email: 'event@example.com',
       });
 
-      // Add a domain event to test
-      entity.addDomainEvent({
+      // Add a domain event to test - using addEvent instead of addDomainEvent
+      (entity as any).addEvent({
         aggregateId: entity.id,
         eventType: 'TestEntityCreated',
         payload: { name: entity.getProps().name },

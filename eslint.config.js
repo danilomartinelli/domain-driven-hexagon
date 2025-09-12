@@ -31,7 +31,7 @@ module.exports = tseslint.config(
       '@typescript-eslint/interface-name-prefix': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       
-      // Handle deprecated rules
+      // Handle legacy rules
       '@typescript-eslint/ban-types': 'off',
       '@typescript-eslint/no-unsafe-function-type': 'warn',
 

@@ -132,12 +132,21 @@ export class DatabaseConfigService implements OnModuleInit {
         host: this._config.host,
         port: this._config.port,
         database: this._config.database,
+        ssl: this._config.ssl,
+        poolSize: {
+          min: this._config.minimumPoolSize,
+          max: this._config.maximumPoolSize,
+        },
+        // Never log credentials or connection strings
       });
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+        error instanceof Error
+          ? this.sanitizeErrorMessage(error)
+          : 'Unknown error';
       this.logger.error('Failed to initialize database configuration', {
         error: errorMessage,
+        environment: process.env.NODE_ENV || 'development',
       });
       throw new Error(`Configuration initialization failed: ${errorMessage}`);
     }
@@ -355,17 +364,54 @@ export class DatabaseConfigService implements OnModuleInit {
         );
       }
       const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
+        error instanceof Error
+          ? this.sanitizeErrorMessage(error)
+          : 'Unknown error';
       throw new Error(`Failed to load database configuration: ${errorMessage}`);
     }
   }
 
   /**
-   * Validate pool configuration constraints with enhanced logging
+   * Validate pool configuration constraints with enhanced logging and database limits checking
    */
   private validatePoolConfiguration(config: ValidatedDatabaseConfig): void {
     if (config.minimumPoolSize > config.maximumPoolSize) {
       throw new Error('minimumPoolSize cannot be greater than maximumPoolSize');
+    }
+
+    if (config.minimumPoolSize < 0) {
+      throw new Error('minimumPoolSize cannot be negative');
+    }
+
+    if (config.maximumPoolSize <= 0) {
+      throw new Error('maximumPoolSize must be greater than zero');
+    }
+
+    // PostgreSQL default max_connections is typically 100, but can vary
+    // Common cloud providers have different limits:
+    // - AWS RDS: varies by instance class (20-5000+)
+    // - Google Cloud SQL: varies by machine type (25-4000+)
+    // - Azure Database: varies by tier (50-2000+)
+
+    const RECOMMENDED_MAX_CONNECTIONS = 80; // Conservative estimate for most setups
+    const ABSOLUTE_MAX_CONNECTIONS = 200; // High limit that should raise concerns
+
+    if (config.maximumPoolSize > ABSOLUTE_MAX_CONNECTIONS) {
+      throw new Error(
+        `maximumPoolSize (${config.maximumPoolSize}) exceeds reasonable database connection limits. ` +
+          `Most PostgreSQL instances support 100-200 max connections. ` +
+          `Consider reducing pool size or scaling your database.`,
+      );
+    }
+
+    if (config.maximumPoolSize > RECOMMENDED_MAX_CONNECTIONS) {
+      this.logger.warn('Pool size exceeds recommended limits', {
+        maximumPoolSize: config.maximumPoolSize,
+        recommendedMax: RECOMMENDED_MAX_CONNECTIONS,
+        warning: 'High pool size may overwhelm database connection limits',
+        recommendation:
+          'Verify your database max_connections setting and consider horizontal scaling',
+      });
     }
 
     // Enhanced warnings with structured logging
@@ -375,17 +421,41 @@ export class DatabaseConfigService implements OnModuleInit {
         {
           maximumPoolSize: config.maximumPoolSize,
           environment: process.env.NODE_ENV || 'unknown',
+          recommendation:
+            'Consider using smaller pool sizes in development/testing',
         },
       );
     }
 
-    if (config.maximumPoolSize > 100) {
-      this.logger.warn('Very large pool size detected', {
+    // Validate pool size ratios
+    if (config.minimumPoolSize > config.maximumPoolSize * 0.8) {
+      this.logger.warn('Minimum pool size is very close to maximum', {
+        minimumPoolSize: config.minimumPoolSize,
         maximumPoolSize: config.maximumPoolSize,
+        ratio: (config.minimumPoolSize / config.maximumPoolSize).toFixed(2),
         recommendation:
-          'Consider reducing pool size for better resource management',
+          'Consider larger difference between min/max for better scaling',
       });
     }
+
+    // Validate timeout settings in relation to pool size
+    const totalAcquireTime =
+      config.acquireTimeoutMillis + config.createTimeoutMillis;
+    if (totalAcquireTime < 5000 && config.maximumPoolSize > 10) {
+      this.logger.warn('Short acquisition timeouts with large pool size', {
+        acquireTimeout: config.acquireTimeoutMillis,
+        createTimeout: config.createTimeoutMillis,
+        totalTimeout: totalAcquireTime,
+        poolSize: config.maximumPoolSize,
+        recommendation: 'Consider longer timeouts for larger connection pools',
+      });
+    }
+
+    this.logger.debug('Pool configuration validation completed', {
+      minimumPoolSize: config.minimumPoolSize,
+      maximumPoolSize: config.maximumPoolSize,
+      validated: true,
+    });
   }
 
   /**
@@ -432,6 +502,51 @@ export class DatabaseConfigService implements OnModuleInit {
         max: this.config.maximumPoolSize,
       },
     };
+  }
+
+  /**
+   * Sanitize connection URI for logging (removes credentials)
+   */
+  sanitizeConnectionUri(uri: string): string {
+    try {
+      const url = new URL(uri);
+      // Replace credentials with placeholder
+      if (url.username || url.password) {
+        url.username = '***';
+        url.password = '***';
+      }
+      return url.toString();
+    } catch {
+      // If URL parsing fails, return a safe placeholder
+      return 'postgres://***:***@[REDACTED]';
+    }
+  }
+
+  /**
+   * Sanitize error messages that might contain sensitive information
+   */
+  sanitizeErrorMessage(error: Error): string {
+    let message = error.message;
+
+    // Remove potential password patterns from error messages
+    message = message.replace(
+      /password[:\s]*['"]*[^'"\s]+['"]*\s*/gi,
+      'password: [REDACTED] ',
+    );
+
+    // Remove potential connection string patterns
+    message = message.replace(
+      /postgres:\/\/[^@]+@[^\s]+/gi,
+      'postgres://[REDACTED]@[HOST]',
+    );
+
+    // Remove any other potential credential patterns
+    message = message.replace(
+      /(username|user)[:\s]*['"]*[^'"\s]+['"]*\s*/gi,
+      '$1: [REDACTED] ',
+    );
+
+    return message;
   }
 
   /**

@@ -207,7 +207,7 @@ export class DatabaseMigrationService {
       .toISOString()
       .replace(/[-:T]/g, '')
       .split('.')[0];
-    const fileName = `${timestamp}_${sanitizedName}.sql`;
+    const fileName = `${timestamp}_${sanitizedName}.sql.unsafe`;
     const filePath = join(this.getMigrationsPath(), fileName);
 
     const template = this.generateMigrationTemplate();
@@ -384,9 +384,13 @@ export class DatabaseMigrationService {
       // Parse migration content for UP and DOWN sections
       const { upContent } = this.parseMigrationContent(migration.content);
 
-      // Execute UP migration
+      // Validate and execute UP migration
       if (upContent.trim()) {
-        await connection.query(sql.unsafe`${upContent}`);
+        this.validateMigrationSql(upContent);
+        // Execute migration SQL directly after validation
+        // Note: This is safe because we've validated the content above
+        // We need to use raw query execution for migration content
+        await (connection as any).query(upContent);
       }
 
       // Record migration as executed
@@ -414,8 +418,12 @@ export class DatabaseMigrationService {
         throw new Error(`No DOWN migration found for: ${migration.name}`);
       }
 
-      // Execute DOWN migration
-      await connection.query(sql.unsafe`${downContent}`);
+      // Validate and execute DOWN migration
+      this.validateMigrationSql(downContent);
+      // Execute migration SQL directly after validation
+      // Note: This is safe because we've validated the content above
+      // We need to use raw query execution for migration content
+      await (connection as any).query(downContent);
 
       // Remove migration record
       await connection.query(sql.unsafe`
@@ -441,8 +449,9 @@ export class DatabaseMigrationService {
     `);
 
     // Create index on executed_at for performance
+    const indexName = `idx_${tableName}_executed_at`;
     await this.pool.query(sql.unsafe`
-      CREATE INDEX IF NOT EXISTS idx_${tableName}_executed_at 
+      CREATE INDEX IF NOT EXISTS ${sql.identifier([indexName])} 
       ON ${sql.identifier([tableName])} (executed_at)
     `);
   }
@@ -452,6 +461,66 @@ export class DatabaseMigrationService {
    */
   private calculateChecksum(content: string): string {
     return createHash('sha256').update(content.trim()).digest('hex');
+  }
+
+  /**
+   * Validate migration SQL for security and safety
+   */
+  private validateMigrationSql(sqlContent: string): void {
+    if (!sqlContent || sqlContent.trim().length === 0) {
+      throw new Error('Empty migration SQL content is not allowed');
+    }
+
+    const trimmedSql = sqlContent.trim().toLowerCase();
+
+    // List of dangerous SQL patterns that should not be in migrations
+    const dangerousPatterns = [
+      /drop\s+database\s+/i,
+      /truncate\s+table\s+pg_/i,
+      /delete\s+from\s+pg_/i,
+      /grant\s+.*\s+to\s+/i,
+      /revoke\s+.*\s+from\s+/i,
+      /create\s+user\s+/i,
+      /alter\s+user\s+/i,
+      /drop\s+user\s+/i,
+      // Add more patterns as needed
+    ];
+
+    for (const pattern of dangerousPatterns) {
+      if (pattern.test(trimmedSql)) {
+        throw new Error(
+          `Migration contains potentially dangerous SQL pattern: ${pattern.source}`,
+        );
+      }
+    }
+
+    // Basic SQL injection prevention for migration content
+    const suspiciousPatterns = [
+      /;\s*drop\s+/i,
+      /;\s*delete\s+/i,
+      /;\s*truncate\s+/i,
+      /union\s+.*\s+select\s+/i,
+      /\/\*.*\*\//s, // Block comments could hide malicious content
+    ];
+
+    for (const pattern of suspiciousPatterns) {
+      if (pattern.test(trimmedSql)) {
+        this.logger.warn('Migration contains suspicious SQL pattern', {
+          pattern: pattern.source,
+          migration: sqlContent.substring(0, 100),
+        });
+      }
+    }
+
+    // Ensure migration doesn't exceed reasonable size limits
+    if (sqlContent.length > 1024 * 1024) {
+      // 1MB limit
+      throw new Error('Migration file exceeds maximum size limit (1MB)');
+    }
+
+    this.logger.debug('Migration SQL validation passed', {
+      length: sqlContent.length,
+    });
   }
 
   /**

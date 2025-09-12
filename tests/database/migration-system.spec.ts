@@ -1,4 +1,4 @@
-import { SlonikMigrator } from '@slonik/migrator';
+import { DatabaseMigrationService } from '@src/libs/database/database-migration.service';
 import { createPool, DatabasePool, sql } from 'slonik';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -7,12 +7,12 @@ import { databaseConfig } from '@src/configs/database.config';
 
 describe('Migration System', () => {
   let pool: DatabasePool;
-  let migrator: SlonikMigrator;
+  let migrator: DatabaseMigrationService;
   let testMigrationsPath: string;
 
   beforeAll(async () => {
     // Ensure we're using test database
-    if (!databaseConfig.database.includes('test')) {
+    if (!databaseConfig.database?.includes('test')) {
       throw new Error('Tests must use a test database');
     }
 
@@ -125,11 +125,7 @@ describe('Migration System', () => {
         `postgres://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}/${process.env.DB_NAME}`,
       );
 
-      const testMigrator = new SlonikMigrator({
-        migrationsPath: testMigrationsPath,
-        migrationTableName: 'migration',
-        slonik: testPool,
-      } as any);
+      const { migrator: testMigrator } = await getMigrator();
 
       try {
         await testMigrator.up();
@@ -210,11 +206,7 @@ describe('Migration System', () => {
         `postgres://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}/${process.env.DB_NAME}`,
       );
 
-      const testMigrator = new SlonikMigrator({
-        migrationsPath: testMigrationsPath,
-        migrationTableName: 'migration',
-        slonik: testPool,
-      } as any);
+      const { migrator: testMigrator } = await getMigrator();
 
       try {
         // Run migration
@@ -263,11 +255,7 @@ describe('Migration System', () => {
         `postgres://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}/${process.env.DB_NAME}`,
       );
 
-      const testMigrator = new SlonikMigrator({
-        migrationsPath: testMigrationsPath,
-        migrationTableName: 'migration',
-        slonik: testPool,
-      } as any);
+      const { migrator: testMigrator } = await getMigrator();
 
       try {
         await expect(testMigrator.up()).rejects.toThrow();
@@ -313,11 +301,7 @@ describe('Migration System', () => {
         `postgres://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}/${process.env.DB_NAME}`,
       );
 
-      const testMigrator = new SlonikMigrator({
-        migrationsPath: testMigrationsPath,
-        migrationTableName: 'migration',
-        slonik: testPool,
-      } as any);
+      const { migrator: testMigrator } = await getMigrator();
 
       try {
         // Initialize migration table but don't run migrations

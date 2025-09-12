@@ -53,33 +53,61 @@ export abstract class SqlRepositoryBase<
   ) {}
 
   /**
+   * Get request ID safely without tight coupling to RequestContextService
+   */
+  protected getRequestId(): string {
+    try {
+      // Always use static method - RequestContextService only has static methods
+      return RequestContextService.getRequestId();
+    } catch {
+      // Fallback to generated ID if service is not available
+      return `repo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+  }
+
+  /**
+   * Get transaction connection safely without tight coupling
+   */
+  protected getTransactionConnection(): DatabaseTransactionConnection | null {
+    try {
+      // Always use static method - RequestContextService only has static methods
+      const connection = RequestContextService.getTransactionConnection();
+      return connection ?? null;
+    } catch {
+      // Return null if service is not available
+      return null;
+    }
+  }
+
+  /**
    * Find a single entity by its ID with proper type safety and validation
    */
   async findOneById(id: string): Promise<Option<Aggregate>> {
-    try {
-      // Validate ID format if schema is provided
-      const validatedId = this.idSchema ? this.idSchema.parse(id) : id;
+    return this.withErrorHandling(
+      'findOneById',
+      async () => {
+        // Validate ID format if schema is provided
+        const validatedId = this.idSchema ? this.idSchema.parse(id) : id;
 
-      const query = sql.type(this.schema)`
+        const query = sql.type(this.schema)`
         SELECT * FROM ${sql.identifier([this.tableName])} 
         WHERE id = ${validatedId}
       `;
 
-      const result = await this.executeQuery(query, 'findOneById');
+        const result = await this.executeQuery(query, 'findOneById');
 
-      if (result.rows.length === 0) {
-        return None;
-      }
+        if (result.rows.length === 0) {
+          return None;
+        }
 
-      const validatedRow = this.schema.parse(result.rows[0]);
-      const entity = this.mapper.toDomain(validatedRow);
+        const validatedRow = this.schema.parse(result.rows[0]);
+        const entity = this.mapper.toDomain(validatedRow);
 
-      this.logOperation('findOneById', { id: validatedId, found: true });
-      return Some(entity);
-    } catch (error) {
-      this.handleRepositoryError(error as Error, 'findOneById', { id });
-      return None;
-    }
+        this.logOperation('findOneById', { id: validatedId, found: true });
+        return Some(entity);
+      },
+      { id },
+    ).catch(() => None); // Return None on error for find operations
   }
 
   /**
@@ -105,7 +133,7 @@ export abstract class SqlRepositoryBase<
         const direction = options.orderDirection || 'ASC';
         query = sql.type(
           this.schema,
-        )`${query} ORDER BY ${sql.identifier([options.orderBy])} ${sql.fragment`${direction}`}`;
+        )`${query} ORDER BY ${sql.identifier([options.orderBy])} ${sql.unsafe`${direction}`}`;
       }
 
       const result = await this.executeQuery(query, 'findAll');
@@ -136,10 +164,10 @@ export abstract class SqlRepositoryBase<
   ): Promise<Paginated<Aggregate>> {
     try {
       // Build base query
-      let baseQuery = sql.fragment`FROM ${sql.identifier([this.tableName])}`;
+      let baseQuery = sql.unsafe`FROM ${sql.identifier([this.tableName])}`;
 
       if (options?.where) {
-        baseQuery = sql.fragment`${baseQuery} WHERE ${options.where}`;
+        baseQuery = sql.unsafe`${baseQuery} WHERE ${options.where}`;
       }
 
       // Get total count for pagination metadata
@@ -158,7 +186,7 @@ export abstract class SqlRepositoryBase<
         const direction = options.orderDirection || 'ASC';
         dataQuery = sql.type(
           this.schema,
-        )`${dataQuery} ORDER BY ${sql.identifier([options.orderBy])} ${sql.fragment`${direction}`}`;
+        )`${dataQuery} ORDER BY ${sql.identifier([options.orderBy])} ${sql.unsafe`${direction}`}`;
       }
 
       // Add pagination
@@ -301,7 +329,7 @@ export abstract class SqlRepositoryBase<
     } catch (error) {
       if (error instanceof UniqueIntegrityConstraintViolationError) {
         this.logger.debug(
-          `[${RequestContextService.getRequestId()}] Unique constraint violation: ${error.message}`,
+          `[${this.getRequestId()}] Unique constraint violation: ${error.message}`,
         );
         throw new ConflictException('Record already exists', error);
       }
@@ -383,7 +411,7 @@ export abstract class SqlRepositoryBase<
     const startTime = Date.now();
 
     this.logger.debug(
-      `[${RequestContextService.getRequestId()}] ${operation}: writing ${
+      `[${this.getRequestId()}] ${operation}: writing ${
         entities.length
       } entities to "${this.tableName}" table: ${entityIds}`,
     );
@@ -393,14 +421,14 @@ export abstract class SqlRepositoryBase<
 
       const duration = Date.now() - startTime;
       this.logger.debug(
-        `[${RequestContextService.getRequestId()}] ${operation} completed in ${duration}ms, affected rows: ${result.rowCount}`,
+        `[${this.getRequestId()}] ${operation} completed in ${duration}ms, affected rows: ${result.rowCount}`,
       );
 
       return result as QueryResult<T>;
     } catch (error) {
       const duration = Date.now() - startTime;
       this.logger.error(
-        `[${RequestContextService.getRequestId()}] ${operation} failed after ${duration}ms`,
+        `[${this.getRequestId()}] ${operation} failed after ${duration}ms`,
         {
           error: error instanceof Error ? error.message : 'Unknown error',
           entityIds,
@@ -420,7 +448,7 @@ export abstract class SqlRepositoryBase<
     const startTime = Date.now();
 
     this.logger.debug(
-      `[${RequestContextService.getRequestId()}] ${operation}: executing query on "${this.tableName}" table`,
+      `[${this.getRequestId()}] ${operation}: executing query on "${this.tableName}" table`,
     );
 
     try {
@@ -429,7 +457,7 @@ export abstract class SqlRepositoryBase<
       const duration = Date.now() - startTime;
       if (duration > 1000) {
         this.logger.warn(
-          `[${RequestContextService.getRequestId()}] Slow query detected: ${operation} took ${duration}ms`,
+          `[${this.getRequestId()}] Slow query detected: ${operation} took ${duration}ms`,
         );
       }
 
@@ -437,7 +465,7 @@ export abstract class SqlRepositoryBase<
     } catch (error) {
       const duration = Date.now() - startTime;
       this.logger.error(
-        `[${RequestContextService.getRequestId()}] ${operation} failed after ${duration}ms`,
+        `[${this.getRequestId()}] ${operation} failed after ${duration}ms`,
         { error: error instanceof Error ? error.message : 'Unknown error' },
       );
       throw error;
@@ -473,7 +501,7 @@ export abstract class SqlRepositoryBase<
     });
 
     const valuesFragment = sql.join(
-      valueRows.map((row) => sql.fragment`(${row})`),
+      valueRows.map((row) => sql.unsafe`(${row})`),
       sql.fragment`, `,
     );
 
@@ -498,7 +526,7 @@ export abstract class SqlRepositoryBase<
 
     const setClause = entries.map(
       ([key, value]) =>
-        sql.fragment`${sql.identifier([key])} = ${this.formatValueForQuery(value)}`,
+        sql.unsafe`${sql.identifier([key])} = ${this.formatValueForQuery(value)}`,
     );
 
     return sql.unsafe`
@@ -525,7 +553,7 @@ export abstract class SqlRepositoryBase<
     const updateColumns = columns.filter((col) => col !== 'id');
     const setClause = updateColumns.map(
       (col) =>
-        sql.fragment`${sql.identifier([col])} = EXCLUDED.${sql.identifier([col])}`,
+        sql.unsafe`${sql.identifier([col])} = EXCLUDED.${sql.identifier([col])}`,
     );
 
     return sql.unsafe`
@@ -543,7 +571,7 @@ export abstract class SqlRepositoryBase<
   protected formatValueForQuery(value: unknown): any {
     // ValueExpressionToken not available in v48
     if (value === null || value === undefined) {
-      return sql.fragment`NULL`;
+      return sql.unsafe`NULL`;
     }
 
     if (value instanceof Date) {
@@ -572,7 +600,7 @@ export abstract class SqlRepositoryBase<
     },
   ): Promise<T> {
     const startTime = Date.now();
-    const requestId = RequestContextService.getRequestId();
+    const requestId = this.getRequestId();
 
     return this.pool.transaction(async (connection) => {
       this.logger.debug(
@@ -595,8 +623,12 @@ export abstract class SqlRepositoryBase<
       }
 
       // Set transaction connection in context if not already set
-      if (!RequestContextService.getTransactionConnection()) {
-        RequestContextService.setTransactionConnection(connection);
+      if (!this.getTransactionConnection()) {
+        try {
+          RequestContextService.setTransactionConnection(connection);
+        } catch {
+          // Silently ignore if context service is not available
+        }
       }
 
       try {
@@ -621,7 +653,11 @@ export abstract class SqlRepositoryBase<
 
         throw error;
       } finally {
-        RequestContextService.cleanTransactionConnection();
+        try {
+          RequestContextService.cleanTransactionConnection();
+        } catch {
+          // Silently ignore if context service is not available
+        }
       }
     });
   }
@@ -630,9 +666,8 @@ export abstract class SqlRepositoryBase<
    * Get database pool or transaction connection based on current context
    */
   protected get pool(): DatabasePool | DatabaseTransactionConnection {
-    return (
-      RequestContextService.getContext().transactionConnection ?? this._pool
-    );
+    const transactionConnection = this.getTransactionConnection();
+    return transactionConnection ?? this._pool;
   }
 
   /**
@@ -684,7 +719,7 @@ export abstract class SqlRepositoryBase<
   ): void {
     if (this.logger) {
       this.logger.debug(
-        `[${RequestContextService.getRequestId()}] Repository ${operation} on ${this.tableName}`,
+        `[${this.getRequestId()}] Repository ${operation} on ${this.tableName}`,
         details,
       );
     }
@@ -698,34 +733,94 @@ export abstract class SqlRepositoryBase<
     operation: string,
     context?: Record<string, unknown>,
   ): void {
+    const sanitizedContext = this.sanitizeContextForLogging(context);
     const errorDetails = {
       operation,
       table: this.tableName,
       error: error.message,
-      stack: error.stack,
-      context,
+      errorType: error.constructor.name,
+      context: sanitizedContext,
+      timestamp: new Date().toISOString(),
     };
+
+    // Only log stack traces for unexpected errors in development
+    if (
+      process.env.NODE_ENV === 'development' &&
+      !(error instanceof UniqueIntegrityConstraintViolationError) &&
+      !(error instanceof NotFoundError)
+    ) {
+      errorDetails['stack'] = error.stack;
+    }
 
     if (error instanceof UniqueIntegrityConstraintViolationError) {
       this.logger.warn(
-        `[${RequestContextService.getRequestId()}] Unique constraint violation in ${operation}`,
+        `[${this.getRequestId()}] Unique constraint violation in ${operation}`,
         errorDetails,
       );
     } else if (error instanceof NotFoundError) {
       this.logger.debug(
-        `[${RequestContextService.getRequestId()}] Entity not found in ${operation}`,
+        `[${this.getRequestId()}] Entity not found in ${operation}`,
         errorDetails,
       );
     } else if (error instanceof DataIntegrityError) {
       this.logger.error(
-        `[${RequestContextService.getRequestId()}] Data integrity error in ${operation}`,
+        `[${this.getRequestId()}] Data integrity error in ${operation}`,
         errorDetails,
       );
     } else {
       this.logger.error(
-        `[${RequestContextService.getRequestId()}] Repository error in ${operation}`,
+        `[${this.getRequestId()}] Repository error in ${operation}`,
         errorDetails,
       );
+    }
+  }
+
+  /**
+   * Sanitize context data for logging (remove sensitive information)
+   */
+  protected sanitizeContextForLogging(
+    context?: Record<string, unknown>,
+  ): Record<string, unknown> | undefined {
+    if (!context) return undefined;
+
+    const sanitized = { ...context };
+
+    // Remove or redact sensitive fields
+    const sensitiveFields = [
+      'password',
+      'token',
+      'secret',
+      'key',
+      'credential',
+    ];
+
+    for (const [key, value] of Object.entries(sanitized)) {
+      const lowerKey = key.toLowerCase();
+
+      if (sensitiveFields.some((field) => lowerKey.includes(field))) {
+        sanitized[key] = '[REDACTED]';
+      } else if (typeof value === 'string' && value.length > 500) {
+        // Truncate very long strings
+        sanitized[key] = value.substring(0, 500) + '...[TRUNCATED]';
+      }
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Standardized error handling wrapper for repository operations
+   */
+  protected async withErrorHandling<T>(
+    operation: string,
+    handler: () => Promise<T>,
+    context?: Record<string, unknown>,
+  ): Promise<T> {
+    try {
+      return await handler();
+    } catch (error) {
+      this.handleRepositoryError(error as Error, operation, context);
+      throw error; // Re-throw after logging
     }
   }
 }

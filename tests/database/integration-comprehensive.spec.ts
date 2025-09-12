@@ -1,12 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabasePool, sql, createPool } from 'slonik';
-import { SlonikMigrator } from '@slonik/migrator';
+import { getMigrator } from '../../database/getMigrator';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { SqlRepositoryBase } from '@src/libs/db/sql-repository.base';
 import { AggregateRoot, Mapper } from '@libs/ddd';
-import { postgresConnectionUri } from '@src/configs/database.config';
+import { DatabaseMigrationService } from '@src/libs/database/database-migration.service';
+import { buildTestConnectionUri } from '../utils/database-test.utils';
 // import { getMigrator } from '../../database/getMigrator';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -32,17 +33,21 @@ class ComprehensiveTestEntity extends AggregateRoot<{
   metadata: Record<string, any>;
   tags: string[];
 }> {
-  constructor(
+  protected _id: string;
+
+  constructor(createProps: {
+    id: string;
     props: {
       title: string;
       description: string;
       status: 'draft' | 'published' | 'archived';
       metadata: Record<string, any>;
       tags: string[];
-    },
-    id?: string,
-  ) {
-    super(props, id);
+    };
+    createdAt?: Date;
+    updatedAt?: Date;
+  }) {
+    super(createProps);
   }
 
   validate(): void {
@@ -61,19 +66,20 @@ class ComprehensiveTestEntity extends AggregateRoot<{
     if (this.props.status === 'archived') {
       throw new Error('Cannot publish archived entity');
     }
-    this.props.status = 'published';
-    this.updatedAt = new Date();
+    // Note: In a real implementation, this would require creating a new entity
+    // with updated props, as props are readonly
+    (this.props as any).status = 'published';
   }
 
   archive(): void {
-    this.props.status = 'archived';
-    this.updatedAt = new Date();
+    // Note: In a real implementation, this would require creating a new entity
+    // with updated props, as props are readonly
+    (this.props as any).status = 'archived';
   }
 
   addTag(tag: string): void {
     if (!this.props.tags.includes(tag)) {
       this.props.tags.push(tag);
-      this.updatedAt = new Date();
     }
   }
 
@@ -85,11 +91,14 @@ class ComprehensiveTestEntity extends AggregateRoot<{
     tags?: string[];
   }): ComprehensiveTestEntity {
     return new ComprehensiveTestEntity({
-      title: props.title,
-      description: props.description,
-      status: props.status || 'draft',
-      metadata: props.metadata || {},
-      tags: props.tags || [],
+      id: 'test-id',
+      props: {
+        title: props.title,
+        description: props.description,
+        status: props.status || 'draft',
+        metadata: props.metadata || {},
+        tags: props.tags || [],
+      },
     });
   }
 }
@@ -99,11 +108,11 @@ const comprehensiveTestSchema = z.object({
   id: z.string().uuid(),
   title: z.string().min(1).max(500),
   description: z.string(),
-  status: z.enum(['draft', 'published', 'archived']),
-  metadata: z.record(z.any()),
+  status: z.enum(['draft', 'published', 'archived'] as const),
+  metadata: z.record(z.string(), z.any()),
   tags: z.array(z.string()),
-  createdAt: z.preprocess((val: any) => new Date(val), z.date()),
-  updatedAt: z.preprocess((val: any) => new Date(val), z.date()),
+  createdAt: z.date(),
+  updatedAt: z.date(),
 });
 
 type ComprehensiveTestModel = z.TypeOf<typeof comprehensiveTestSchema>;
@@ -127,16 +136,32 @@ class ComprehensiveTestMapper
   }
 
   toDomain(model: ComprehensiveTestModel): ComprehensiveTestEntity {
-    return new ComprehensiveTestEntity(
-      {
+    return new ComprehensiveTestEntity({
+      id: model.id,
+      props: {
         title: model.title,
         description: model.description,
         status: model.status,
         metadata: model.metadata,
         tags: model.tags,
       },
-      model.id,
-    );
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    });
+  }
+
+  toResponse(entity: ComprehensiveTestEntity): any {
+    const props = entity.getProps();
+    return {
+      id: entity.id,
+      title: props.title,
+      description: props.description,
+      status: props.status,
+      metadata: props.metadata,
+      tags: props.tags,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+    };
   }
 }
 
@@ -185,13 +210,12 @@ class ComprehensiveTestRepository extends SqlRepositoryBase<
 
   async updateMetadata(entity: ComprehensiveTestEntity): Promise<void> {
     const props = entity.getProps();
-    await this.writeQuery(
+    await this.pool.query(
       sql.unsafe`
         UPDATE ${sql.identifier([this.tableName])} 
         SET metadata = ${JSON.stringify(props.metadata)}, "updatedAt" = NOW()
         WHERE id = ${entity.id}
       `,
-      entity,
     );
   }
 
@@ -225,7 +249,7 @@ class ComprehensiveTestRepository extends SqlRepositoryBase<
 
 describe('Comprehensive Database Integration', () => {
   let pool: DatabasePool;
-  let migrator: SlonikMigrator;
+  let migrator: DatabaseMigrationService;
   let repository: ComprehensiveTestRepository;
   let eventEmitter: EventEmitter2;
   let logger: Logger;
@@ -303,13 +327,10 @@ describe('Comprehensive Database Integration', () => {
 
   beforeEach(async () => {
     // Create fresh instances for each test
-    pool = await createPool(postgresConnectionUri);
+    pool = await createPool(buildTestConnectionUri());
 
-    migrator = new SlonikMigrator({
-      migrationsPath: testMigrationsPath,
-      migrationTableName: 'migration',
-      slonik: pool,
-    } as any);
+    const { migrator: migratorInstance } = await getMigrator();
+    migrator = migratorInstance;
 
     // Run migrations
     await migrator.up();
@@ -444,6 +465,7 @@ describe('Comprehensive Database Integration', () => {
         limit: 2,
         offset: 0,
         page: 1,
+        orderBy: { field: 'createdAt', param: 'desc' },
       });
       expect(paginated.data).toHaveLength(2);
       expect(paginated.limit).toBe(2);
@@ -514,7 +536,7 @@ describe('Comprehensive Database Integration', () => {
           throw new Error('Forced transaction rollback');
         });
       } catch (error) {
-        expect(error.message).toBe('Forced transaction rollback');
+        expect((error as Error).message).toBe('Forced transaction rollback');
       }
 
       // Verify complete rollback
@@ -612,16 +634,16 @@ describe('Comprehensive Database Integration', () => {
       await repository.insert(entity1);
 
       // Try to insert entity with same ID (should fail)
-      const entity2 = new ComprehensiveTestEntity(
-        {
+      const entity2 = new ComprehensiveTestEntity({
+        id: entity1.id, // Same ID should cause conflict
+        props: {
           title: 'Duplicate Article',
           description: 'Duplicate article',
           status: 'draft',
           metadata: {},
           tags: ['duplicate'],
         },
-        entity1.id, // Same ID should cause conflict
-      );
+      });
 
       await expect(repository.insert(entity2)).rejects.toThrow();
 
@@ -713,7 +735,7 @@ describe('Comprehensive Database Integration', () => {
       expect(result.rowCount).toBe(1);
 
       const row = result.rows[0];
-      expect(row.metadata.nested.deep.value).toBe('test');
+      expect((row.metadata as any).nested.deep.value).toBe('test');
       expect(row.metadata.array).toEqual([1, 2, 3]);
       expect(row.tags).toEqual(['schema', 'validation', 'edge-case']);
     });

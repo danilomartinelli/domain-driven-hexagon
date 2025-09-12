@@ -71,12 +71,6 @@ export const databaseConfig: DatabaseModuleOptions = {
 };
 
 /**
- * Legacy connection URI for backward compatibility
- * @deprecated Use the new DatabaseModule instead
- */
-export const postgresConnectionUri = `postgres://${databaseConfig.username}:${databaseConfig.password}@${databaseConfig.host}:${databaseConfig.port}/${databaseConfig.database}`;
-
-/**
  * Environment-specific database configuration
  */
 export const getDatabaseConfig = (): DatabaseModuleOptions => {

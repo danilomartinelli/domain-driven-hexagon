@@ -10,7 +10,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Logger } from '@nestjs/common';
 import { SqlRepositoryBase } from '@src/libs/db/sql-repository.base';
 import { ConflictException } from '@libs/exceptions';
-import { postgresConnectionUri } from '@src/configs/database.config';
+import { buildTestConnectionUri } from '../utils/database-test.utils';
 import { z } from 'zod';
 import { AggregateRoot, Mapper } from '@libs/ddd';
 
@@ -19,8 +19,15 @@ class ErrorTestAggregate extends AggregateRoot<{
   email: string;
   name: string;
 }> {
-  constructor(props: { email: string; name: string }, id?: string) {
-    super(props, id);
+  protected _id: string;
+
+  constructor(createProps: {
+    id: string;
+    props: { email: string; name: string };
+    createdAt?: Date;
+    updatedAt?: Date;
+  }) {
+    super(createProps);
   }
 
   validate(): void {
@@ -36,7 +43,10 @@ class ErrorTestAggregate extends AggregateRoot<{
     props: { email: string; name: string },
     id?: string,
   ): ErrorTestAggregate {
-    return new ErrorTestAggregate(props, id);
+    return new ErrorTestAggregate({
+      id: id || 'test-id',
+      props,
+    });
   }
 }
 
@@ -62,11 +72,24 @@ class ErrorTestMapper implements Mapper<ErrorTestAggregate, ErrorTestModel> {
     };
   }
 
+  toResponse(aggregate: ErrorTestAggregate): any {
+    const props = aggregate.getProps();
+    return {
+      id: aggregate.id,
+      email: props.email,
+      name: props.name,
+      createdAt: aggregate.createdAt,
+      updatedAt: aggregate.updatedAt,
+    };
+  }
+
   toDomain(model: ErrorTestModel): ErrorTestAggregate {
-    return new ErrorTestAggregate(
-      { email: model.email, name: model.name },
-      model.id,
-    );
+    return new ErrorTestAggregate({
+      id: model.id,
+      props: { email: model.email, name: model.name },
+      createdAt: model.createdAt,
+      updatedAt: model.updatedAt,
+    });
   }
 }
 
@@ -103,7 +126,7 @@ describe('Database Error Handling', () => {
     logger = module.get<Logger>(Logger);
     mapper = module.get<ErrorTestMapper>(ErrorTestMapper);
 
-    pool = await createPool(postgresConnectionUri);
+    pool = await createPool(buildTestConnectionUri());
 
     // Create test table with constraints
     await pool.query(sql.unsafe`
@@ -130,9 +153,9 @@ describe('Database Error Handling', () => {
 
   describe('Connection Errors', () => {
     it('should handle connection timeout errors', async () => {
-      const timeoutPool = await createPool(postgresConnectionUri, {
+      const timeoutPool = await createPool(buildTestConnectionUri(), {
         connectionTimeout: 1, // Very short timeout
-        queryTimeout: 1,
+        idleTimeout: 1,
       });
 
       try {
@@ -155,7 +178,7 @@ describe('Database Error Handling', () => {
     });
 
     it('should handle pool exhaustion gracefully', async () => {
-      const limitedPool = await createPool(postgresConnectionUri, {
+      const limitedPool = await createPool(buildTestConnectionUri(), {
         maximumPoolSize: 1,
         connectionTimeout: 1000,
       });
@@ -299,7 +322,7 @@ describe('Database Error Handling', () => {
           throw new Error('Forced transaction error');
         });
       } catch (error) {
-        expect(error.message).toBe('Forced transaction error');
+        expect((error as Error).message).toBe('Forced transaction error');
       }
 
       // Verify that the insert was rolled back
@@ -469,7 +492,7 @@ describe('Database Error Handling', () => {
     });
 
     it('should handle connection cleanup on errors', async () => {
-      const connectionPool = await createPool(postgresConnectionUri, {
+      const connectionPool = await createPool(buildTestConnectionUri(), {
         maximumPoolSize: 2,
       });
 

@@ -1,12 +1,12 @@
 import { createPool, DatabasePool, sql } from 'slonik';
 import { z } from 'zod';
-import { postgresConnectionUri } from '@src/configs/database.config';
+import { buildTestConnectionUri } from '../utils/database-test.utils';
 
 describe('Query Execution and Result Mapping', () => {
   let pool: DatabasePool;
 
   beforeAll(async () => {
-    pool = await createPool(postgresConnectionUri);
+    pool = await createPool(buildTestConnectionUri());
 
     // Create test tables for query testing
     await pool.query(sql.unsafe`
@@ -158,9 +158,9 @@ describe('Query Execution and Result Mapping', () => {
       email: z.string().email(),
       age: z.number().nullable(),
       is_active: z.boolean(),
-      metadata: z.record(z.any()).nullable(),
-      created_at: z.preprocess((val: any) => new Date(val), z.date()),
-      updated_at: z.preprocess((val: any) => new Date(val), z.date()),
+      metadata: z.record(z.string(), z.any()).nullable(),
+      created_at: z.date(),
+      updated_at: z.date(),
     });
 
     it('should validate query results against schema', async () => {
@@ -170,13 +170,11 @@ describe('Query Execution and Result Mapping', () => {
       `);
 
       const result = await pool.query(
-        sql.type(
-          userSchema,
-        )`SELECT * FROM query_test_users WHERE email = 'schema@example.com'`,
+        sql.unsafe`SELECT * FROM query_test_users WHERE email = 'schema@example.com'`,
       );
 
       expect(result.rowCount).toBe(1);
-      const user = result.rows[0];
+      const user = result.rows[0] as any;
 
       // Schema validation should pass
       expect(() => userSchema.parse(user)).not.toThrow();
@@ -426,7 +424,7 @@ describe('Query Execution and Result Mapping', () => {
 
       // Execute similar queries multiple times
       const emails = ['prep1@example.com', 'nonexistent@example.com'];
-      const results = [];
+      const results: any[] = [];
 
       for (const email of emails) {
         const result = await pool.query(sql.unsafe`

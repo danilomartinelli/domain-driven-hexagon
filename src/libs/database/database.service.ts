@@ -8,8 +8,8 @@ import {
 import {
   DatabasePool,
   DatabaseTransactionConnection,
-  sql,
   QueryResult,
+  sql,
 } from 'slonik';
 import { DATABASE_POOL_TOKEN } from './database.constants';
 import {
@@ -29,6 +29,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatabaseService.name);
   private healthCheckInterval?: NodeJS.Timeout;
   private lastHealthCheck?: DatabaseHealthStatus;
+  private _cachedPoolStats: {
+    stats: PoolStatistics;
+    timestamp: number;
+  } | null = null;
+  private readonly STATS_CACHE_TTL_MS = 5000; // Cache for 5 seconds
 
   constructor(
     @Inject(DATABASE_POOL_TOKEN)
@@ -208,9 +213,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get connection pool statistics
+   * Get connection pool statistics with caching for better performance
    */
-  async getPoolStatistics(): Promise<PoolStatistics> {
+  async getPoolStatistics(forceRefresh = false): Promise<PoolStatistics> {
+    // Check cache first unless force refresh is requested
+    if (!forceRefresh && this._cachedPoolStats) {
+      const timeSinceCache = Date.now() - this._cachedPoolStats.timestamp;
+      if (timeSinceCache < this.STATS_CACHE_TTL_MS) {
+        return this._cachedPoolStats.stats;
+      }
+    }
+
     // Note: Slonik doesn't expose internal pool statistics directly
     // This is a simplified implementation that would need to be enhanced
     // based on the actual pool implementation details
@@ -229,7 +242,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       const stats = result[0] as any;
       const config = this.configService.config;
 
-      return {
+      const poolStats: PoolStatistics = {
         totalConnections: Number(stats.total_connections) || 0,
         activeConnections: Number(stats.active_connections) || 0,
         idleConnections: Number(stats.idle_connections) || 0,
@@ -237,6 +250,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         maximumPoolSize: config.maximumPoolSize,
         minimumPoolSize: config.minimumPoolSize,
       };
+
+      // Cache the results
+      this._cachedPoolStats = {
+        stats: poolStats,
+        timestamp: Date.now(),
+      };
+
+      return poolStats;
     } catch (error) {
       this.logger.warn(
         'Failed to get pool statistics',
@@ -244,7 +265,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       );
 
       const config = this.configService.config;
-      return {
+      const fallbackStats: PoolStatistics = {
         totalConnections: 0,
         activeConnections: 0,
         idleConnections: 0,
@@ -252,6 +273,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         maximumPoolSize: config.maximumPoolSize,
         minimumPoolSize: config.minimumPoolSize,
       };
+
+      // Don't cache error results
+      return fallbackStats;
     }
   }
 
@@ -285,27 +309,6 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       );
       throw error;
     }
-  }
-
-  /**
-   * Execute a raw SQL query (use with caution)
-   */
-  async rawQuery<T = any>(
-    sqlString: string,
-    _parameters: any[] = [],
-    context?: QueryContext,
-  ): Promise<QueryResult<T>> {
-    // Note: parameters are not used with sql.unsafe
-    void _parameters;
-    this.logger.warn('Executing raw SQL query', {
-      sql: sqlString,
-      requestId: context?.requestId,
-    });
-
-    // Note: .bind() may not be available in Slonik v48
-    // For now, we'll use the unsafe template literal for compatibility
-    const query = sql.unsafe`${sqlString}`;
-    return this.query<T>(query, context);
   }
 
   /**

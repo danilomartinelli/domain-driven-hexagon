@@ -67,20 +67,48 @@ services:
     hostname: ddh-app
     restart: unless-stopped
 
-    # Optimized environment variables
+    # Environment variables from .env file
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: postgresql://user:password@postgres:5432/ddh
-      REDIS_URL: redis://redis:6379
-      RABBITMQ_URL: amqp://user:password@rabbitmq:5672
       LOG_LEVEL: ${LOG_LEVEL:-debug}
-
+      
+      # Database Configuration
+      DATABASE_URL: ${DATABASE_URL:-postgresql://user:password@postgres:5432/ddh}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USERNAME: ${DB_USERNAME:-user}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+      DB_NAME: ${DB_NAME:-ddh}
+      DB_SSL: ${DB_SSL:-false}
+      
+      # Redis Configuration
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      
+      # RabbitMQ Configuration
+      RABBITMQ_URL: ${RABBITMQ_URL:-amqp://user:password@rabbitmq:5672}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-rabbitmq}
+      RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
+      
       # Performance optimizations
-      NODE_OPTIONS: '--max-old-space-size=1024 --enable-source-maps'
-      UV_THREADPOOL_SIZE: 128
-
+      NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=1024 --enable-source-maps}
+      UV_THREADPOOL_SIZE: ${UV_THREADPOOL_SIZE:-128}
+      
       # Security settings
-      NODE_TLS_REJECT_UNAUTHORIZED: 1
+      NODE_TLS_REJECT_UNAUTHORIZED: ${NODE_TLS_REJECT_UNAUTHORIZED:-1}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      
+      # Health Check Configuration
+      HEALTH_CHECK_INTERVAL: ${HEALTH_CHECK_INTERVAL:-30s}
+      
+      # Monitoring
+      METRICS_ENABLED: ${METRICS_ENABLED:-true}
+      METRICS_PATH: ${METRICS_PATH:-/metrics}
+      
+      # Feature Flags
+      FEATURE_MONITORING_ENABLED: ${FEATURE_MONITORING_ENABLED:-true}
+      FEATURE_DEBUG_MODE_ENABLED: ${FEATURE_DEBUG_MODE_ENABLED:-false}
 
     # Optimized port mapping
     ports:

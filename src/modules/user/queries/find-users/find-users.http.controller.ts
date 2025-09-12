@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpStatus, Query } from '@nestjs/common';
 import { routesV1 } from '@config/app.routes';
 import { QueryBus } from '@nestjs/cqrs';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Result } from 'oxide.ts';
 import { FindUsersRequestDto } from './find-users.request.dto';
 import { FindUsersQuery } from './find-users.query-handler';
@@ -10,8 +10,11 @@ import { UserPaginatedResponseDto } from '../../dtos/user.paginated.response.dto
 import { PaginatedQueryRequestDto } from '@src/libs/api/paginated-query.request.dto';
 import { UserModel } from '../../database/user.repository';
 import { ResponseBase } from '@src/libs/api/response.base';
+import { RequirePermissions } from '@modules/auth/infrastructure/decorators/auth.decorator';
+import { ApiErrorResponse } from '@src/libs/api/api-error.response';
 
 @Controller(routesV1.version)
+@ApiBearerAuth()
 export class FindUsersHttpController {
   constructor(private readonly queryBus: QueryBus) {}
 
@@ -21,6 +24,12 @@ export class FindUsersHttpController {
     status: HttpStatus.OK,
     type: UserPaginatedResponseDto,
   })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Insufficient permissions',
+    type: ApiErrorResponse,
+  })
+  @RequirePermissions(['user:list'])
   async findUsers(
     @Body() request: FindUsersRequestDto,
     @Query() queryParams: PaginatedQueryRequestDto,

@@ -1,0 +1,440 @@
+# ==================================================
+# PROMETHEUS PRODUCTION CONFIGURATION
+# ==================================================
+# Comprehensive monitoring setup for Domain-Driven Hexagon
+# Features:
+# - Multi-target scraping with service discovery
+# - High availability configuration
+# - Security-focused data collection
+# - Performance optimizations
+# - Alerting rules integration
+
+global:
+  # ==================================================
+  # GLOBAL CONFIGURATION
+  # ==================================================
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ddh-production'
+    environment: 'production'
+    region: 'us-west-2'
+    
+  # ==================================================
+  # QUERY CONFIGURATION
+  # ==================================================
+  query_log_file: /prometheus/query.log
+
+# ==================================================
+# REMOTE WRITE CONFIGURATION (FOR LONG-TERM STORAGE)
+# ==================================================
+remote_write:
+- url: "https://prometheus-prod.yourdomain.com/api/v1/receive"
+  queue_config:
+    max_samples_per_send: 10000
+    max_shards: 200
+    capacity: 20000
+  write_relabel_configs:
+  - source_labels: [__name__]
+    regex: 'go_.*|prometheus_.*|up'
+    action: drop
+
+# ==================================================
+# REMOTE READ CONFIGURATION (OPTIONAL)
+# ==================================================
+remote_read:
+- url: "https://prometheus-prod.yourdomain.com/api/v1/read"
+  read_recent: true
+
+# ==================================================
+# ALERTING CONFIGURATION
+# ==================================================
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - alertmanager:9093
+    path_prefix: /
+    scheme: http
+    timeout: 10s
+    
+rule_files:
+- "/etc/prometheus/rules/*.yml"
+
+# ==================================================
+# SCRAPE CONFIGURATIONS
+# ==================================================
+scrape_configs:
+  # ==================================================
+  # PROMETHEUS SELF-MONITORING
+  # ==================================================
+  - job_name: 'prometheus'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    static_configs:
+    - targets: ['localhost:9090']
+    metrics_path: /metrics
+    honor_labels: true
+    
+  # ==================================================
+  # NODE EXPORTER (SYSTEM METRICS)
+  # ==================================================
+  - job_name: 'node-exporter'
+    scrape_interval: 15s
+    kubernetes_sd_configs:
+    - role: node
+    relabel_configs:
+    - source_labels: [__address__]
+      regex: '(.*):10250'
+      target_label: __address__
+      replacement: '${1}:9100'
+    - source_labels: [__meta_kubernetes_node_name]
+      target_label: instance
+    - source_labels: [__meta_kubernetes_node_label_kubernetes_io_os]
+      target_label: os
+    - source_labels: [__meta_kubernetes_node_label_kubernetes_io_arch]
+      target_label: arch
+    metric_relabel_configs:
+    # Drop unnecessary filesystem metrics
+    - source_labels: [__name__, fstype]
+      regex: 'node_filesystem_.*|tmpfs|devtmpfs|overlay|squashfs|iso9660'
+      action: drop
+    # Drop high cardinality network metrics
+    - source_labels: [__name__]
+      regex: 'node_network_transmit_.*|node_network_receive_.*'
+      action: drop
+      
+  # ==================================================
+  # KUBERNETES API SERVER
+  # ==================================================
+  - job_name: 'kubernetes-apiservers'
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+    - role: endpoints
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+      action: keep
+      regex: default;kubernetes;https
+    - source_labels: [__meta_kubernetes_service_name]
+      target_label: job
+      
+  # ==================================================
+  # KUBERNETES NODES (KUBELET METRICS)
+  # ==================================================
+  - job_name: 'kubernetes-nodes'
+    scrape_interval: 30s
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      insecure_skip_verify: true
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    kubernetes_sd_configs:
+    - role: node
+    relabel_configs:
+    - action: labelmap
+      regex: __meta_kubernetes_node_label_(.+)
+    - target_label: __address__
+      replacement: kubernetes.default.svc:443
+    - source_labels: [__meta_kubernetes_node_name]
+      regex: (.+)
+      target_label: __metrics_path__
+      replacement: /api/v1/nodes/${1}/proxy/metrics
+      
+  # ==================================================
+  # KUBERNETES CADVISOR (CONTAINER METRICS)
+  # ==================================================
+  - job_name: 'kubernetes-cadvisor'
+    scrape_interval: 30s
+    scheme: https
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      insecure_skip_verify: true
+    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    kubernetes_sd_configs:
+    - role: node
+    relabel_configs:
+    - action: labelmap
+      regex: __meta_kubernetes_node_label_(.+)
+    - target_label: __address__
+      replacement: kubernetes.default.svc:443
+    - source_labels: [__meta_kubernetes_node_name]
+      regex: (.+)
+      target_label: __metrics_path__
+      replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+    metric_relabel_configs:
+    # Drop high cardinality metrics
+    - source_labels: [__name__]
+      regex: 'container_(network_tcp_usage_total|network_udp_usage_total|tasks_state|cpu_load_average_10s)'
+      action: drop
+      
+  # ==================================================
+  # KUBERNETES SERVICE DISCOVERY (PODS)
+  # ==================================================
+  - job_name: 'kubernetes-pods'
+    scrape_interval: 15s
+    kubernetes_sd_configs:
+    - role: pod
+    relabel_configs:
+    # Only scrape pods with prometheus.io/scrape annotation
+    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+      action: keep
+      regex: true
+    # Use custom path if specified
+    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+      action: replace
+      target_label: __metrics_path__
+      regex: (.+)
+    # Use custom port if specified
+    - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+      action: replace
+      regex: ([^:]+)(?::\d+)?;(\d+)
+      replacement: $1:$2
+      target_label: __address__
+    # Use custom scheme if specified
+    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+      action: replace
+      target_label: __scheme__
+      regex: (https?)
+    # Add namespace as label
+    - action: replace
+      source_labels: [__meta_kubernetes_namespace]
+      target_label: kubernetes_namespace
+    # Add pod name as label
+    - action: replace
+      source_labels: [__meta_kubernetes_pod_name]
+      target_label: kubernetes_pod_name
+    # Add container name as label
+    - action: replace
+      source_labels: [__meta_kubernetes_pod_container_name]
+      target_label: kubernetes_container_name
+    # Add service labels
+    - action: labelmap
+      regex: __meta_kubernetes_pod_label_(.+)
+      
+  # ==================================================
+  # DDH APPLICATION METRICS
+  # ==================================================
+  - job_name: 'ddh-application'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - ddh-production
+    relabel_configs:
+    # Only scrape DDH app services
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: 'ddh-app-service'
+    - source_labels: [__meta_kubernetes_endpoint_port_name]
+      action: keep
+      regex: 'metrics'
+    - source_labels: [__meta_kubernetes_service_name]
+      target_label: job
+    - source_labels: [__meta_kubernetes_namespace]
+      target_label: namespace
+    - source_labels: [__meta_kubernetes_pod_name]
+      target_label: pod
+    - source_labels: [__meta_kubernetes_pod_node_name]
+      target_label: node
+    metric_relabel_configs:
+    # Add custom labels for DDH metrics
+    - source_labels: [__name__]
+      regex: 'ddh_.*'
+      target_label: application
+      replacement: 'domain-driven-hexagon'
+      
+  # ==================================================
+  # POSTGRESQL METRICS
+  # ==================================================
+  - job_name: 'ddh-postgres'
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - ddh-production
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: 'ddh-postgres-service'
+    - source_labels: [__meta_kubernetes_endpoint_port_name]
+      action: keep
+      regex: 'metrics'
+    - source_labels: [__meta_kubernetes_service_name]
+      target_label: job
+    - source_labels: [__meta_kubernetes_namespace]
+      target_label: namespace
+    - source_labels: [__meta_kubernetes_pod_name]
+      target_label: pod
+    metric_relabel_configs:
+    # Add database identifier
+    - target_label: database
+      replacement: 'ddh-production'
+      
+  # ==================================================
+  # REDIS METRICS
+  # ==================================================
+  - job_name: 'ddh-redis'
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - ddh-production
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: 'ddh-redis-service'
+    - source_labels: [__meta_kubernetes_endpoint_port_name]
+      action: keep
+      regex: 'metrics'
+    - source_labels: [__meta_kubernetes_service_name]
+      target_label: job
+    - source_labels: [__meta_kubernetes_namespace]
+      target_label: namespace
+    - source_labels: [__meta_kubernetes_pod_name]
+      target_label: pod
+      
+  # ==================================================
+  # RABBITMQ METRICS
+  # ==================================================
+  - job_name: 'ddh-rabbitmq'
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - ddh-production
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: 'ddh-rabbitmq-service'
+    - source_labels: [__meta_kubernetes_endpoint_port_name]
+      action: keep
+      regex: 'prometheus'
+    - source_labels: [__meta_kubernetes_service_name]
+      target_label: job
+    - source_labels: [__meta_kubernetes_namespace]
+      target_label: namespace
+    - source_labels: [__meta_kubernetes_pod_name]
+      target_label: pod
+      
+  # ==================================================
+  # NGINX INGRESS CONTROLLER
+  # ==================================================
+  - job_name: 'nginx-ingress'
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+    - role: pod
+      namespaces:
+        names:
+        - ingress-nginx
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+      action: keep
+      regex: true
+    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+      action: replace
+      target_label: __address__
+      regex: ([^:]+)(?::\d+)?;(\d+)
+      replacement: $1:$2
+    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+      action: replace
+      target_label: __metrics_path__
+      regex: (.+)
+    - source_labels: [__meta_kubernetes_namespace]
+      target_label: namespace
+    - source_labels: [__meta_kubernetes_pod_name]
+      target_label: pod
+      
+  # ==================================================
+  # CERT-MANAGER METRICS
+  # ==================================================
+  - job_name: 'cert-manager'
+    scrape_interval: 60s
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - cert-manager
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: 'cert-manager-metrics'
+    - source_labels: [__meta_kubernetes_endpoint_port_name]
+      action: keep
+      regex: 'tcp-prometheus-servicemonitor'
+      
+  # ==================================================
+  # KUBE-STATE-METRICS
+  # ==================================================
+  - job_name: 'kube-state-metrics'
+    scrape_interval: 30s
+    kubernetes_sd_configs:
+    - role: endpoints
+      namespaces:
+        names:
+        - kube-system
+    relabel_configs:
+    - source_labels: [__meta_kubernetes_service_name]
+      action: keep
+      regex: 'kube-state-metrics'
+    - source_labels: [__meta_kubernetes_endpoint_port_name]
+      action: keep
+      regex: 'http-metrics'
+    metric_relabel_configs:
+    # Limit to specific namespaces
+    - source_labels: [namespace]
+      regex: 'ddh-production|kube-system|ingress-nginx|cert-manager'
+      action: keep
+      
+  # ==================================================
+  # BLACKBOX EXPORTER (EXTERNAL MONITORING)
+  # ==================================================
+  - job_name: 'blackbox-http'
+    scrape_interval: 60s
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+    - targets:
+      - https://api.yourdomain.com/health
+      - https://app.yourdomain.com
+    relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: blackbox-exporter:9115
+      
+  - job_name: 'blackbox-tcp'
+    scrape_interval: 60s
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+    - targets:
+      - api.yourdomain.com:443
+      - api.yourdomain.com:80
+    relabel_configs:
+    - source_labels: [__address__]
+      target_label: __param_target
+    - source_labels: [__param_target]
+      target_label: instance
+    - target_label: __address__
+      replacement: blackbox-exporter:9115
+      
+# ==================================================
+# TRACING CONFIGURATION (OPTIONAL)
+# ==================================================
+tracing:
+  endpoint: jaeger-collector:14268
+  sampling_fraction: 0.1

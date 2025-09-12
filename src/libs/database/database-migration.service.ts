@@ -387,10 +387,10 @@ export class DatabaseMigrationService {
       // Validate and execute UP migration
       if (upContent.trim()) {
         this.validateMigrationSql(upContent);
-        // Execute migration SQL directly after validation
-        // Note: This is safe because we've validated the content above
-        // We need to use raw query execution for migration content
-        await (connection as any).query(upContent);
+        // Execute migration SQL using sql.unsafe for validated migration content
+        // This is safe because we've validated the content above and migrations
+        // are trusted administrative scripts, not user input
+        await connection.query(sql.unsafe`${upContent}`);
       }
 
       // Record migration as executed
@@ -420,10 +420,10 @@ export class DatabaseMigrationService {
 
       // Validate and execute DOWN migration
       this.validateMigrationSql(downContent);
-      // Execute migration SQL directly after validation
-      // Note: This is safe because we've validated the content above
-      // We need to use raw query execution for migration content
-      await (connection as any).query(downContent);
+      // Execute migration SQL using sql.unsafe for validated migration content
+      // This is safe because we've validated the content above and migrations
+      // are trusted administrative scripts, not user input
+      await connection.query(sql.unsafe`${downContent}`);
 
       // Remove migration record
       await connection.query(sql.unsafe`
@@ -465,6 +465,7 @@ export class DatabaseMigrationService {
 
   /**
    * Validate migration SQL for security and safety
+   * Enhanced validation to prevent SQL injection and malicious operations
    */
   private validateMigrationSql(sqlContent: string): void {
     if (!sqlContent || sqlContent.trim().length === 0) {
@@ -473,7 +474,7 @@ export class DatabaseMigrationService {
 
     const trimmedSql = sqlContent.trim().toLowerCase();
 
-    // List of dangerous SQL patterns that should not be in migrations
+    // Enhanced list of dangerous SQL patterns that should not be in migrations
     const dangerousPatterns = [
       /drop\s+database\s+/i,
       /truncate\s+table\s+pg_/i,
@@ -483,24 +484,40 @@ export class DatabaseMigrationService {
       /create\s+user\s+/i,
       /alter\s+user\s+/i,
       /drop\s+user\s+/i,
-      // Add more patterns as needed
+      /create\s+role\s+/i,
+      /alter\s+role\s+/i,
+      /drop\s+role\s+/i,
+      /create\s+function.*language\s+plpythonu/i,
+      /create\s+function.*language\s+c/i,
+      /copy\s+.*from\s+program/i,
+      /copy\s+.*to\s+program/i,
     ];
 
     for (const pattern of dangerousPatterns) {
       if (pattern.test(trimmedSql)) {
         throw new Error(
-          `Migration contains potentially dangerous SQL pattern: ${pattern.source}`,
+          `Migration contains potentially dangerous SQL pattern: ${pattern.source}. Migration rejected for security.`,
         );
       }
     }
 
-    // Basic SQL injection prevention for migration content
+    // Enhanced SQL injection prevention patterns
     const suspiciousPatterns = [
       /;\s*drop\s+/i,
-      /;\s*delete\s+/i,
+      /;\s*delete\s+from\s+(?![\w_]+\s*where)/i, // Allow DELETE with WHERE clause
       /;\s*truncate\s+/i,
+      /;\s*update\s+(?![\w_]+\s*set.*where)/i, // Allow UPDATE with WHERE clause
       /union\s+.*\s+select\s+/i,
       /\/\*.*\*\//s, // Block comments could hide malicious content
+      /--.*$/m, // Single line comments at end of line
+      /\bexec\s*\(/i,
+      /\bexecute\s+immediate/i,
+      /\bsp_executesql/i,
+      /\bdynamic\s+sql/i,
+      /\beval\s*\(/i,
+      /\bload_file\s*\(/i,
+      /\binto\s+outfile/i,
+      /\bselect\s+.*\binto\s+dumpfile/i,
     ];
 
     for (const pattern of suspiciousPatterns) {
@@ -508,7 +525,36 @@ export class DatabaseMigrationService {
         this.logger.warn('Migration contains suspicious SQL pattern', {
           pattern: pattern.source,
           migration: sqlContent.substring(0, 100),
+          severity: 'HIGH',
         });
+      }
+    }
+
+    // Check for SQL injection attack vectors
+    const injectionPatterns = [
+      /'\s*or\s*'1'\s*=\s*'1/i,
+      /'\s*or\s*1\s*=\s*1/i,
+      /'\s*union\s*select/i,
+      /'\s*;\s*drop/i,
+      /'\s*;\s*delete/i,
+      /'\s*;\s*insert/i,
+      /'\s*;\s*update/i,
+      /'\s*;\s*create/i,
+      /'\s*;\s*alter/i,
+      /0x[0-9a-f]+/i, // Hexadecimal values
+      /char\s*\(/i,
+      /ascii\s*\(/i,
+      /substring\s*\(/i,
+      /waitfor\s+delay/i,
+      /benchmark\s*\(/i,
+      /sleep\s*\(/i,
+    ];
+
+    for (const pattern of injectionPatterns) {
+      if (pattern.test(trimmedSql)) {
+        throw new Error(
+          `Migration contains SQL injection pattern: ${pattern.source}. Migration rejected for security.`,
+        );
       }
     }
 
@@ -518,9 +564,49 @@ export class DatabaseMigrationService {
       throw new Error('Migration file exceeds maximum size limit (1MB)');
     }
 
+    // Check for excessive nested statements that could indicate obfuscation
+    const nestedLevels = (sqlContent.match(/\(/g) || []).length;
+    if (nestedLevels > 50) {
+      throw new Error('Migration contains excessive nested statements, potential obfuscation detected');
+    }
+
+    // Validate SQL syntax structure
+    if (!this.isValidSqlStructure(sqlContent)) {
+      throw new Error('Migration contains invalid SQL structure');
+    }
+
     this.logger.debug('Migration SQL validation passed', {
       length: sqlContent.length,
+      nestedLevels,
+      checksum: this.calculateChecksum(sqlContent),
     });
+  }
+
+  /**
+   * Basic SQL structure validation
+   */
+  private isValidSqlStructure(sqlContent: string): boolean {
+    try {
+      // Basic structural checks
+      const openParens = (sqlContent.match(/\(/g) || []).length;
+      const closeParens = (sqlContent.match(/\)/g) || []).length;
+      
+      if (openParens !== closeParens) {
+        this.logger.warn('Unmatched parentheses in migration SQL');
+        return false;
+      }
+
+      const openQuotes = (sqlContent.match(/'/g) || []).length;
+      if (openQuotes % 2 !== 0) {
+        this.logger.warn('Unmatched quotes in migration SQL');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      this.logger.error('SQL structure validation failed', error);
+      return false;
+    }
   }
 
   /**

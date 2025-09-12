@@ -1,0 +1,660 @@
+# ==================================================
+# MONITORING STACK DEPLOYMENT - PROMETHEUS & GRAFANA
+# ==================================================
+
+# ==================================================
+# PROMETHEUS DEPLOYMENT
+# ==================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddh-prometheus
+  namespace: ddh-production
+  labels:
+    app: ddh-prometheus
+    app.kubernetes.io/name: ddh-prometheus
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/version: "2.47.0"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: Recreate  # Prometheus needs consistent storage
+  selector:
+    matchLabels:
+      app: ddh-prometheus
+  template:
+    metadata:
+      labels:
+        app: ddh-prometheus
+        app.kubernetes.io/name: ddh-prometheus
+        app.kubernetes.io/component: monitoring
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      # ==================================================
+      # SECURITY CONTEXT
+      # ==================================================
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+          
+      serviceAccountName: ddh-prometheus-sa
+      
+      # ==================================================
+      # CONTAINERS
+      # ==================================================
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.47.0
+        imagePullPolicy: IfNotPresent
+        
+        # ==================================================
+        # SECURITY CONTEXT
+        # ==================================================
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            
+        # ==================================================
+        # PORTS
+        # ==================================================
+        ports:
+        - name: prometheus
+          containerPort: 9090
+          protocol: TCP
+          
+        # ==================================================
+        # COMMAND AND ARGS
+        # ==================================================
+        args:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--storage.tsdb.retention.time=30d'
+        - '--storage.tsdb.retention.size=10GB'
+        - '--web.console.libraries=/etc/prometheus/console_libraries'
+        - '--web.console.templates=/etc/prometheus/consoles'
+        - '--web.enable-lifecycle'
+        - '--web.enable-admin-api'
+        - '--web.external-url=https://monitoring.yourdomain.com/prometheus'
+        - '--web.route-prefix=/prometheus'
+        - '--log.level=warn'
+        - '--query.max-concurrency=50'
+        - '--query.max-samples=50000000'
+        
+        # ==================================================
+        # HEALTH CHECKS
+        # ==================================================
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: prometheus
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+          
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: prometheus
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+          
+        # ==================================================
+        # RESOURCES
+        # ==================================================
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+            ephemeral-storage: 2Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+            ephemeral-storage: 1Gi
+            
+        # ==================================================
+        # VOLUME MOUNTS
+        # ==================================================
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus/prometheus.yml
+          subPath: prometheus.yml
+          readOnly: true
+        - name: prometheus-rules
+          mountPath: /etc/prometheus/rules
+          readOnly: true
+        - name: prometheus-data
+          mountPath: /prometheus
+        - name: tmp-volume
+          mountPath: /tmp
+          
+      # ==================================================
+      # VOLUMES
+      # ==================================================
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: ddh-prometheus-config
+      - name: prometheus-rules
+        configMap:
+          name: ddh-prometheus-rules
+      - name: prometheus-data
+        persistentVolumeClaim:
+          claimName: ddh-prometheus-pvc
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+          
+      # ==================================================
+      # TERMINATION
+      # ==================================================
+      terminationGracePeriodSeconds: 300
+---
+# ==================================================
+# GRAFANA DEPLOYMENT
+# ==================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddh-grafana
+  namespace: ddh-production
+  labels:
+    app: ddh-grafana
+    app.kubernetes.io/name: ddh-grafana
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/version: "10.1.0"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: Recreate  # Grafana needs consistent storage
+  selector:
+    matchLabels:
+      app: ddh-grafana
+  template:
+    metadata:
+      labels:
+        app: ddh-grafana
+        app.kubernetes.io/name: ddh-grafana
+        app.kubernetes.io/component: monitoring
+    spec:
+      # ==================================================
+      # SECURITY CONTEXT
+      # ==================================================
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault
+          
+      serviceAccountName: ddh-grafana-sa
+      
+      # ==================================================
+      # INIT CONTAINERS
+      # ==================================================
+      initContainers:
+      - name: grafana-init
+        image: busybox:1.36
+        command:
+        - sh
+        - -c
+        - |
+          echo "Initializing Grafana..."
+          mkdir -p /var/lib/grafana/dashboards
+          mkdir -p /var/lib/grafana/plugins
+          chown -R 472:472 /var/lib/grafana
+          chmod 755 /var/lib/grafana
+        securityContext:
+          runAsUser: 0  # Need root for initial setup
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - FOWNER
+        volumeMounts:
+        - name: grafana-data
+          mountPath: /var/lib/grafana
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+            
+      # ==================================================
+      # MAIN CONTAINER
+      # ==================================================
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.1.0
+        imagePullPolicy: IfNotPresent
+        
+        # ==================================================
+        # SECURITY CONTEXT
+        # ==================================================
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 472
+          runAsGroup: 472
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            
+        # ==================================================
+        # ENVIRONMENT VARIABLES
+        # ==================================================
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          value: admin
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-monitoring-secrets
+              key: grafana-admin-password
+        - name: GF_SECURITY_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ddh-monitoring-secrets
+              key: grafana-secret-key
+        # Database configuration
+        - name: GF_DATABASE_TYPE
+          value: postgres
+        - name: GF_DATABASE_HOST
+          value: ddh-postgres-service:5432
+        - name: GF_DATABASE_NAME
+          value: grafana
+        - name: GF_DATABASE_USER
+          value: grafana
+        - name: GF_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-password
+        # Server configuration
+        - name: GF_SERVER_DOMAIN
+          value: monitoring.yourdomain.com
+        - name: GF_SERVER_ROOT_URL
+          value: https://monitoring.yourdomain.com
+        - name: GF_SERVER_SERVE_FROM_SUB_PATH
+          value: "false"
+        # Security settings
+        - name: GF_SECURITY_COOKIE_SECURE
+          value: "true"
+        - name: GF_SECURITY_STRICT_TRANSPORT_SECURITY
+          value: "true"
+        - name: GF_SECURITY_CONTENT_TYPE_PROTECTION
+          value: "true"
+        - name: GF_SECURITY_X_FRAME_OPTIONS
+          value: "deny"
+        - name: GF_SECURITY_X_XSS_PROTECTION
+          value: "true"
+        # User management
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        - name: GF_USERS_AUTO_ASSIGN_ORG
+          value: "true"
+        - name: GF_USERS_AUTO_ASSIGN_ORG_ROLE
+          value: "Viewer"
+        # Authentication
+        - name: GF_AUTH_DISABLE_LOGIN_FORM
+          value: "false"
+        - name: GF_AUTH_OAUTH_AUTO_LOGIN
+          value: "false"
+        # Logging
+        - name: GF_LOG_LEVEL
+          value: warn
+        - name: GF_LOG_MODE
+          value: console
+        # Metrics and monitoring
+        - name: GF_METRICS_ENABLED
+          value: "true"
+        - name: GF_METRICS_BASIC_AUTH_USERNAME
+          value: grafana
+        - name: GF_METRICS_BASIC_AUTH_PASSWORD
+          value: grafana_metrics
+        # Feature toggles
+        - name: GF_FEATURE_TOGGLES_ENABLE
+          value: "publicDashboards"
+        # Paths
+        - name: GF_PATHS_DATA
+          value: /var/lib/grafana
+        - name: GF_PATHS_LOGS
+          value: /var/lib/grafana/logs
+        - name: GF_PATHS_PLUGINS
+          value: /var/lib/grafana/plugins
+        - name: GF_PATHS_PROVISIONING
+          value: /etc/grafana/provisioning
+        # Install plugins
+        - name: GF_INSTALL_PLUGINS
+          value: "grafana-piechart-panel,grafana-worldmap-panel,grafana-clock-panel"
+          
+        # ==================================================
+        # PORTS
+        # ==================================================
+        ports:
+        - name: grafana
+          containerPort: 3000
+          protocol: TCP
+          
+        # ==================================================
+        # HEALTH CHECKS
+        # ==================================================
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: grafana
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+          
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: grafana
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+          
+        # ==================================================
+        # RESOURCES
+        # ==================================================
+        resources:
+          limits:
+            cpu: "1"
+            memory: 2Gi
+            ephemeral-storage: 2Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+            ephemeral-storage: 1Gi
+            
+        # ==================================================
+        # VOLUME MOUNTS
+        # ==================================================
+        volumeMounts:
+        - name: grafana-data
+          mountPath: /var/lib/grafana
+        - name: grafana-config
+          mountPath: /etc/grafana/provisioning
+          readOnly: true
+        - name: grafana-dashboards
+          mountPath: /var/lib/grafana/dashboards
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+          
+        # ==================================================
+        # LIFECYCLE
+        # ==================================================
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - |
+                echo "Gracefully shutting down Grafana..."
+                sleep 10
+                
+      # ==================================================
+      # VOLUMES
+      # ==================================================
+      volumes:
+      - name: grafana-data
+        persistentVolumeClaim:
+          claimName: ddh-grafana-pvc
+      - name: grafana-config
+        configMap:
+          name: ddh-grafana-config
+      - name: grafana-dashboards
+        configMap:
+          name: ddh-grafana-dashboards
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+          
+      terminationGracePeriodSeconds: 30
+---
+# ==================================================
+# ALERTMANAGER DEPLOYMENT
+# ==================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddh-alertmanager
+  namespace: ddh-production
+  labels:
+    app: ddh-alertmanager
+    app.kubernetes.io/name: ddh-alertmanager
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/version: "0.26.0"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: ddh-alertmanager
+  template:
+    metadata:
+      labels:
+        app: ddh-alertmanager
+        app.kubernetes.io/name: ddh-alertmanager
+        app.kubernetes.io/component: monitoring
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+          
+      serviceAccountName: ddh-alertmanager-sa
+      
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.26.0
+        imagePullPolicy: IfNotPresent
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            
+        args:
+        - '--config.file=/etc/alertmanager/alertmanager.yml'
+        - '--storage.path=/alertmanager'
+        - '--web.external-url=https://monitoring.yourdomain.com/alertmanager'
+        - '--web.route-prefix=/alertmanager'
+        - '--log.level=warn'
+        
+        ports:
+        - name: alertmanager
+          containerPort: 9093
+          protocol: TCP
+          
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: alertmanager
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: alertmanager
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 10
+          
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            
+        volumeMounts:
+        - name: alertmanager-config
+          mountPath: /etc/alertmanager/alertmanager.yml
+          subPath: alertmanager.yml
+          readOnly: true
+        - name: alertmanager-data
+          mountPath: /alertmanager
+        - name: tmp-volume
+          mountPath: /tmp
+          
+      volumes:
+      - name: alertmanager-config
+        configMap:
+          name: ddh-alertmanager-config
+      - name: alertmanager-data
+        persistentVolumeClaim:
+          claimName: ddh-alertmanager-pvc
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+---
+# ==================================================
+# PERSISTENT VOLUME CLAIMS
+# ==================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ddh-prometheus-pvc
+  namespace: ddh-production
+  labels:
+    app: ddh-prometheus
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ddh-grafana-pvc
+  namespace: ddh-production
+  labels:
+    app: ddh-grafana
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ddh-alertmanager-pvc
+  namespace: ddh-production
+  labels:
+    app: ddh-alertmanager
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 5Gi
+---
+# ==================================================
+# SERVICE ACCOUNTS AND RBAC
+# ==================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddh-prometheus-sa
+  namespace: ddh-production
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ddh-prometheus-role
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["extensions", "networking.k8s.io"]
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ddh-prometheus-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ddh-prometheus-role
+subjects:
+- kind: ServiceAccount
+  name: ddh-prometheus-sa
+  namespace: ddh-production
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddh-grafana-sa
+  namespace: ddh-production
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddh-alertmanager-sa
+  namespace: ddh-production
+automountServiceAccountToken: false

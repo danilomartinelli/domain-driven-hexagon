@@ -1,0 +1,761 @@
+# ==================================================
+# POSTGRESQL STATEFULSET WITH SECURITY HARDENING
+# ==================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ddh-postgres
+  namespace: ddh-production
+  labels:
+    app: ddh-postgres
+    app.kubernetes.io/name: ddh-postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/version: "16"
+spec:
+  serviceName: ddh-postgres-headless
+  replicas: 1
+  revisionHistoryLimit: 5
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  selector:
+    matchLabels:
+      app: ddh-postgres
+  template:
+    metadata:
+      labels:
+        app: ddh-postgres
+        app.kubernetes.io/name: ddh-postgres
+        app.kubernetes.io/component: database
+        tier: database
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9187"
+        prometheus.io/path: "/metrics"
+    spec:
+      # ==================================================
+      # SECURITY CONTEXT
+      # ==================================================
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: "OnRootMismatch"
+        seccompProfile:
+          type: RuntimeDefault
+          
+      serviceAccountName: ddh-postgres-sa
+      automountServiceAccountToken: false
+      
+      # ==================================================
+      # NODE SELECTION
+      # ==================================================
+      nodeSelector:
+        kubernetes.io/os: linux
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/storage-type
+                operator: In
+                values: ["ssd", "gp2", "gp3"]
+      tolerations:
+      - key: "database"
+        operator: "Equal"
+        value: "postgres"
+        effect: "NoSchedule"
+        
+      # ==================================================
+      # INIT CONTAINERS
+      # ==================================================
+      initContainers:
+      - name: postgres-init
+        image: postgres:16-alpine
+        command:
+        - sh
+        - -c
+        - |
+          echo "Initializing PostgreSQL..."
+          # Create necessary directories
+          mkdir -p /var/lib/postgresql/data/log
+          chown -R postgres:postgres /var/lib/postgresql/data
+          chmod 700 /var/lib/postgresql/data
+        securityContext:
+          runAsUser: 0  # Need root for initial setup
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - FOWNER
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+            
+      # ==================================================
+      # MAIN CONTAINER
+      # ==================================================
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        imagePullPolicy: IfNotPresent
+        
+        # ==================================================
+        # SECURITY CONTEXT
+        # ==================================================
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - DAC_OVERRIDE
+            - FOWNER
+            - SETUID
+            - SETGID
+            
+        # ==================================================
+        # ENVIRONMENT VARIABLES
+        # ==================================================
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-database
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-password
+        - name: POSTGRES_INITDB_ARGS
+          value: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: "scram-sha-256"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        # Performance tuning
+        - name: POSTGRES_SHARED_BUFFERS
+          value: "256MB"
+        - name: POSTGRES_EFFECTIVE_CACHE_SIZE
+          value: "1GB"
+        - name: POSTGRES_MAINTENANCE_WORK_MEM
+          value: "64MB"
+        - name: POSTGRES_CHECKPOINT_COMPLETION_TARGET
+          value: "0.9"
+        - name: POSTGRES_WAL_BUFFERS
+          value: "16MB"
+        - name: POSTGRES_DEFAULT_STATISTICS_TARGET
+          value: "100"
+        - name: POSTGRES_RANDOM_PAGE_COST
+          value: "1.1"
+        - name: POSTGRES_EFFECTIVE_IO_CONCURRENCY
+          value: "200"
+        - name: POSTGRES_WORK_MEM
+          value: "4MB"
+        - name: POSTGRES_MIN_WAL_SIZE
+          value: "1GB"
+        - name: POSTGRES_MAX_WAL_SIZE
+          value: "4GB"
+        
+        # ==================================================
+        # PORTS
+        # ==================================================
+        ports:
+        - name: postgres
+          containerPort: 5432
+          protocol: TCP
+          
+        # ==================================================
+        # HEALTH CHECKS
+        # ==================================================
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h localhost
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+          
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - -e
+            - |
+              exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h localhost
+              [ -f /var/lib/postgresql/data/pgdata/postmaster.pid ]
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          
+        startupProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h localhost
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 30
+          
+        # ==================================================
+        # RESOURCES
+        # ==================================================
+        resources:
+          limits:
+            cpu: "2"
+            memory: 2Gi
+            ephemeral-storage: 2Gi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+            ephemeral-storage: 1Gi
+            
+        # ==================================================
+        # VOLUME MOUNTS
+        # ==================================================
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-config
+          mountPath: /etc/postgresql/postgresql.conf
+          subPath: postgresql.conf
+          readOnly: true
+        - name: postgres-config
+          mountPath: /etc/postgresql/pg_hba.conf
+          subPath: pg_hba.conf
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: run-volume
+          mountPath: /var/run/postgresql
+        - name: log-volume
+          mountPath: /var/lib/postgresql/data/log
+          
+        # ==================================================
+        # COMMAND OVERRIDE
+        # ==================================================
+        command:
+        - postgres
+        args:
+        - -c
+        - config_file=/etc/postgresql/postgresql.conf
+        - -c
+        - hba_file=/etc/postgresql/pg_hba.conf
+        
+      # ==================================================
+      # POSTGRES EXPORTER SIDECAR
+      # ==================================================
+      - name: postgres-exporter
+        image: prometheuscommunity/postgres-exporter:v0.15.0
+        imagePullPolicy: IfNotPresent
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            
+        env:
+        - name: DATA_SOURCE_URI
+          value: "localhost:5432/$(POSTGRES_DB)?sslmode=disable"
+        - name: DATA_SOURCE_USER
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-user
+        - name: DATA_SOURCE_PASS
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-database
+        - name: PG_EXPORTER_EXTEND_QUERY_PATH
+          value: /etc/postgres_exporter/queries.yaml
+          
+        ports:
+        - name: metrics
+          containerPort: 9187
+          protocol: TCP
+          
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+            
+        volumeMounts:
+        - name: postgres-exporter-config
+          mountPath: /etc/postgres_exporter
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+          
+      # ==================================================
+      # VOLUMES
+      # ==================================================
+      volumes:
+      - name: postgres-config
+        configMap:
+          name: ddh-postgres-config
+      - name: postgres-exporter-config
+        configMap:
+          name: ddh-postgres-exporter-config
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: run-volume
+        emptyDir:
+          sizeLimit: 100Mi
+      - name: log-volume
+        emptyDir:
+          sizeLimit: 2Gi
+          
+      # ==================================================
+      # TERMINATION
+      # ==================================================
+      terminationGracePeriodSeconds: 60
+      
+  # ==================================================
+  # VOLUME CLAIM TEMPLATES
+  # ==================================================
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+      labels:
+        app: ddh-postgres
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 50Gi
+---
+# ==================================================
+# REDIS DEPLOYMENT
+# ==================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddh-redis
+  namespace: ddh-production
+  labels:
+    app: ddh-redis
+    app.kubernetes.io/name: ddh-redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/version: "7"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: Recreate  # Redis needs consistent storage
+  selector:
+    matchLabels:
+      app: ddh-redis
+  template:
+    metadata:
+      labels:
+        app: ddh-redis
+        app.kubernetes.io/name: ddh-redis
+        app.kubernetes.io/component: cache
+        tier: database
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9121"
+        prometheus.io/path: "/metrics"
+    spec:
+      # ==================================================
+      # SECURITY CONTEXT
+      # ==================================================
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+          
+      serviceAccountName: ddh-redis-sa
+      automountServiceAccountToken: false
+      
+      # ==================================================
+      # CONTAINERS
+      # ==================================================
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        imagePullPolicy: IfNotPresent
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-redis-secrets
+              key: redis-password
+              
+        ports:
+        - name: redis
+          containerPort: 6379
+          protocol: TCP
+          
+        # Health checks
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        - name: redis-config
+          mountPath: /usr/local/etc/redis/redis.conf
+          subPath: redis.conf
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+          
+        command:
+        - redis-server
+        args:
+        - /usr/local/etc/redis/redis.conf
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        
+      # Redis exporter sidecar
+      - name: redis-exporter
+        image: oliver006/redis_exporter:v1.57.0
+        imagePullPolicy: IfNotPresent
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            
+        env:
+        - name: REDIS_ADDR
+          value: "redis://localhost:6379"
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-redis-secrets
+              key: redis-password
+              
+        ports:
+        - name: metrics
+          containerPort: 9121
+          protocol: TCP
+          
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+            
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+          
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: ddh-redis-pvc
+      - name: redis-config
+        configMap:
+          name: ddh-redis-config
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 100Mi
+---
+# ==================================================
+# RABBITMQ STATEFULSET
+# ==================================================
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ddh-rabbitmq
+  namespace: ddh-production
+  labels:
+    app: ddh-rabbitmq
+    app.kubernetes.io/name: ddh-rabbitmq
+    app.kubernetes.io/component: message-queue
+    app.kubernetes.io/version: "3.12"
+spec:
+  serviceName: ddh-rabbitmq-headless
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: ddh-rabbitmq
+  template:
+    metadata:
+      labels:
+        app: ddh-rabbitmq
+        app.kubernetes.io/name: ddh-rabbitmq
+        app.kubernetes.io/component: message-queue
+        tier: database
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "15692"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+          
+      serviceAccountName: ddh-rabbitmq-sa
+      automountServiceAccountToken: false
+      
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3.12-management-alpine
+        imagePullPolicy: IfNotPresent
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - DAC_OVERRIDE
+            - SETUID
+            - SETGID
+            
+        env:
+        - name: RABBITMQ_DEFAULT_USER
+          valueFrom:
+            secretKeyRef:
+              name: ddh-rabbitmq-secrets
+              key: rabbitmq-user
+        - name: RABBITMQ_DEFAULT_PASS
+          valueFrom:
+            secretKeyRef:
+              name: ddh-rabbitmq-secrets
+              key: rabbitmq-password
+        - name: RABBITMQ_ERLANG_COOKIE
+          valueFrom:
+            secretKeyRef:
+              name: ddh-rabbitmq-secrets
+              key: erlang-cookie
+        - name: RABBITMQ_DEFAULT_VHOST
+          value: "ddh_production"
+        - name: RABBITMQ_NODE_NAME
+          value: "rabbit@localhost"
+              
+        ports:
+        - name: amqp
+          containerPort: 5672
+          protocol: TCP
+        - name: management
+          containerPort: 15672
+          protocol: TCP
+        - name: prometheus
+          containerPort: 15692
+          protocol: TCP
+          
+        livenessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - ping
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+          
+        readinessProbe:
+          exec:
+            command:
+            - rabbitmq-diagnostics
+            - check_port_connectivity
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+            
+        volumeMounts:
+        - name: rabbitmq-data
+          mountPath: /var/lib/rabbitmq
+        - name: rabbitmq-config
+          mountPath: /etc/rabbitmq/rabbitmq.conf
+          subPath: rabbitmq.conf
+          readOnly: true
+        - name: rabbitmq-config
+          mountPath: /etc/rabbitmq/enabled_plugins
+          subPath: enabled_plugins
+          readOnly: true
+        - name: rabbitmq-config
+          mountPath: /etc/rabbitmq/definitions.json
+          subPath: definitions.json
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: var-log-volume
+          mountPath: /var/log/rabbitmq
+          
+      volumes:
+      - name: rabbitmq-config
+        configMap:
+          name: ddh-rabbitmq-config
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: var-log-volume
+        emptyDir:
+          sizeLimit: 1Gi
+          
+  volumeClaimTemplates:
+  - metadata:
+      name: rabbitmq-data
+      labels:
+        app: ddh-rabbitmq
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 10Gi
+---
+# ==================================================
+# SERVICE ACCOUNTS
+# ==================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddh-postgres-sa
+  namespace: ddh-production
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddh-redis-sa
+  namespace: ddh-production
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddh-rabbitmq-sa
+  namespace: ddh-production
+automountServiceAccountToken: false
+---
+# ==================================================
+# PERSISTENT VOLUME CLAIMS
+# ==================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ddh-redis-pvc
+  namespace: ddh-production
+  labels:
+    app: ddh-redis
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 10Gi

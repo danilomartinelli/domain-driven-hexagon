@@ -1,0 +1,425 @@
+# ==================================================
+# INFRASTRUCTURE ALERTING RULES
+# ==================================================
+groups:
+  # ==================================================
+  # NODE AND SYSTEM ALERTS
+  # ==================================================
+  - name: infrastructure.nodes
+    interval: 30s
+    rules:
+    - alert: NodeDown
+      expr: up{job="node-exporter"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "Node is down"
+        description: "Node {{ $labels.instance }} has been down for more than 2 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/node-down"
+        
+    - alert: NodeHighCPUUsage
+      expr: |
+        (
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+        ) > 85
+      for: 5m
+      labels:
+        severity: warning
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "High CPU usage on node"
+        description: "CPU usage is {{ $value }}% on node {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-cpu"
+        
+    - alert: NodeCriticalCPUUsage
+      expr: |
+        (
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+        ) > 95
+      for: 2m
+      labels:
+        severity: critical
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "Critical CPU usage on node"
+        description: "CPU usage is {{ $value }}% on node {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/critical-cpu"
+        
+    - alert: NodeHighMemoryUsage
+      expr: |
+        (
+          (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 
+          node_memory_MemTotal_bytes
+        ) * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "High memory usage on node"
+        description: "Memory usage is {{ $value }}% on node {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-memory"
+        
+    - alert: NodeCriticalMemoryUsage
+      expr: |
+        (
+          (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / 
+          node_memory_MemTotal_bytes
+        ) * 100 > 95
+      for: 2m
+      labels:
+        severity: critical
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "Critical memory usage on node"
+        description: "Memory usage is {{ $value }}% on node {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/critical-memory"
+        
+    - alert: NodeHighDiskUsage
+      expr: |
+        (
+          (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) / 
+          node_filesystem_size_bytes{fstype!="tmpfs"}
+        ) * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "High disk usage on node"
+        description: "Disk usage is {{ $value }}% on {{ $labels.device }} at {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-disk"
+        
+    - alert: NodeCriticalDiskUsage
+      expr: |
+        (
+          (node_filesystem_size_bytes{fstype!="tmpfs"} - node_filesystem_free_bytes{fstype!="tmpfs"}) / 
+          node_filesystem_size_bytes{fstype!="tmpfs"}
+        ) * 100 > 95
+      for: 2m
+      labels:
+        severity: critical
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "Critical disk usage on node"
+        description: "Disk usage is {{ $value }}% on {{ $labels.device }} at {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/critical-disk"
+        
+    - alert: NodeHighDiskIOWait
+      expr: |
+        (
+          rate(node_cpu_seconds_total{mode="iowait"}[5m]) / 
+          rate(node_cpu_seconds_total[5m])
+        ) * 100 > 20
+      for: 5m
+      labels:
+        severity: warning
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "High disk I/O wait on node"
+        description: "Disk I/O wait is {{ $value }}% on node {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-iowait"
+        
+    - alert: NodeHighNetworkErrors
+      expr: |
+        rate(node_network_receive_errs_total[5m]) + rate(node_network_transmit_errs_total[5m]) > 10
+      for: 5m
+      labels:
+        severity: warning
+        component: infrastructure
+        team: sre
+      annotations:
+        summary: "High network errors on node"
+        description: "Network error rate is {{ $value }} errors/second on {{ $labels.device }} at {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/network-errors"
+        
+  # ==================================================
+  # KUBERNETES CLUSTER ALERTS
+  # ==================================================
+  - name: infrastructure.kubernetes
+    interval: 30s
+    rules:
+    - alert: KubernetesPodCrashLooping
+      expr: |
+        rate(kube_pod_container_status_restarts_total[15m]) > 0
+      for: 5m
+      labels:
+        severity: warning
+        component: kubernetes
+        team: sre
+      annotations:
+        summary: "Pod is crash looping"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 15 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/pod-crash-loop"
+        
+    - alert: KubernetesPodNotReady
+      expr: kube_pod_status_ready{condition="false"} == 1
+      for: 10m
+      labels:
+        severity: warning
+        component: kubernetes
+        team: sre
+      annotations:
+        summary: "Pod not ready"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been not ready for more than 10 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/pod-not-ready"
+        
+    - alert: KubernetesDeploymentReplicasMismatch
+      expr: |
+        kube_deployment_spec_replicas{namespace="ddh-production"} != 
+        kube_deployment_status_replicas_available{namespace="ddh-production"}
+      for: 5m
+      labels:
+        severity: warning
+        component: kubernetes
+        team: sre
+      annotations:
+        summary: "Deployment replicas mismatch"
+        description: "Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }} has {{ $value }} available replicas, expected {{ $labels.spec_replicas }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/replicas-mismatch"
+        
+    - alert: KubernetesPVCPending
+      expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+      for: 5m
+      labels:
+        severity: warning
+        component: kubernetes
+        team: sre
+      annotations:
+        summary: "PVC is pending"
+        description: "PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }} is in pending state"
+        runbook_url: "https://runbook.yourdomain.com/alerts/pvc-pending"
+        
+    - alert: KubernetesNodeNotReady
+      expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: kubernetes
+        team: sre
+      annotations:
+        summary: "Node not ready"
+        description: "Node {{ $labels.node }} is not ready"
+        runbook_url: "https://runbook.yourdomain.com/alerts/node-not-ready"
+        
+    - alert: KubernetesAPIServerDown
+      expr: up{job="kubernetes-apiservers"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        component: kubernetes
+        team: sre
+      annotations:
+        summary: "Kubernetes API server is down"
+        description: "Kubernetes API server {{ $labels.instance }} is down"
+        runbook_url: "https://runbook.yourdomain.com/alerts/apiserver-down"
+        
+    - alert: KubernetesAPIServerHighLatency
+      expr: |
+        histogram_quantile(0.99, 
+          sum(rate(apiserver_request_duration_seconds_bucket[5m])) by (le)
+        ) > 1
+      for: 5m
+      labels:
+        severity: warning
+        component: kubernetes
+        team: sre
+      annotations:
+        summary: "High Kubernetes API server latency"
+        description: "99th percentile API server request latency is {{ $value }}s"
+        runbook_url: "https://runbook.yourdomain.com/alerts/apiserver-latency"
+        
+  # ==================================================
+  # NETWORK AND LOAD BALANCER ALERTS
+  # ==================================================
+  - name: infrastructure.network
+    interval: 30s
+    rules:
+    - alert: IngressControllerDown
+      expr: up{job="nginx-ingress"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: ingress
+        team: sre
+      annotations:
+        summary: "Ingress controller is down"
+        description: "Ingress controller {{ $labels.instance }} is down"
+        runbook_url: "https://runbook.yourdomain.com/alerts/ingress-down"
+        
+    - alert: IngressHighErrorRate
+      expr: |
+        (
+          rate(nginx_ingress_controller_requests{status=~"5.."}[5m]) / 
+          rate(nginx_ingress_controller_requests[5m])
+        ) * 100 > 5
+      for: 3m
+      labels:
+        severity: warning
+        component: ingress
+        team: sre
+      annotations:
+        summary: "High error rate on ingress"
+        description: "Ingress error rate is {{ $value }}% for host {{ $labels.host }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/ingress-errors"
+        
+    - alert: IngressSlowRequests
+      expr: |
+        histogram_quantile(0.95, 
+          rate(nginx_ingress_controller_request_duration_seconds_bucket[5m])
+        ) > 1
+      for: 5m
+      labels:
+        severity: warning
+        component: ingress
+        team: sre
+      annotations:
+        summary: "Slow requests on ingress"
+        description: "95th percentile request duration is {{ $value }}s for host {{ $labels.host }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/ingress-slow"
+        
+    - alert: CertificateExpiringSoon
+      expr: |
+        (cert_exporter_not_after - time()) / 86400 < 30
+      for: 6h
+      labels:
+        severity: warning
+        component: certificates
+        team: sre
+      annotations:
+        summary: "SSL certificate expiring soon"
+        description: "SSL certificate for {{ $labels.domain }} expires in {{ $value }} days"
+        runbook_url: "https://runbook.yourdomain.com/alerts/cert-expiry"
+        
+    - alert: CertificateExpired
+      expr: cert_exporter_not_after < time()
+      for: 1m
+      labels:
+        severity: critical
+        component: certificates
+        team: sre
+      annotations:
+        summary: "SSL certificate has expired"
+        description: "SSL certificate for {{ $labels.domain }} has expired"
+        runbook_url: "https://runbook.yourdomain.com/alerts/cert-expired"
+        
+  # ==================================================
+  # EXTERNAL SERVICES MONITORING
+  # ==================================================
+  - name: infrastructure.external
+    interval: 60s
+    rules:
+    - alert: ExternalServiceDown
+      expr: probe_success{job="blackbox-http"} == 0
+      for: 3m
+      labels:
+        severity: critical
+        component: external
+        team: sre
+      annotations:
+        summary: "External service is down"
+        description: "External service {{ $labels.instance }} is not responding"
+        runbook_url: "https://runbook.yourdomain.com/alerts/external-service-down"
+        
+    - alert: ExternalServiceSlowResponse
+      expr: probe_duration_seconds{job="blackbox-http"} > 5
+      for: 5m
+      labels:
+        severity: warning
+        component: external
+        team: sre
+      annotations:
+        summary: "External service slow response"
+        description: "External service {{ $labels.instance }} response time is {{ $value }}s"
+        runbook_url: "https://runbook.yourdomain.com/alerts/external-service-slow"
+        
+    - alert: ExternalServiceSSLCertificate
+      expr: probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time() < 86400 * 30
+      for: 6h
+      labels:
+        severity: warning
+        component: external
+        team: sre
+      annotations:
+        summary: "External service SSL certificate expiring"
+        description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/external-cert-expiry"
+        
+  # ==================================================
+  # MONITORING SYSTEM HEALTH
+  # ==================================================
+  - name: infrastructure.monitoring
+    interval: 30s
+    rules:
+    - alert: PrometheusDown
+      expr: up{job="prometheus"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        component: monitoring
+        team: sre
+      annotations:
+        summary: "Prometheus is down"
+        description: "Prometheus {{ $labels.instance }} is down"
+        runbook_url: "https://runbook.yourdomain.com/alerts/prometheus-down"
+        
+    - alert: PrometheusConfigReloadFailed
+      expr: prometheus_config_last_reload_successful == 0
+      for: 5m
+      labels:
+        severity: warning
+        component: monitoring
+        team: sre
+      annotations:
+        summary: "Prometheus configuration reload failed"
+        description: "Prometheus configuration reload failed on {{ $labels.instance }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/prometheus-config"
+        
+    - alert: PrometheusTargetDown
+      expr: up == 0
+      for: 5m
+      labels:
+        severity: warning
+        component: monitoring
+        team: sre
+      annotations:
+        summary: "Prometheus target is down"
+        description: "Prometheus target {{ $labels.instance }} in job {{ $labels.job }} is down"
+        runbook_url: "https://runbook.yourdomain.com/alerts/target-down"
+        
+    - alert: PrometheusStorageSpaceLow
+      expr: |
+        (
+          prometheus_tsdb_lowest_timestamp_seconds - prometheus_tsdb_head_min_time_seconds
+        ) / (prometheus_tsdb_retention_limit_seconds) > 0.95
+      for: 5m
+      labels:
+        severity: warning
+        component: monitoring
+        team: sre
+      annotations:
+        summary: "Prometheus storage space low"
+        description: "Prometheus storage is {{ $value }}% full"
+        runbook_url: "https://runbook.yourdomain.com/alerts/prometheus-storage"
+        
+    - alert: AlertManagerDown
+      expr: up{job="alertmanager"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: monitoring
+        team: sre
+      annotations:
+        summary: "AlertManager is down"
+        description: "AlertManager {{ $labels.instance }} is down"
+        runbook_url: "https://runbook.yourdomain.com/alerts/alertmanager-down"

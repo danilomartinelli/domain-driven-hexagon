@@ -1,0 +1,328 @@
+# ==================================================
+# FALCO SECURITY RULES FOR DOMAIN-DRIVEN HEXAGON
+# ==================================================
+# Runtime security monitoring rules for detecting
+# suspicious activities and security violations
+
+- rule: Unauthorized Process Spawned in Container
+  desc: Detect processes spawned in containers that are not in the allowed list
+  condition: >
+    spawned_process and 
+    container and 
+    not proc.name in (node, npm, sh, bash, cat, ls, ps, grep, tail, head, awk, sed, sleep) and
+    not proc.pname in (node, npm) and
+    not proc.cmdline contains "/usr/bin/node"
+  output: >
+    Unauthorized process spawned in container 
+    (user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid 
+     proc_name=%proc.name proc_cmdline=%proc.cmdline parent=%proc.pname 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: WARNING
+  tags: [container, process, security]
+
+- rule: Sensitive File Access in Container
+  desc: Detect access to sensitive files in containers
+  condition: >
+    open_read and
+    container and
+    (fd.filename in (/etc/passwd, /etc/shadow, /etc/group, /etc/sudoers, /etc/ssh/sshd_config) or
+     fd.filename startswith /root/ or
+     fd.filename startswith /home/ or
+     fd.filename contains "secret" or
+     fd.filename contains "key" or
+     fd.filename contains "password")
+  output: >
+    Sensitive file access in container 
+    (user=%user.name user_uid=%user.uid 
+     proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     filename=%fd.name container_id=%container.id 
+     container_name=%container.name image=%container.image.repository:%container.image.tag)
+  priority: WARNING
+  tags: [container, filesystem, security]
+
+- rule: Container Escape Attempt
+  desc: Detect attempts to escape from container
+  condition: >
+    spawned_process and
+    container and
+    (proc.name in (docker, runc, kubectl, crictl) or
+     proc.cmdline contains "nsenter" or
+     proc.cmdline contains "chroot" or
+     proc.cmdline contains "/proc/1/root" or
+     proc.cmdline contains "docker.sock")
+  output: >
+    Container escape attempt detected 
+    (user=%user.name user_uid=%user.uid 
+     proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: CRITICAL
+  tags: [container, escape, security]
+
+- rule: Privilege Escalation in Container
+  desc: Detect privilege escalation attempts in containers
+  condition: >
+    spawned_process and
+    container and
+    (proc.name in (sudo, su, pkexec) or
+     proc.cmdline contains "chmod +s" or
+     proc.cmdline contains "setuid" or
+     proc.cmdline contains "setgid")
+  output: >
+    Privilege escalation attempt in container 
+    (user=%user.name user_uid=%user.uid 
+     proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: HIGH
+  tags: [container, privilege, security]
+
+- rule: Network Anomaly in DDH Application
+  desc: Detect unusual network connections from DDH application
+  condition: >
+    (inbound_outbound) and
+    container and
+    container.name startswith "ddh-app" and
+    not ((fd.sport in (3000, 9090)) or (fd.dport in (53, 80, 443, 5432, 6379, 5672, 9090, 15672)))
+  output: >
+    Unusual network connection from DDH application 
+    (direction=%evt.type src_ip=%fd.cip src_port=%fd.cport 
+     dst_ip=%fd.sip dst_port=%fd.sport 
+     container_id=%container.id container_name=%container.name)
+  priority: WARNING
+  tags: [network, ddh-app, anomaly]
+
+- rule: Cryptocurrency Mining Activity
+  desc: Detect potential cryptocurrency mining activity
+  condition: >
+    spawned_process and
+    container and
+    (proc.name in (xmrig, minerd, cpuminer, ethminer, t-rex, nbminer, claymore, phoenixminer) or
+     proc.cmdline contains "stratum+tcp" or
+     proc.cmdline contains "pool.supportxmr.com" or
+     proc.cmdline contains "mining" or
+     proc.cmdline contains "hashrate")
+  output: >
+    Potential cryptocurrency mining detected 
+    (user=%user.name proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: CRITICAL
+  tags: [container, crypto, mining]
+
+- rule: Database Connection from Unauthorized Container
+  desc: Detect database connections from containers other than authorized DDH services
+  condition: >
+    (outbound) and
+    container and
+    fd.dport in (5432, 3306, 1433, 27017, 6379) and
+    not container.name startswith "ddh-app" and
+    not container.name startswith "ddh-migration"
+  output: >
+    Unauthorized database connection 
+    (src_container=%container.name dst_ip=%fd.sip dst_port=%fd.sport 
+     container_id=%container.id image=%container.image.repository:%container.image.tag)
+  priority: HIGH
+  tags: [network, database, unauthorized]
+
+- rule: Suspicious File Modification in Application Directory
+  desc: Detect unexpected file modifications in application directories
+  condition: >
+    (modify or create) and
+    container and
+    (fd.filename startswith "/app/" or fd.filename startswith "/usr/src/app/") and
+    not proc.name in (node, npm) and
+    not fd.filename startswith "/app/logs/" and
+    not fd.filename startswith "/app/.cache/" and
+    not fd.filename startswith "/app/tmp/"
+  output: >
+    Suspicious file modification in application directory 
+    (user=%user.name proc_name=%proc.name filename=%fd.name 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: WARNING
+  tags: [filesystem, application, security]
+
+- rule: Reverse Shell Activity
+  desc: Detect potential reverse shell connections
+  condition: >
+    spawned_process and
+    container and
+    ((proc.name in (nc, netcat, ncat, socat, telnet)) or
+     (proc.cmdline contains "bash -i" and proc.cmdline contains "&") or
+     (proc.cmdline contains "sh -i" and proc.cmdline contains "&") or
+     (proc.cmdline contains "/dev/tcp/"))
+  output: >
+    Potential reverse shell detected 
+    (user=%user.name proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: CRITICAL
+  tags: [container, shell, security]
+
+- rule: Package Manager Execution in Runtime
+  desc: Detect package manager usage during runtime (should only happen during build)
+  condition: >
+    spawned_process and
+    container and
+    proc.name in (apt, apt-get, yum, dnf, rpm, pip, npm, yarn, bun) and
+    not container.name contains "init" and
+    not container.name contains "install"
+  output: >
+    Package manager executed during runtime 
+    (user=%user.name proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: WARNING
+  tags: [container, package, security]
+
+- rule: Excessive Resource Usage
+  desc: Detect containers consuming excessive resources
+  condition: >
+    container and
+    (proc.name = node) and
+    (proc.pid != 1)  # Not the main process
+  output: >
+    Potential resource abuse detected 
+    (proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name)
+  priority: INFO
+  tags: [resource, performance]
+
+- rule: Kubernetes Secrets Access
+  desc: Detect unauthorized access to Kubernetes secrets
+  condition: >
+    open_read and
+    container and
+    (fd.filename startswith "/var/run/secrets/kubernetes.io/" or
+     fd.filename contains "serviceaccount" or
+     fd.filename contains "token")
+  output: >
+    Kubernetes secrets accessed 
+    (user=%user.name proc_name=%proc.name filename=%fd.name 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: WARNING
+  tags: [kubernetes, secrets, security]
+
+- rule: DDH Application Authentication Failure
+  desc: Detect high rate of authentication failures in DDH application
+  condition: >
+    container and
+    container.name startswith "ddh-app" and
+    fd.name contains "auth" and
+    (fd.name contains "failed" or fd.name contains "error" or fd.name contains "unauthorized")
+  output: >
+    High authentication failure rate in DDH application 
+    (container_id=%container.id container_name=%container.name)
+  priority: WARNING
+  tags: [ddh-app, authentication, security]
+
+- rule: Malware Signature Detection
+  desc: Detect known malware signatures and suspicious patterns
+  condition: >
+    spawned_process and
+    container and
+    (proc.cmdline contains "wget" and proc.cmdline contains "http" and proc.cmdline contains "|sh") or
+    (proc.cmdline contains "curl" and proc.cmdline contains "|bash") or
+    (proc.name in (wget, curl) and proc.cmdline contains "tmp") or
+    proc.cmdline contains "base64 -d" or
+    proc.cmdline contains "echo" and proc.cmdline contains "|base64"
+  output: >
+    Potential malware activity detected 
+    (user=%user.name proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: CRITICAL
+  tags: [malware, security, container]
+
+- rule: DNS Tunneling Detection
+  desc: Detect potential DNS tunneling activity
+  condition: >
+    (outbound) and
+    container and
+    fd.dport = 53 and
+    (fd.sip contains "base64" or
+     fd.sip contains "base32" or
+     evt.buffer contains "TXT" and evt.buffer contains "base64")
+  output: >
+    Potential DNS tunneling detected 
+    (src_ip=%fd.cip dst_ip=%fd.sip container_id=%container.id 
+     container_name=%container.name)
+  priority: HIGH
+  tags: [network, dns, tunneling]
+
+- rule: Container Runtime Socket Access
+  desc: Detect access to container runtime sockets
+  condition: >
+    open_write and
+    container and
+    (fd.filename = /var/run/docker.sock or
+     fd.filename startswith /var/run/containerd or
+     fd.filename startswith /var/run/crio)
+  output: >
+    Container runtime socket accessed 
+    (user=%user.name proc_name=%proc.name filename=%fd.name 
+     container_id=%container.id container_name=%container.name 
+     image=%container.image.repository:%container.image.tag)
+  priority: CRITICAL
+  tags: [container, runtime, security]
+
+- rule: Time/Date Manipulation
+  desc: Detect attempts to manipulate system time or date
+  condition: >
+    spawned_process and
+    container and
+    proc.name in (date, timedatectl, ntpdate, chrony) and
+    proc.cmdline contains "-s"
+  output: >
+    System time manipulation attempt 
+    (user=%user.name proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_id=%container.id container_name=%container.name)
+  priority: WARNING
+  tags: [system, time, security]
+
+- rule: Debugger or Development Tool Usage
+  desc: Detect usage of debuggers or development tools in production
+  condition: >
+    spawned_process and
+    container and
+    proc.name in (gdb, strace, ltrace, tcpdump, wireshark, nmap, ncat, socat) and
+    k8s.ns.name = "ddh-production"
+  output: >
+    Development/debug tool used in production 
+    (user=%user.name proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     namespace=%k8s.ns.name container_id=%container.id 
+     container_name=%container.name)
+  priority: WARNING
+  tags: [development, production, security]
+
+# Custom macros for DDH application
+- macro: ddh_containers
+  condition: >
+    container.name startswith "ddh-" or 
+    container.image.repository contains "domain-driven-hexagon"
+
+- macro: allowed_ddh_processes
+  condition: >
+    proc.name in (node, npm, sh, bash) or
+    proc.pname in (node, npm)
+
+- macro: ddh_application_ports
+  condition: >
+    fd.sport in (3000, 9090) or 
+    fd.dport in (3000, 9090, 53, 80, 443, 5432, 6379, 5672, 15672)
+
+- rule: DDH Application Specific Monitoring
+  desc: Monitor DDH application for security events
+  condition: >
+    ddh_containers and
+    spawned_process and
+    not allowed_ddh_processes
+  output: >
+    Unauthorized process in DDH container 
+    (proc_name=%proc.name proc_cmdline=%proc.cmdline 
+     container_name=%container.name image=%container.image.repository:%container.image.tag)
+  priority: WARNING
+  tags: [ddh, application, security]

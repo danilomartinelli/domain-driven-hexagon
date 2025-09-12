@@ -107,7 +107,11 @@ export abstract class SqlRepositoryBase<
         return Some(entity);
       },
       { id },
-    ).catch(() => None); // Return None on error for find operations
+    ).catch((error) => {
+      // Log the error but don't re-throw for find operations
+      this.handleRepositoryError(error, 'findOneById', { id });
+      return None;
+    });
   }
 
   /**
@@ -146,7 +150,8 @@ export abstract class SqlRepositoryBase<
       this.logOperation('findAll', { count: entities.length });
       return entities;
     } catch (error) {
-      this.handleRepositoryError(error as Error, 'findAll');
+      this.handleRepositoryError(error as Error, 'findAll', options);
+      // Return empty array but log the error appropriately
       return [];
     }
   }
@@ -727,6 +732,7 @@ export abstract class SqlRepositoryBase<
 
   /**
    * Handle repository errors with proper logging and context
+   * Enhanced to prevent information disclosure while maintaining debugging capability
    */
   protected handleRepositoryError(
     error: Error,
@@ -734,45 +740,177 @@ export abstract class SqlRepositoryBase<
     context?: Record<string, unknown>,
   ): void {
     const sanitizedContext = this.sanitizeContextForLogging(context);
+    const requestId = this.getRequestId();
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    // Create secure error details for logging
     const errorDetails = {
       operation,
       table: this.tableName,
-      error: error.message,
       errorType: error.constructor.name,
       context: sanitizedContext,
       timestamp: new Date().toISOString(),
+      requestId,
     };
 
-    // Only log stack traces for unexpected errors in development
-    if (
-      process.env.NODE_ENV === 'development' &&
-      !(error instanceof UniqueIntegrityConstraintViolationError) &&
-      !(error instanceof NotFoundError)
-    ) {
-      errorDetails['stack'] = error.stack;
-    }
-
+    // Handle different error types with appropriate security measures
     if (error instanceof UniqueIntegrityConstraintViolationError) {
+      // Safe to log constraint violations as they don't expose sensitive data
+      errorDetails['errorCode'] = 'UNIQUE_CONSTRAINT_VIOLATION';
+      if (!isProduction) {
+        errorDetails['errorMessage'] = this.sanitizeErrorMessage(error.message);
+      }
+      
       this.logger.warn(
-        `[${this.getRequestId()}] Unique constraint violation in ${operation}`,
+        `[${requestId}] Unique constraint violation in ${operation}`,
         errorDetails,
       );
     } else if (error instanceof NotFoundError) {
+      // Not found errors are generally safe to log
+      errorDetails['errorCode'] = 'ENTITY_NOT_FOUND';
+      
       this.logger.debug(
-        `[${this.getRequestId()}] Entity not found in ${operation}`,
+        `[${requestId}] Entity not found in ${operation}`,
         errorDetails,
       );
     } else if (error instanceof DataIntegrityError) {
+      // Data integrity errors might reveal schema information
+      errorDetails['errorCode'] = 'DATA_INTEGRITY_ERROR';
+      if (!isProduction) {
+        errorDetails['errorMessage'] = this.sanitizeErrorMessage(error.message);
+      }
+      
       this.logger.error(
-        `[${this.getRequestId()}] Data integrity error in ${operation}`,
+        `[${requestId}] Data integrity error in ${operation}`,
         errorDetails,
       );
     } else {
+      // Generic errors - be more careful about what we log
+      errorDetails['errorCode'] = 'REPOSITORY_ERROR';
+      
+      // Only include error message in non-production environments
+      if (!isProduction) {
+        errorDetails['errorMessage'] = this.sanitizeErrorMessage(error.message);
+        errorDetails['stack'] = this.sanitizeStackTrace(error.stack);
+      } else {
+        // In production, use a generic message but log the actual error separately for debugging
+        this.logProductionError(error, operation, requestId);
+      }
+      
       this.logger.error(
-        `[${this.getRequestId()}] Repository error in ${operation}`,
+        `[${requestId}] Repository error in ${operation}`,
         errorDetails,
       );
     }
+
+    // Track error patterns for security monitoring
+    this.trackErrorPattern(error, operation);
+  }
+
+  /**
+   * Sanitize error messages to remove sensitive information
+   */
+  private sanitizeErrorMessage(message: string): string {
+    if (!message) return 'Unknown error';
+    
+    // Remove potential sensitive data patterns
+    return message
+      // Remove connection strings
+      .replace(/postgresql:\/\/[^@]+@[^/]+\/\w+/gi, 'postgresql://[REDACTED]')
+      // Remove table/column names that might be sensitive
+      .replace(/relation "([^"]+)"/gi, 'relation "[REDACTED]"')
+      .replace(/column "([^"]+)"/gi, 'column "[REDACTED]"') 
+      // Remove potential passwords or tokens
+      .replace(/password[=:]\s*[^\s]+/gi, 'password=[REDACTED]')
+      .replace(/token[=:]\s*[^\s]+/gi, 'token=[REDACTED]')
+      // Remove SQL query details in production
+      .replace(/query:\s*.+$/gim, 'query: [REDACTED]')
+      // Limit length to prevent log injection
+      .substring(0, 500);
+  }
+
+  /**
+   * Sanitize stack traces to remove sensitive paths and information
+   */
+  private sanitizeStackTrace(stack?: string): string {
+    if (!stack) return '';
+    
+    return stack
+      // Remove file system paths
+      .replace(/\/[^\s:]+\//g, '/[PATH]/')
+      // Remove user home directory references
+      .replace(/\/Users\/[^\/\s:]+/g, '/Users/[USER]')
+      .replace(/\/home\/[^\/\s:]+/g, '/home/[USER]')
+      // Limit stack trace length
+      .split('\n')
+      .slice(0, 10) // Only first 10 lines
+      .join('\n');
+  }
+
+  /**
+   * Log production errors to secure location for debugging
+   */
+  private logProductionError(error: Error, operation: string, requestId: string): void {
+    // In a real production environment, this would write to a secure log file
+    // or send to a secure logging service that developers can access
+    const secureErrorDetails = {
+      requestId,
+      operation,
+      table: this.tableName,
+      errorType: error.constructor.name,
+      errorMessage: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+      securityLevel: 'INTERNAL_DEBUG',
+    };
+
+    // This could be sent to a secure logging service in production
+    // For now, we'll use the logger with a special marker
+    this.logger.debug(
+      `[SECURE_DEBUG] Full error details for request ${requestId}`,
+      secureErrorDetails,
+    );
+  }
+
+  /**
+   * Track error patterns for security monitoring
+   */
+  private trackErrorPattern(error: Error, operation: string): void {
+    // Track potential attack patterns
+    const errorMessage = error.message.toLowerCase();
+    const suspiciousPatterns = [
+      'sql injection',
+      'union select',
+      'information_schema',
+      'pg_tables',
+      'pg_user',
+      'version()',
+      'current_user',
+      'current_database',
+    ];
+
+    const isSuspicious = suspiciousPatterns.some(pattern => 
+      errorMessage.includes(pattern)
+    );
+
+    if (isSuspicious) {
+      this.logger.warn(
+        `[SECURITY] Suspicious database error pattern detected`,
+        {
+          operation,
+          table: this.tableName,
+          errorType: error.constructor.name,
+          requestId: this.getRequestId(),
+          timestamp: new Date().toISOString(),
+          severity: 'HIGH',
+        },
+      );
+    }
+
+    // Track excessive errors from same source
+    // In a full implementation, this would use a cache/counter service
+    const errorKey = `${operation}-${this.tableName}-${error.constructor.name}`;
+    // Implementation would track error frequency here
   }
 
   /**

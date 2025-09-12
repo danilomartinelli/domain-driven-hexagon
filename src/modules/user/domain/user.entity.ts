@@ -3,7 +3,9 @@ import { UserCreatedDomainEvent } from './events/user-created.domain-event';
 import { Address, AddressProps } from './value-objects/address.value-object';
 import {
   CreateUserProps,
+  CreateUserAuthProps,
   UpdateUserAddressProps,
+  UpdateUserAuthProps,
   UserProps,
   UserRoles,
 } from './user.types';
@@ -18,11 +20,37 @@ export class UserEntity extends AggregateRoot<UserProps> {
   static create(create: CreateUserProps): UserEntity {
     const id = randomUUID();
     /* Setting a default role since we are not accepting it during creation. */
-    const props: UserProps = { ...create, role: UserRoles.guest };
+    const props: UserProps = {
+      ...create,
+      role: UserRoles.guest,
+      isActive: true,
+      isEmailVerified: false,
+      loginAttempts: 0,
+    };
     const user = new UserEntity({ id, props });
     /* adding "UserCreated" Domain Event that will be published
     eventually so an event handler somewhere may receive it and do an
     appropriate action. Multiple events can be added if needed. */
+    user.addEvent(
+      new UserCreatedDomainEvent({
+        aggregateId: id,
+        email: props.email,
+        ...props.address.unpack(),
+      }),
+    );
+    return user;
+  }
+
+  static createWithAuth(create: CreateUserAuthProps): UserEntity {
+    const id = randomUUID();
+    const props: UserProps = {
+      ...create,
+      role: UserRoles.guest,
+      isActive: create.isActive ?? true,
+      isEmailVerified: create.isEmailVerified ?? false,
+      loginAttempts: create.loginAttempts ?? 0,
+    };
+    const user = new UserEntity({ id, props });
     user.addEvent(
       new UserCreatedDomainEvent({
         aggregateId: id,
@@ -92,7 +120,160 @@ export class UserEntity extends AggregateRoot<UserProps> {
     );
   }
 
+  /* Authentication-related getters */
+  get isActive(): boolean {
+    return this.props.isActive;
+  }
+
+  get isEmailVerified(): boolean {
+    return this.props.isEmailVerified;
+  }
+
+  get loginAttempts(): number {
+    return this.props.loginAttempts;
+  }
+
+  get isLocked(): boolean {
+    return this.props.lockedUntil ? this.props.lockedUntil > new Date() : false;
+  }
+
+  get lastLoginAt(): Date | undefined {
+    return this.props.lastLoginAt;
+  }
+
+  /* Authentication-related methods */
+  updateAuthProps(props: UpdateUserAuthProps): void {
+    Object.assign(this.props, props);
+  }
+
+  verifyEmail(): void {
+    this.props.isEmailVerified = true;
+    this.props.emailVerificationToken = undefined;
+  }
+
+  generateEmailVerificationToken(token: string): void {
+    this.props.emailVerificationToken = token;
+  }
+
+  generatePasswordResetToken(token: string, expiresAt: Date): void {
+    this.props.passwordResetToken = token;
+    this.props.passwordResetTokenExpiresAt = expiresAt;
+  }
+
+  clearPasswordResetToken(): void {
+    this.props.passwordResetToken = undefined;
+    this.props.passwordResetTokenExpiresAt = undefined;
+  }
+
+  updatePassword(hashedPassword: string): void {
+    this.props.password = hashedPassword;
+    this.clearPasswordResetToken();
+  }
+
+  activate(): void {
+    this.props.isActive = true;
+  }
+
+  deactivate(): void {
+    this.props.isActive = false;
+  }
+
+  incrementLoginAttempts(): void {
+    this.props.loginAttempts += 1;
+  }
+
+  resetLoginAttempts(): void {
+    this.props.loginAttempts = 0;
+    this.props.lockedUntil = undefined;
+  }
+
+  lockAccount(lockDurationMs: number): void {
+    this.props.lockedUntil = new Date(Date.now() + lockDurationMs);
+  }
+
+  updateLastLogin(): void {
+    this.props.lastLoginAt = new Date();
+  }
+
   validate(): void {
     // entity business rules validation to protect it's invariant before saving entity to a database
+    this.validateEmail();
+    this.validateAddress();
+    this.validateAuthenticationFields();
+    this.validateRolePermissions();
+  }
+
+  private validateEmail(): void {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(this.props.email)) {
+      throw new Error('Invalid email format');
+    }
+
+    if (this.props.email.length > 320) { // RFC 5321 limit
+      throw new Error('Email address too long');
+    }
+  }
+
+  private validateAddress(): void {
+    if (!this.props.address) {
+      throw new Error('Address is required');
+    }
+
+    // Address validation is handled by the Address value object itself
+    try {
+      this.props.address.validate();
+    } catch (error) {
+      throw new Error(`Address validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  private validateAuthenticationFields(): void {
+    // Validate login attempts
+    if (this.props.loginAttempts < 0) {
+      throw new Error('Login attempts cannot be negative');
+    }
+
+    if (this.props.loginAttempts > 100) {
+      throw new Error('Login attempts exceeded maximum limit');
+    }
+
+    // Validate lock expiration
+    if (this.props.lockedUntil && this.props.lockedUntil < new Date()) {
+      // Auto-unlock expired locks
+      this.props.lockedUntil = undefined;
+    }
+
+    // Validate password reset token expiration
+    if (this.props.passwordResetTokenExpiresAt && 
+        this.props.passwordResetTokenExpiresAt < new Date()) {
+      // Clear expired reset tokens
+      this.props.passwordResetToken = undefined;
+      this.props.passwordResetTokenExpiresAt = undefined;
+    }
+
+    // Validate token consistency
+    if (this.props.passwordResetToken && !this.props.passwordResetTokenExpiresAt) {
+      throw new Error('Password reset token must have expiration date');
+    }
+
+    if (!this.props.passwordResetToken && this.props.passwordResetTokenExpiresAt) {
+      throw new Error('Password reset expiration date without token');
+    }
+  }
+
+  private validateRolePermissions(): void {
+    if (!Object.values(UserRoles).includes(this.props.role)) {
+      throw new Error(`Invalid user role: ${this.props.role}`);
+    }
+
+    // Business rule: Admin users must have verified email
+    if (this.props.role === UserRoles.admin && !this.props.isEmailVerified) {
+      throw new Error('Admin users must have verified email');
+    }
+
+    // Business rule: Admin users must be active
+    if (this.props.role === UserRoles.admin && !this.props.isActive) {
+      throw new Error('Admin users must be active');
+    }
   }
 }

@@ -1,0 +1,543 @@
+# ==================================================
+# APPLICATION DEPLOYMENT WITH SECURITY HARDENING
+# ==================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ddh-app
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: kubernetes
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    description: "Domain-Driven Hexagon NestJS Application"
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: ddh-app
+  template:
+    metadata:
+      labels:
+        app: ddh-app
+        app.kubernetes.io/name: ddh-app
+        app.kubernetes.io/component: backend
+        version: v1
+        tier: application
+      annotations:
+        # Pod security annotations
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
+        container.apparmor.security.beta.kubernetes.io/ddh-app: runtime/default
+        # Monitoring annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # ==================================================
+      # SECURITY CONTEXT (POD LEVEL)
+      # ==================================================
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        fsGroupChangePolicy: "OnRootMismatch"
+        seccompProfile:
+          type: RuntimeDefault
+        supplementalGroups: [1001]
+        
+      # ==================================================
+      # SERVICE ACCOUNT AND RBAC
+      # ==================================================
+      serviceAccountName: ddh-app-sa
+      automountServiceAccountToken: false
+      
+      # ==================================================
+      # NODE SELECTION AND AFFINITY
+      # ==================================================
+      nodeSelector:
+        kubernetes.io/os: linux
+      affinity:
+        # Prefer to spread pods across different nodes
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ddh-app
+              topologyKey: kubernetes.io/hostname
+        # Prefer nodes with SSD storage
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            preference:
+              matchExpressions:
+              - key: kubernetes.io/storage-type
+                operator: In
+                values:
+                - ssd
+      tolerations:
+      - key: "app"
+        operator: "Equal"
+        value: "ddh"
+        effect: "NoSchedule"
+        
+      # ==================================================
+      # INIT CONTAINERS
+      # ==================================================
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:16-alpine
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USERNAME; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+        env:
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: ddh-app-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: ddh-app-config
+              key: DB_PORT
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-user
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+            
+      - name: run-migrations
+        image: ghcr.io/danilomartinelli/domain-driven-hexagon/ddh-app:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo "Running database migrations..."
+          node -e "
+            const { exec } = require('child_process');
+            exec('npm run migration:up', (error, stdout, stderr) => {
+              if (error) {
+                console.error('Migration failed:', error);
+                process.exit(1);
+              }
+              console.log('Migrations completed:', stdout);
+            });
+          "
+        envFrom:
+        - configMapRef:
+            name: ddh-app-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ddh-app-secrets
+              key: jwt-secret
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /app/.cache
+          
+      # ==================================================
+      # APPLICATION CONTAINERS
+      # ==================================================
+      containers:
+      - name: ddh-app
+        image: ghcr.io/danilomartinelli/domain-driven-hexagon/ddh-app:latest
+        imagePullPolicy: Always
+        
+        # ==================================================
+        # SECURITY CONTEXT (CONTAINER LEVEL)
+        # ==================================================
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+            
+        # ==================================================
+        # ENVIRONMENT VARIABLES
+        # ==================================================
+        envFrom:
+        - configMapRef:
+            name: ddh-app-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-postgres-secrets
+              key: postgres-password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ddh-app-secrets
+              key: jwt-secret
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ddh-app-secrets
+              key: encryption-key
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ddh-app-secrets
+              key: session-secret
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-redis-secrets
+              key: redis-password
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ddh-rabbitmq-secrets
+              key: rabbitmq-password
+        # Kubernetes metadata
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: KUBERNETES_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: KUBERNETES_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+              
+        # ==================================================
+        # PORTS CONFIGURATION
+        # ==================================================
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+          
+        # ==================================================
+        # HEALTH CHECKS
+        # ==================================================
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            httpHeaders:
+            - name: User-Agent
+              value: "k8s-liveness-probe"
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+          
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+            httpHeaders:
+            - name: User-Agent
+              value: "k8s-readiness-probe"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 30
+          
+        # ==================================================
+        # RESOURCE LIMITS AND REQUESTS
+        # ==================================================
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+            ephemeral-storage: 2Gi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+            ephemeral-storage: 1Gi
+            
+        # ==================================================
+        # VOLUME MOUNTS
+        # ==================================================
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: cache-volume
+          mountPath: /app/.cache
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: secrets-volume
+          mountPath: /app/secrets
+          readOnly: true
+          
+        # ==================================================
+        # LIFECYCLE HOOKS
+        # ==================================================
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - sh
+              - -c
+              - |
+                echo "Graceful shutdown initiated..."
+                # Give the app time to finish current requests
+                sleep 15
+                
+      # ==================================================
+      # SIDECAR CONTAINERS
+      # ==================================================
+      # Log forwarding sidecar (optional)
+      - name: log-forwarder
+        image: fluent/fluent-bit:2.1.0
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          runAsGroup: 999
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /app/logs
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc
+        env:
+        - name: FLUENTBIT_CONFIG_PATH
+          value: /fluent-bit/etc/fluent-bit.conf
+          
+      # ==================================================
+      # VOLUMES
+      # ==================================================
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: cache-volume
+        emptyDir:
+          sizeLimit: 500Mi
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: secrets-volume
+        secret:
+          secretName: ddh-app-secrets
+          defaultMode: 0400
+      - name: fluent-bit-config
+        configMap:
+          name: ddh-fluent-bit-config
+          
+      # ==================================================
+      # DNS AND NETWORKING
+      # ==================================================
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0
+          
+      # ==================================================
+      # TERMINATION AND RESTART
+      # ==================================================
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      
+      # ==================================================
+      # IMAGE PULL SECRETS
+      # ==================================================
+      imagePullSecrets:
+      - name: ddh-registry-secret
+---
+# ==================================================
+# HORIZONTAL POD AUTOSCALER
+# ==================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ddh-app-hpa
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: autoscaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ddh-app
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 60
+---
+# ==================================================
+# POD DISRUPTION BUDGET
+# ==================================================
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ddh-app-pdb
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: availability
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: ddh-app
+---
+# ==================================================
+# SERVICE ACCOUNT AND RBAC
+# ==================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ddh-app-sa
+  namespace: ddh-production
+  labels:
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: serviceaccount
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ddh-app-role
+  namespace: ddh-production
+rules:
+# Minimal permissions - only what the app needs
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+  resourceNames: ["ddh-app-secrets"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ddh-app-rolebinding
+  namespace: ddh-production
+subjects:
+- kind: ServiceAccount
+  name: ddh-app-sa
+  namespace: ddh-production
+roleRef:
+  kind: Role
+  name: ddh-app-role
+  apiGroup: rbac.authorization.k8s.io

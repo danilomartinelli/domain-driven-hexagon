@@ -1,0 +1,357 @@
+# ==================================================
+# KUBERNETES SERVICES CONFIGURATION
+# ==================================================
+
+# ==================================================
+# APPLICATION SERVICE
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-app-service
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: service
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "http"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/health"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "3000"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  selector:
+    app: ddh-app
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+---
+# ==================================================
+# APPLICATION HEADLESS SERVICE (FOR DISCOVERY)
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-app-headless
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: ddh-app
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    protocol: TCP
+---
+# ==================================================
+# POSTGRES SERVICE
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-postgres-service
+  namespace: ddh-production
+  labels:
+    app: ddh-postgres
+    app.kubernetes.io/name: ddh-postgres
+    app.kubernetes.io/component: service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9187"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app: ddh-postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+    protocol: TCP
+  - name: metrics
+    port: 9187
+    targetPort: metrics
+    protocol: TCP
+---
+# ==================================================
+# POSTGRES HEADLESS SERVICE (FOR STATEFULSET)
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-postgres-headless
+  namespace: ddh-production
+  labels:
+    app: ddh-postgres
+    app.kubernetes.io/name: ddh-postgres
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: ddh-postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+    protocol: TCP
+---
+# ==================================================
+# REDIS SERVICE
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-redis-service
+  namespace: ddh-production
+  labels:
+    app: ddh-redis
+    app.kubernetes.io/name: ddh-redis
+    app.kubernetes.io/component: service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9121"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app: ddh-redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+    protocol: TCP
+  - name: metrics
+    port: 9121
+    targetPort: metrics
+    protocol: TCP
+---
+# ==================================================
+# RABBITMQ SERVICE
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-rabbitmq-service
+  namespace: ddh-production
+  labels:
+    app: ddh-rabbitmq
+    app.kubernetes.io/name: ddh-rabbitmq
+    app.kubernetes.io/component: service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "15692"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app: ddh-rabbitmq
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: amqp
+    protocol: TCP
+  - name: management
+    port: 15672
+    targetPort: management
+    protocol: TCP
+  - name: prometheus
+    port: 15692
+    targetPort: prometheus
+    protocol: TCP
+---
+# ==================================================
+# RABBITMQ HEADLESS SERVICE (FOR STATEFULSET)
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-rabbitmq-headless
+  namespace: ddh-production
+  labels:
+    app: ddh-rabbitmq
+    app.kubernetes.io/name: ddh-rabbitmq
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: ddh-rabbitmq
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: amqp
+    protocol: TCP
+  - name: management
+    port: 15672
+    targetPort: management
+    protocol: TCP
+---
+# ==================================================
+# NGINX INGRESS CONTROLLER SERVICE (IF NOT USING CLOUD LB)
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-nginx-service
+  namespace: ddh-production
+  labels:
+    app: ddh-nginx
+    app.kubernetes.io/name: ddh-nginx
+    app.kubernetes.io/component: service
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app: ddh-nginx
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+---
+# ==================================================
+# MONITORING SERVICES
+# ==================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-prometheus-service
+  namespace: ddh-production
+  labels:
+    app: ddh-prometheus
+    app.kubernetes.io/name: ddh-prometheus
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  selector:
+    app: ddh-prometheus
+  ports:
+  - name: prometheus
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddh-grafana-service
+  namespace: ddh-production
+  labels:
+    app: ddh-grafana
+    app.kubernetes.io/name: ddh-grafana
+    app.kubernetes.io/component: service
+spec:
+  type: ClusterIP
+  selector:
+    app: ddh-grafana
+  ports:
+  - name: grafana
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+---
+# ==================================================
+# SERVICE MONITOR FOR PROMETHEUS OPERATOR
+# ==================================================
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ddh-app-metrics
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: ddh-app
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ddh-postgres-metrics
+  namespace: ddh-production
+  labels:
+    app: ddh-postgres
+    app.kubernetes.io/name: ddh-postgres
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: ddh-postgres
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ddh-redis-metrics
+  namespace: ddh-production
+  labels:
+    app: ddh-redis
+    app.kubernetes.io/name: ddh-redis
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: ddh-redis
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ddh-rabbitmq-metrics
+  namespace: ddh-production
+  labels:
+    app: ddh-rabbitmq
+    app.kubernetes.io/name: ddh-rabbitmq
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: ddh-rabbitmq
+  endpoints:
+  - port: prometheus
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s

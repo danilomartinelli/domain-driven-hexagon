@@ -1,0 +1,392 @@
+# ==================================================
+# APPLICATION ALERTING RULES FOR DOMAIN-DRIVEN HEXAGON
+# ==================================================
+groups:
+  # ==================================================
+  # APPLICATION HEALTH AND AVAILABILITY
+  # ==================================================
+  - name: ddh.application.health
+    interval: 15s
+    rules:
+    - alert: DDHApplicationDown
+      expr: up{job="ddh-application"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        component: application
+        team: backend
+      annotations:
+        summary: "DDH Application instance is down"
+        description: "DDH Application instance {{ $labels.instance }} has been down for more than 1 minute"
+        runbook_url: "https://runbook.yourdomain.com/alerts/application-down"
+        dashboard_url: "https://monitoring.yourdomain.com/d/ddh-overview/ddh-overview"
+        
+    - alert: DDHApplicationHighErrorRate
+      expr: |
+        (
+          rate(ddh_http_requests_total{status=~"5.."}[5m]) / 
+          rate(ddh_http_requests_total[5m])
+        ) * 100 > 5
+      for: 2m
+      labels:
+        severity: warning
+        component: application
+        team: backend
+      annotations:
+        summary: "DDH Application high error rate"
+        description: "DDH Application error rate is {{ $value }}% over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-error-rate"
+        
+    - alert: DDHApplicationCriticalErrorRate
+      expr: |
+        (
+          rate(ddh_http_requests_total{status=~"5.."}[5m]) / 
+          rate(ddh_http_requests_total[5m])
+        ) * 100 > 10
+      for: 1m
+      labels:
+        severity: critical
+        component: application
+        team: backend
+      annotations:
+        summary: "DDH Application critical error rate"
+        description: "DDH Application error rate is {{ $value }}% over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/critical-error-rate"
+        
+    - alert: DDHApplicationSlowRequests
+      expr: |
+        histogram_quantile(0.95, 
+          rate(ddh_http_request_duration_seconds_bucket[5m])
+        ) > 0.5
+      for: 3m
+      labels:
+        severity: warning
+        component: application
+        team: backend
+      annotations:
+        summary: "DDH Application slow requests"
+        description: "95th percentile request duration is {{ $value }}s over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/slow-requests"
+        
+    - alert: DDHApplicationVerySlowRequests
+      expr: |
+        histogram_quantile(0.95, 
+          rate(ddh_http_request_duration_seconds_bucket[5m])
+        ) > 2
+      for: 1m
+      labels:
+        severity: critical
+        component: application
+        team: backend
+      annotations:
+        summary: "DDH Application very slow requests"
+        description: "95th percentile request duration is {{ $value }}s over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/very-slow-requests"
+        
+  # ==================================================
+  # AUTHENTICATION AND SECURITY ALERTS
+  # ==================================================
+  - name: ddh.authentication.security
+    interval: 30s
+    rules:
+    - alert: DDHHighFailedAuthenticationRate
+      expr: |
+        rate(ddh_auth_attempts_total{status="failed"}[5m]) > 10
+      for: 2m
+      labels:
+        severity: warning
+        component: authentication
+        team: security
+      annotations:
+        summary: "High failed authentication rate detected"
+        description: "Failed authentication rate is {{ $value }} attempts/second over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/failed-auth"
+        
+    - alert: DDHSuspiciousAuthenticationActivity
+      expr: |
+        rate(ddh_auth_attempts_total{status="failed"}[1m]) > 50
+      for: 30s
+      labels:
+        severity: critical
+        component: authentication
+        team: security
+      annotations:
+        summary: "Suspicious authentication activity detected"
+        description: "Extremely high failed authentication rate: {{ $value }} attempts/second"
+        runbook_url: "https://runbook.yourdomain.com/alerts/suspicious-auth"
+        
+    - alert: DDHJWTTokenExpiration
+      expr: ddh_jwt_tokens_expiring_soon > 100
+      for: 5m
+      labels:
+        severity: warning
+        component: authentication
+        team: backend
+      annotations:
+        summary: "High number of JWT tokens expiring soon"
+        description: "{{ $value }} JWT tokens are expiring within the next hour"
+        runbook_url: "https://runbook.yourdomain.com/alerts/jwt-expiration"
+        
+    - alert: DDHRateLimitExceeded
+      expr: rate(ddh_rate_limit_exceeded_total[5m]) > 5
+      for: 2m
+      labels:
+        severity: warning
+        component: security
+        team: backend
+      annotations:
+        summary: "Rate limit frequently exceeded"
+        description: "Rate limit exceeded {{ $value }} times/second over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/rate-limit"
+        
+  # ==================================================
+  # BUSINESS METRICS AND SLA
+  # ==================================================
+  - name: ddh.business.sla
+    interval: 60s
+    rules:
+    - alert: DDHSLAViolation
+      expr: |
+        (
+          sum(rate(ddh_http_requests_total{status!~"5.."}[5m])) / 
+          sum(rate(ddh_http_requests_total[5m]))
+        ) * 100 < 99.5
+      for: 5m
+      labels:
+        severity: warning
+        component: sla
+        team: backend
+      annotations:
+        summary: "SLA violation: Availability below 99.5%"
+        description: "Application availability is {{ $value }}% over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/sla-violation"
+        
+    - alert: DDHCriticalSLAViolation
+      expr: |
+        (
+          sum(rate(ddh_http_requests_total{status!~"5.."}[5m])) / 
+          sum(rate(ddh_http_requests_total[5m]))
+        ) * 100 < 99
+      for: 2m
+      labels:
+        severity: critical
+        component: sla
+        team: backend
+      annotations:
+        summary: "Critical SLA violation: Availability below 99%"
+        description: "Application availability is {{ $value }}% over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/critical-sla-violation"
+        
+    - alert: DDHLowThroughput
+      expr: rate(ddh_http_requests_total[5m]) < 1
+      for: 10m
+      labels:
+        severity: warning
+        component: business
+        team: backend
+      annotations:
+        summary: "Low application throughput"
+        description: "Request rate is {{ $value }} requests/second, which is unusually low"
+        runbook_url: "https://runbook.yourdomain.com/alerts/low-throughput"
+        
+  # ==================================================
+  # RESOURCE UTILIZATION
+  # ==================================================
+  - name: ddh.resources
+    interval: 30s
+    rules:
+    - alert: DDHHighMemoryUsage
+      expr: |
+        (
+          container_memory_working_set_bytes{pod=~"ddh-app-.*"} / 
+          container_spec_memory_limit_bytes{pod=~"ddh-app-.*"}
+        ) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        component: resources
+        team: backend
+      annotations:
+        summary: "High memory usage in DDH application"
+        description: "Memory usage is {{ $value }}% in pod {{ $labels.pod }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-memory"
+        
+    - alert: DDHCriticalMemoryUsage
+      expr: |
+        (
+          container_memory_working_set_bytes{pod=~"ddh-app-.*"} / 
+          container_spec_memory_limit_bytes{pod=~"ddh-app-.*"}
+        ) * 100 > 90
+      for: 2m
+      labels:
+        severity: critical
+        component: resources
+        team: backend
+      annotations:
+        summary: "Critical memory usage in DDH application"
+        description: "Memory usage is {{ $value }}% in pod {{ $labels.pod }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/critical-memory"
+        
+    - alert: DDHHighCPUUsage
+      expr: |
+        (
+          rate(container_cpu_usage_seconds_total{pod=~"ddh-app-.*"}[5m]) / 
+          container_spec_cpu_quota{pod=~"ddh-app-.*"} * 
+          container_spec_cpu_period{pod=~"ddh-app-.*"}
+        ) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        component: resources
+        team: backend
+      annotations:
+        summary: "High CPU usage in DDH application"
+        description: "CPU usage is {{ $value }}% in pod {{ $labels.pod }}"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-cpu"
+        
+    - alert: DDHPodRestartingFrequently
+      expr: |
+        rate(kube_pod_container_status_restarts_total{pod=~"ddh-app-.*"}[15m]) > 0
+      for: 5m
+      labels:
+        severity: warning
+        component: stability
+        team: backend
+      annotations:
+        summary: "DDH pod restarting frequently"
+        description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/pod-restarts"
+        
+  # ==================================================
+  # DATABASE PERFORMANCE
+  # ==================================================
+  - name: ddh.database.performance
+    interval: 30s
+    rules:
+    - alert: DDHDatabaseSlowQueries
+      expr: |
+        pg_stat_activity_max_tx_duration{datname="ddh_production"} > 300
+      for: 2m
+      labels:
+        severity: warning
+        component: database
+        team: backend
+      annotations:
+        summary: "Slow database queries detected"
+        description: "Longest running transaction duration is {{ $value }} seconds"
+        runbook_url: "https://runbook.yourdomain.com/alerts/slow-queries"
+        
+    - alert: DDHDatabaseHighConnections
+      expr: |
+        pg_stat_database_numbackends{datname="ddh_production"} > 80
+      for: 5m
+      labels:
+        severity: warning
+        component: database
+        team: backend
+      annotations:
+        summary: "High database connection count"
+        description: "Database has {{ $value }} active connections"
+        runbook_url: "https://runbook.yourdomain.com/alerts/high-db-connections"
+        
+    - alert: DDHDatabaseLockContention
+      expr: pg_locks_count > 100
+      for: 2m
+      labels:
+        severity: warning
+        component: database
+        team: backend
+      annotations:
+        summary: "Database lock contention detected"
+        description: "Database has {{ $value }} active locks"
+        runbook_url: "https://runbook.yourdomain.com/alerts/lock-contention"
+        
+  # ==================================================
+  # CACHE PERFORMANCE
+  # ==================================================
+  - name: ddh.cache.performance
+    interval: 30s
+    rules:
+    - alert: DDHRedisHighMemoryUsage
+      expr: |
+        (redis_memory_used_bytes / redis_memory_max_bytes) * 100 > 90
+      for: 5m
+      labels:
+        severity: warning
+        component: cache
+        team: backend
+      annotations:
+        summary: "Redis high memory usage"
+        description: "Redis memory usage is {{ $value }}%"
+        runbook_url: "https://runbook.yourdomain.com/alerts/redis-memory"
+        
+    - alert: DDHRedisConnectionsExhausted
+      expr: redis_connected_clients > 100
+      for: 5m
+      labels:
+        severity: warning
+        component: cache
+        team: backend
+      annotations:
+        summary: "Redis high connection count"
+        description: "Redis has {{ $value }} connected clients"
+        runbook_url: "https://runbook.yourdomain.com/alerts/redis-connections"
+        
+    - alert: DDHCacheMissRateHigh
+      expr: |
+        (
+          rate(ddh_cache_misses_total[5m]) / 
+          (rate(ddh_cache_hits_total[5m]) + rate(ddh_cache_misses_total[5m]))
+        ) * 100 > 50
+      for: 5m
+      labels:
+        severity: warning
+        component: cache
+        team: backend
+      annotations:
+        summary: "High cache miss rate"
+        description: "Cache miss rate is {{ $value }}% over the last 5 minutes"
+        runbook_url: "https://runbook.yourdomain.com/alerts/cache-miss-rate"
+        
+  # ==================================================
+  # MESSAGE QUEUE PERFORMANCE
+  # ==================================================
+  - name: ddh.messagequeue.performance
+    interval: 30s
+    rules:
+    - alert: DDHRabbitMQQueueBacklog
+      expr: rabbitmq_queue_messages > 1000
+      for: 5m
+      labels:
+        severity: warning
+        component: messagequeue
+        team: backend
+      annotations:
+        summary: "RabbitMQ queue backlog"
+        description: "Queue {{ $labels.queue }} has {{ $value }} unprocessed messages"
+        runbook_url: "https://runbook.yourdomain.com/alerts/queue-backlog"
+        
+    - alert: DDHRabbitMQHighMemoryUsage
+      expr: |
+        (rabbitmq_node_mem_used / rabbitmq_node_mem_limit) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        component: messagequeue
+        team: backend
+      annotations:
+        summary: "RabbitMQ high memory usage"
+        description: "RabbitMQ memory usage is {{ $value }}%"
+        runbook_url: "https://runbook.yourdomain.com/alerts/rabbitmq-memory"
+        
+    - alert: DDHMessageProcessingDelay
+      expr: ddh_message_processing_duration_seconds > 60
+      for: 2m
+      labels:
+        severity: warning
+        component: messagequeue
+        team: backend
+      annotations:
+        summary: "Message processing delay"
+        description: "Message processing is taking {{ $value }} seconds on average"
+        runbook_url: "https://runbook.yourdomain.com/alerts/message-delay"

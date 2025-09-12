@@ -1,0 +1,533 @@
+# ==================================================
+# COMPREHENSIVE SECURITY POLICY FOR DOMAIN-DRIVEN HEXAGON
+# ==================================================
+# This file defines security policies, compliance requirements, and 
+# automated security scanning configurations for production deployment.
+
+apiVersion: v1
+kind: SecurityPolicy
+metadata:
+  name: ddh-security-policy
+  namespace: ddh-production
+  labels:
+    app.kubernetes.io/name: ddh-security
+    app.kubernetes.io/component: security-policy
+    policy.type: security
+spec:
+  # ==================================================
+  # POD SECURITY STANDARDS (PSS)
+  # ==================================================
+  podSecurityPolicy:
+    # Enforce restricted security context for all pods
+    securityContext:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Resource limits enforcement
+    resources:
+      limits:
+        cpu: "2"
+        memory: "4Gi"
+        ephemeral-storage: "2Gi"
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+        ephemeral-storage: "1Gi"
+    
+    # Volume restrictions
+    volumes:
+      allowed:
+        - configMap
+        - secret
+        - emptyDir
+        - persistentVolumeClaim
+        - projected
+      forbidden:
+        - hostPath
+        - hostPID
+        - hostNetwork
+        - hostIPC
+    
+    # Network policies
+    networkPolicy:
+      enabled: true
+      defaultDeny: true
+      allowedEgress:
+        - to: []
+          ports:
+            - protocol: UDP
+              port: 53  # DNS
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: ddh-production
+          ports:
+            - protocol: TCP
+              port: 3000  # App service
+            - protocol: TCP
+              port: 5432  # PostgreSQL
+            - protocol: TCP
+              port: 6379  # Redis
+            - protocol: TCP
+              port: 5672  # RabbitMQ
+
+  # ==================================================
+  # IMAGE SECURITY POLICY
+  # ==================================================
+  imagePolicy:
+    # Allowed registries
+    allowedRegistries:
+      - "ghcr.io/danilomartinelli/domain-driven-hexagon"
+      - "docker.io/library"  # Official images only
+      - "gcr.io/distroless"
+      - "registry.k8s.io"
+    
+    # Forbidden images
+    forbiddenImages:
+      - "latest"  # No latest tags in production
+      - "*:latest"
+      - "*:master"
+      - "*:main"
+    
+    # Image scanning requirements
+    scanning:
+      required: true
+      maxCriticalVulnerabilities: 0
+      maxHighVulnerabilities: 0
+      maxMediumVulnerabilities: 5
+      scanTools:
+        - trivy
+        - grype
+        - docker-scout
+    
+    # Image signing requirements
+    signing:
+      required: true
+      cosignPublicKey: |
+        -----BEGIN PUBLIC KEY-----
+        # Replace with actual Cosign public key
+        -----END PUBLIC KEY-----
+
+  # ==================================================
+  # RUNTIME SECURITY POLICY
+  # ==================================================
+  runtimeSecurity:
+    # Process monitoring
+    processMonitoring:
+      enabled: true
+      allowedProcesses:
+        - "/usr/bin/node"
+        - "/bin/sh"
+        - "/bin/bash"
+        - "/usr/bin/npm"
+      forbiddenProcesses:
+        - "/bin/su"
+        - "/usr/bin/sudo"
+        - "/usr/sbin/sshd"
+        - "/usr/bin/wget"
+        - "/usr/bin/curl"  # Allowed only for health checks
+    
+    # File system monitoring
+    fileSystemMonitoring:
+      enabled: true
+      readOnlyPaths:
+        - "/etc"
+        - "/usr"
+        - "/bin"
+        - "/sbin"
+        - "/lib"
+        - "/lib64"
+      writablePaths:
+        - "/tmp"
+        - "/var/tmp"
+        - "/app/logs"
+        - "/app/.cache"
+    
+    # Network monitoring
+    networkMonitoring:
+      enabled: true
+      allowedPorts:
+        ingress:
+          - 3000  # Application port
+          - 9090  # Metrics port
+        egress:
+          - 53    # DNS
+          - 80    # HTTP (for external APIs)
+          - 443   # HTTPS
+          - 5432  # PostgreSQL
+          - 6379  # Redis
+          - 5672  # RabbitMQ
+
+  # ==================================================
+  # COMPLIANCE REQUIREMENTS
+  # ==================================================
+  compliance:
+    # SOC 2 Type II requirements
+    soc2:
+      enabled: true
+      requirements:
+        dataEncryption:
+          atRest: true
+          inTransit: true
+        accessControl:
+          rbac: true
+          mfa: false  # Handled at cluster level
+        auditLogging:
+          enabled: true
+          retention: "2555d"  # 7 years
+        dataBackup:
+          enabled: true
+          frequency: "daily"
+          retention: "2555d"  # 7 years
+    
+    # GDPR requirements
+    gdpr:
+      enabled: true
+      requirements:
+        dataMinimization: true
+        rightToErasure: true
+        dataPortability: true
+        consentManagement: true
+        dataProcessingRecords: true
+    
+    # ISO 27001 requirements
+    iso27001:
+      enabled: true
+      requirements:
+        riskAssessment: true
+        securityAwareness: true
+        incidentResponse: true
+        businessContinuity: true
+        supplierRelationships: true
+
+  # ==================================================
+  # SECURITY MONITORING
+  # ==================================================
+  monitoring:
+    # Security events logging
+    securityEvents:
+      enabled: true
+      events:
+        - authentication_failure
+        - authorization_failure
+        - privilege_escalation
+        - suspicious_process
+        - network_anomaly
+        - file_modification
+        - container_escape
+      retention: "90d"
+    
+    # Anomaly detection
+    anomalyDetection:
+      enabled: true
+      thresholds:
+        cpuUsage: 80
+        memoryUsage: 85
+        networkTraffic: 1000  # Mbps
+        fileSystemUsage: 80
+        processCount: 100
+    
+    # Security metrics
+    metrics:
+      enabled: true
+      exporters:
+        - prometheus
+        - cloudwatch
+      dashboards:
+        - grafana
+        - aws-cloudwatch
+
+  # ==================================================
+  # INCIDENT RESPONSE
+  # ==================================================
+  incidentResponse:
+    # Automated response actions
+    automatedResponse:
+      enabled: true
+      actions:
+        - isolatePod
+        - scaleDown
+        - blockTraffic
+        - createIncident
+        - notifyTeam
+    
+    # Escalation procedures
+    escalation:
+      levels:
+        - name: "Low"
+          responseTime: "4h"
+          assignees: ["security-team"]
+        - name: "Medium"
+          responseTime: "2h"
+          assignees: ["security-team", "sre-team"]
+        - name: "High"
+          responseTime: "30m"
+          assignees: ["security-team", "sre-team", "management"]
+        - name: "Critical"
+          responseTime: "15m"
+          assignees: ["all-hands"]
+    
+    # Communication channels
+    notifications:
+      slack:
+        webhook: "$SLACK_SECURITY_WEBHOOK"
+        channels:
+          - "#security-alerts"
+          - "#incident-response"
+      email:
+        recipients:
+          - "security@yourdomain.com"
+          - "sre@yourdomain.com"
+      pagerduty:
+        integrationKey: "$PAGERDUTY_INTEGRATION_KEY"
+
+  # ==================================================
+  # VULNERABILITY MANAGEMENT
+  # ==================================================
+  vulnerabilityManagement:
+    # Scanning schedule
+    scanning:
+      images:
+        schedule: "0 2 * * *"  # Daily at 2 AM
+        retention: "30d"
+      infrastructure:
+        schedule: "0 3 * * 0"  # Weekly on Sunday at 3 AM
+        retention: "90d"
+      application:
+        schedule: "0 4 * * 0"  # Weekly on Sunday at 4 AM
+        retention: "90d"
+    
+    # Remediation SLAs
+    remediation:
+      critical: "24h"
+      high: "72h"
+      medium: "7d"
+      low: "30d"
+    
+    # Exception handling
+    exceptions:
+      approvalRequired: true
+      validityPeriod: "90d"
+      reviewers:
+        - "security-team"
+        - "architecture-team"
+
+  # ==================================================
+  # DATA PROTECTION
+  # ==================================================
+  dataProtection:
+    # Data classification
+    classification:
+      public:
+        encryption: false
+        retention: "1y"
+      internal:
+        encryption: true
+        retention: "3y"
+      confidential:
+        encryption: true
+        retention: "7y"
+      restricted:
+        encryption: true
+        retention: "10y"
+    
+    # Data loss prevention
+    dlp:
+      enabled: true
+      patterns:
+        - creditCard
+        - ssn
+        - personalInfo
+        - apiKeys
+        - passwords
+      actions:
+        - block
+        - alert
+        - audit
+    
+    # Backup and recovery
+    backup:
+      encryption: true
+      frequency: "daily"
+      retention:
+        daily: "30d"
+        weekly: "12w"
+        monthly: "12m"
+        yearly: "7y"
+      testing:
+        frequency: "monthly"
+        validationChecks: true
+
+  # ==================================================
+  # ACCESS CONTROL
+  # ==================================================
+  accessControl:
+    # Role-based access control
+    rbac:
+      enabled: true
+      roles:
+        - name: "developer"
+          permissions:
+            - "read"
+            - "create"
+            - "update"
+          namespaces: ["ddh-development", "ddh-staging"]
+        - name: "sre"
+          permissions:
+            - "read"
+            - "create"
+            - "update"
+            - "delete"
+          namespaces: ["ddh-production", "monitoring"]
+        - name: "security"
+          permissions:
+            - "*"
+          namespaces: ["*"]
+    
+    # Multi-factor authentication
+    mfa:
+      required: true
+      methods:
+        - totp
+        - yubikey
+        - sms
+      exemptions: []
+    
+    # Session management
+    sessions:
+      timeout: "8h"
+      inactivityTimeout: "30m"
+      concurrentSessions: 3
+      ipRestrictions: false
+
+  # ==================================================
+  # SECURITY TESTING
+  # ==================================================
+  securityTesting:
+    # Static application security testing
+    sast:
+      enabled: true
+      tools:
+        - "sonarqube"
+        - "semgrep"
+        - "bandit"
+      schedule: "on-commit"
+      failOnCritical: true
+    
+    # Dynamic application security testing
+    dast:
+      enabled: true
+      tools:
+        - "owasp-zap"
+        - "burp-suite"
+      schedule: "weekly"
+      environments:
+        - "staging"
+      excludePaths:
+        - "/health"
+        - "/metrics"
+    
+    # Interactive application security testing
+    iast:
+      enabled: false  # Not implemented yet
+      tools: []
+    
+    # Dependency scanning
+    dependencyScanning:
+      enabled: true
+      tools:
+        - "npm-audit"
+        - "snyk"
+        - "dependabot"
+      schedule: "daily"
+      autoFix: false  # Manual review required
+    
+    # Infrastructure as code scanning
+    iacScanning:
+      enabled: true
+      tools:
+        - "terraform-security-scan"
+        - "checkov"
+        - "tfsec"
+      schedule: "on-commit"
+      
+    # Container scanning
+    containerScanning:
+      enabled: true
+      tools:
+        - "trivy"
+        - "grype"
+        - "docker-scout"
+      schedule: "on-build"
+      registryScanning: true
+
+  # ==================================================
+  # AUDIT AND COMPLIANCE REPORTING
+  # ==================================================
+  auditReporting:
+    # Audit log configuration
+    auditLogs:
+      enabled: true
+      retention: "2555d"  # 7 years for compliance
+      locations:
+        - "/var/log/audit"
+        - "s3://ddh-audit-logs"
+      format: "json"
+      encryption: true
+    
+    # Compliance reporting
+    complianceReports:
+      enabled: true
+      schedule: "monthly"
+      formats:
+        - "pdf"
+        - "json"
+        - "csv"
+      distribution:
+        - "compliance@yourdomain.com"
+        - "management@yourdomain.com"
+    
+    # Security metrics reporting
+    securityMetrics:
+      enabled: true
+      kpis:
+        - vulnerabilitiesFound
+        - vulnerabilitiesFixed
+        - incidentResponseTime
+        - securityTestCoverage
+        - complianceScore
+      dashboard: "https://monitoring.yourdomain.com/security"
+
+  # ==================================================
+  # SECURITY TRAINING AND AWARENESS
+  # ==================================================
+  securityTraining:
+    # Mandatory training
+    mandatoryTraining:
+      enabled: true
+      frequency: "annual"
+      modules:
+        - "security-awareness"
+        - "phishing-prevention"
+        - "data-protection"
+        - "incident-response"
+      completionTracking: true
+    
+    # Security champions program
+    securityChampions:
+      enabled: true
+      responsibilities:
+        - "security-reviews"
+        - "threat-modeling"
+        - "security-testing"
+        - "knowledge-sharing"
+      training:
+        - "advanced-security"
+        - "security-architecture"
+        - "threat-modeling"

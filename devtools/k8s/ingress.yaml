@@ -1,0 +1,410 @@
+# ==================================================
+# KUBERNETES INGRESS WITH SECURITY HARDENING
+# ==================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ddh-app-ingress
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-ingress
+    app.kubernetes.io/component: ingress
+  annotations:
+    # ==================================================
+    # INGRESS CONTROLLER SETTINGS
+    # ==================================================
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    
+    # ==================================================
+    # SSL/TLS CONFIGURATION
+    # ==================================================
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384"
+    nginx.ingress.kubernetes.io/ssl-prefer-server-ciphers: "true"
+    
+    # ==================================================
+    # SECURITY HEADERS
+    # ==================================================
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
+      more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()";
+      more_set_headers "Cross-Origin-Opener-Policy: same-origin";
+      more_set_headers "Cross-Origin-Embedder-Policy: require-corp";
+      
+    # ==================================================
+    # RATE LIMITING
+    # ==================================================
+    nginx.ingress.kubernetes.io/rate-limit-rps: "100"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "20"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit-backoff: "10s"
+    
+    # ==================================================
+    # REQUEST SIZE AND TIMEOUTS
+    # ==================================================
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    
+    # ==================================================
+    # CORS CONFIGURATION
+    # ==================================================
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://app.yourdomain.com,https://admin.yourdomain.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+    
+    # ==================================================
+    # BACKEND CONFIGURATION
+    # ==================================================
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"
+    nginx.ingress.kubernetes.io/session-affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-affinity-mode: "persistent"
+    
+    # ==================================================
+    # WAF AND SECURITY
+    # ==================================================
+    nginx.ingress.kubernetes.io/modsecurity: "true"
+    nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"
+    nginx.ingress.kubernetes.io/modsecurity-snippet: |
+      SecRuleEngine On
+      SecAuditEngine RelevantOnly
+      SecAuditLog /var/log/modsec_audit.log
+      SecRule ARGS "@detectSQLi" "id:1001,phase:2,block,msg:'SQL Injection Attack',logdata:'Matched Data: %{MATCHED_VAR} found within %{MATCHED_VAR_NAME}'"
+      SecRule ARGS "@detectXSS" "id:1002,phase:2,block,msg:'XSS Attack',logdata:'Matched Data: %{MATCHED_VAR} found within %{MATCHED_VAR_NAME}'"
+      
+    # ==================================================
+    # MONITORING AND OBSERVABILITY
+    # ==================================================
+    nginx.ingress.kubernetes.io/enable-access-log: "true"
+    nginx.ingress.kubernetes.io/enable-rewrite-log: "true"
+    
+spec:
+  # ==================================================
+  # TLS CONFIGURATION
+  # ==================================================
+  tls:
+  - hosts:
+    - api.yourdomain.com
+    - app.yourdomain.com
+    secretName: ddh-tls-secret
+    
+  # ==================================================
+  # ROUTING RULES
+  # ==================================================
+  rules:
+  - host: api.yourdomain.com
+    http:
+      paths:
+      # ==================================================
+      # HEALTH CHECK ENDPOINT
+      # ==================================================
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+              
+      # ==================================================
+      # API ENDPOINTS
+      # ==================================================
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+              
+      # ==================================================
+      # GRAPHQL ENDPOINT
+      # ==================================================
+      - path: /graphql
+        pathType: Exact
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+              
+      # ==================================================
+      # SWAGGER DOCUMENTATION (PRODUCTION - RESTRICTED)
+      # ==================================================
+      - path: /docs
+        pathType: Prefix
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+---
+# ==================================================
+# AUTHENTICATION-SPECIFIC INGRESS WITH STRICTER RULES
+# ==================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ddh-auth-ingress
+  namespace: ddh-production
+  labels:
+    app: ddh-app
+    app.kubernetes.io/name: ddh-auth-ingress
+    app.kubernetes.io/component: auth-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    
+    # ==================================================
+    # STRICTER SECURITY FOR AUTH ENDPOINTS
+    # ==================================================
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # ==================================================
+    # AGGRESSIVE RATE LIMITING FOR AUTH
+    # ==================================================
+    nginx.ingress.kubernetes.io/rate-limit-rps: "10"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "5"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit-backoff: "30s"
+    
+    # ==================================================
+    # ADDITIONAL SECURITY FOR AUTH
+    # ==================================================
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Block common attack patterns
+      if ($request_uri ~* "(union|select|insert|delete|drop|create|alter|exec|script)" ) {
+        return 444;
+      }
+      
+      # Block if not HTTPS
+      if ($scheme != "https") {
+        return 444;
+      }
+      
+      # Additional security headers for auth
+      more_set_headers "Cache-Control: no-cache, no-store, must-revalidate";
+      more_set_headers "Pragma: no-cache";
+      more_set_headers "Expires: 0";
+      
+    # ==================================================
+    # GeoIP BLOCKING (OPTIONAL)
+    # ==================================================
+    nginx.ingress.kubernetes.io/whitelist-source-range: "0.0.0.0/0"  # Adjust as needed
+    
+    # ==================================================
+    # CUSTOM ERROR PAGES
+    # ==================================================
+    nginx.ingress.kubernetes.io/custom-http-errors: "400,401,403,404,500,502,503,504"
+    nginx.ingress.kubernetes.io/default-backend: "ddh-error-page-service"
+    
+spec:
+  tls:
+  - hosts:
+    - api.yourdomain.com
+    secretName: ddh-tls-secret
+    
+  rules:
+  - host: api.yourdomain.com
+    http:
+      paths:
+      # Authentication endpoints
+      - path: /api/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+      - path: /api/login
+        pathType: Exact
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+      - path: /api/register
+        pathType: Exact
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+      - path: /api/logout
+        pathType: Exact
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+      - path: /api/refresh-token
+        pathType: Exact
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 3000
+---
+# ==================================================
+# MONITORING INGRESS (RESTRICTED ACCESS)
+# ==================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ddh-monitoring-ingress
+  namespace: ddh-production
+  labels:
+    app: ddh-monitoring
+    app.kubernetes.io/name: ddh-monitoring-ingress
+    app.kubernetes.io/component: monitoring
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    
+    # ==================================================
+    # IP WHITELISTING FOR MONITORING
+    # ==================================================
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"  # Internal networks only
+    
+    # ==================================================
+    # BASIC AUTH FOR MONITORING ENDPOINTS
+    # ==================================================
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: ddh-monitoring-auth
+    nginx.ingress.kubernetes.io/auth-realm: "DDH Monitoring - Authentication Required"
+    
+    # ==================================================
+    # DISABLE RATE LIMITING FOR MONITORING
+    # ==================================================
+    nginx.ingress.kubernetes.io/rate-limit-rps: "1000"
+    
+spec:
+  tls:
+  - hosts:
+    - monitoring.yourdomain.com
+    secretName: ddh-monitoring-tls-secret
+    
+  rules:
+  - host: monitoring.yourdomain.com
+    http:
+      paths:
+      # Grafana
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ddh-grafana-service
+            port:
+              number: 3000
+      # Prometheus (direct access)
+      - path: /prometheus
+        pathType: Prefix
+        backend:
+          service:
+            name: ddh-prometheus-service
+            port:
+              number: 9090
+      # Metrics endpoint
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: ddh-app-service
+            port:
+              number: 9090
+---
+# ==================================================
+# CLUSTER ISSUER FOR LET'S ENCRYPT
+# ==================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  namespace: cert-manager
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@yourdomain.com  # Replace with your email
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+    - dns01:
+        route53:
+          region: us-west-2
+          accessKeyID: YOUR_AWS_ACCESS_KEY_ID
+          secretAccessKeySecretRef:
+            name: route53-credentials
+            key: secret-access-key
+---
+# ==================================================
+# CERTIFICATE FOR CUSTOM DOMAIN
+# ==================================================
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ddh-tls-certificate
+  namespace: ddh-production
+spec:
+  secretName: ddh-tls-secret
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - api.yourdomain.com
+  - app.yourdomain.com
+  - monitoring.yourdomain.com
+---
+# ==================================================
+# INGRESS RATE LIMITING POLICIES
+# ==================================================
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ddh-ingress-network-policy
+  namespace: ddh-production
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 80
+    - protocol: TCP
+      port: 443
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: ddh-production
+    ports:
+    - protocol: TCP
+      port: 3000
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

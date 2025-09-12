@@ -6,7 +6,7 @@ import {
   Post,
 } from '@nestjs/common';
 import { routesV1 } from '@config/app.routes';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CommandBus } from '@nestjs/cqrs';
 import { match, Result } from 'oxide.ts';
 import { CreateUserCommand } from './create-user.command';
@@ -15,8 +15,10 @@ import { UserAlreadyExistsError } from '@modules/user/domain/user.errors';
 import { IdResponse } from '@libs/api/id.response.dto';
 import { AggregateID } from '@libs/ddd';
 import { ApiErrorResponse } from '@src/libs/api/api-error.response';
+import { RequirePermissions } from '@modules/auth/infrastructure/decorators/auth.decorator';
 
 @Controller(routesV1.version)
+@ApiBearerAuth()
 export class CreateUserHttpController {
   constructor(private readonly commandBus: CommandBus) {}
 
@@ -34,6 +36,12 @@ export class CreateUserHttpController {
     status: HttpStatus.BAD_REQUEST,
     type: ApiErrorResponse,
   })
+  @ApiResponse({
+    status: HttpStatus.FORBIDDEN,
+    description: 'Insufficient permissions',
+    type: ApiErrorResponse,
+  })
+  @RequirePermissions(['user:create'])
   @Post(routesV1.user.root)
   async create(@Body() body: CreateUserRequestDto): Promise<IdResponse> {
     const command = new CreateUserCommand(body);

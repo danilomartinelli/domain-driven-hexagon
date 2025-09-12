@@ -1,5 +1,6 @@
 import { PaginatedQueryParams, RepositoryPort } from '@libs/ddd';
 import { UserEntity } from '../domain/user.entity';
+import { Option } from 'oxide.ts';
 
 export interface FindUsersParams extends PaginatedQueryParams {
   readonly country?: string;
@@ -9,4 +10,5 @@ export interface FindUsersParams extends PaginatedQueryParams {
 
 export interface UserRepositoryPort extends RepositoryPort<UserEntity> {
   findOneByEmail(email: string): Promise<UserEntity | null>;
+  findByEmail(email: string): Promise<Option<UserEntity>>;
 }

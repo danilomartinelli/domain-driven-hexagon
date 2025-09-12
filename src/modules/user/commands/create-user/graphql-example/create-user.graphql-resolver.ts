@@ -6,6 +6,7 @@ import { IdGqlResponse } from './dtos/id.gql-response.dto';
 import { AggregateID } from '@src/libs/ddd';
 import { UserAlreadyExistsError } from '@src/modules/user/domain/user.errors';
 import { Result } from 'oxide.ts';
+import { RequirePermissions } from '@modules/auth/infrastructure/decorators/auth.decorator';
 
 // If you are Using GraphQL you'll need a Resolver instead of a Controller
 @Resolver()
@@ -13,6 +14,7 @@ export class CreateUserGraphqlResolver {
   constructor(private readonly commandBus: CommandBus) {}
 
   @Mutation(() => IdGqlResponse)
+  @RequirePermissions(['user:create'])
   async create(
     @Args('input') input: CreateUserGqlRequestDto,
   ): Promise<IdGqlResponse> {

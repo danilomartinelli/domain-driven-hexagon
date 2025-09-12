@@ -11,6 +11,7 @@ import { getDatabaseConfig } from './configs/database.config';
 import { DatabaseModule } from '@libs/database';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { SecurityModule } from '@libs/security/security.module';
 
 const interceptors = [
   {
@@ -25,16 +26,37 @@ const interceptors = [
 
 @Module({
   imports: [
+    // Core modules
     EventEmitterModule.forRoot(),
     RequestContextModule,
 
-    // New enhanced database module
+    // Security module - loaded first for global security
+    SecurityModule,
+
+    // Enhanced database module
     DatabaseModule.forRoot(getDatabaseConfig()),
 
     CqrsModule,
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
+      // Security configuration for GraphQL
+      introspection: process.env.NODE_ENV !== 'production',
+      playground: process.env.NODE_ENV !== 'production',
+      context: ({ req, res }) => ({ req, res }),
+      formatError: (error) => {
+        // Sanitize GraphQL errors in production
+        if (process.env.NODE_ENV === 'production') {
+          return {
+            message: error.message,
+            // Remove sensitive details in production
+            extensions: {
+              code: error.extensions?.code,
+            },
+          };
+        }
+        return error;
+      },
     }),
 
     // Business modules

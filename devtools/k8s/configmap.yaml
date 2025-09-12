@@ -1,0 +1,413 @@
+# ==================================================
+# KUBERNETES CONFIGMAPS - APPLICATION CONFIGURATION
+# ==================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddh-app-config
+  namespace: ddh-production
+  labels:
+    app.kubernetes.io/name: ddh-app
+    app.kubernetes.io/component: config
+    app.kubernetes.io/version: "1.0.0"
+data:
+  # ==================================================
+  # APPLICATION CONFIGURATION
+  # ==================================================
+  NODE_ENV: "production"
+  LOG_LEVEL: "warn"
+  PORT: "3000"
+  
+  # ==================================================
+  # DATABASE CONFIGURATION
+  # ==================================================
+  DB_HOST: "ddh-postgres-service"
+  DB_PORT: "5432"
+  DB_NAME: "ddh_production"
+  DB_SSL: "true"
+  DB_SSL_REJECT_UNAUTHORIZED: "true"
+  DB_MAX_POOL_SIZE: "20"
+  DB_MIN_POOL_SIZE: "5"
+  DB_CONNECTION_TIMEOUT: "30000"
+  DB_STATEMENT_TIMEOUT: "60000"
+  DB_QUERY_TIMEOUT: "30000"
+  DB_LOG_LEVEL: "warn"
+  DB_ENABLE_QUERY_LOGGING: "false"
+  
+  # ==================================================
+  # CACHE CONFIGURATION
+  # ==================================================
+  REDIS_HOST: "ddh-redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_TTL: "3600"
+  
+  # ==================================================
+  # MESSAGE QUEUE CONFIGURATION
+  # ==================================================
+  RABBITMQ_HOST: "ddh-rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_VHOST: "ddh_production"
+  RABBITMQ_USERNAME: "ddh_app"
+  
+  # ==================================================
+  # SECURITY CONFIGURATION
+  # ==================================================
+  RATE_LIMIT_TTL: "60"
+  RATE_LIMIT_MAX: "1000"
+  CSP_ENABLED: "true"
+  HSTS_MAX_AGE: "31536000"
+  LOG_SECURITY_EVENTS: "true"
+  
+  # ==================================================
+  # CORS CONFIGURATION
+  # ==================================================
+  CORS_ORIGIN: "https://api.yourdomain.com,https://app.yourdomain.com"
+  CORS_CREDENTIALS: "true"
+  CORS_METHODS: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS"
+  CORS_ALLOWED_HEADERS: "Content-Type,Authorization,X-Requested-With"
+  
+  # ==================================================
+  # MONITORING AND OBSERVABILITY
+  # ==================================================
+  METRICS_ENABLED: "true"
+  METRICS_PREFIX: "ddh_"
+  TRACING_ENABLED: "true"
+  HEALTH_CHECK_TIMEOUT: "30000"
+  
+  # ==================================================
+  # FEATURE FLAGS
+  # ==================================================
+  AUTH_REQUIRED: "true"
+  SWAGGER_ENABLED: "false"  # Disabled in production for security
+  DEBUG_MODE: "false"
+---
+# ==================================================
+# NGINX CONFIGURATION
+# ==================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddh-nginx-config
+  namespace: ddh-production
+  labels:
+    app.kubernetes.io/name: ddh-nginx
+    app.kubernetes.io/component: config
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /var/run/nginx.pid;
+    
+    events {
+        worker_connections 1024;
+        use epoll;
+        multi_accept on;
+    }
+    
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        
+        # Security headers
+        add_header X-Frame-Options DENY always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        
+        # Logging
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+        access_log /var/log/nginx/access.log main;
+        
+        # Upstream
+        upstream ddh_app {
+            server ddh-app-service:3000;
+        }
+        
+        # Server configuration
+        server {
+            listen 80;
+            server_name _;
+            
+            # Security
+            server_tokens off;
+            
+            # Health check
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+            
+            # API proxy
+            location / {
+                proxy_pass http://ddh_app;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                
+                # Timeouts
+                proxy_connect_timeout 60s;
+                proxy_send_timeout 60s;
+                proxy_read_timeout 60s;
+            }
+        }
+    }
+---
+# ==================================================
+# POSTGRESQL CONFIGURATION
+# ==================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddh-postgres-config
+  namespace: ddh-production
+  labels:
+    app.kubernetes.io/name: ddh-postgres
+    app.kubernetes.io/component: config
+data:
+  postgresql.conf: |
+    # ==================================================
+    # POSTGRESQL PRODUCTION CONFIGURATION
+    # ==================================================
+    
+    # Connection settings
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 200
+    superuser_reserved_connections = 3
+    
+    # Memory settings
+    shared_buffers = 256MB
+    effective_cache_size = 1GB
+    maintenance_work_mem = 64MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    
+    # WAL settings
+    wal_level = replica
+    max_wal_senders = 3
+    checkpoint_timeout = 5min
+    checkpoint_completion_target = 0.9
+    
+    # Query tuning
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+    
+    # Logging
+    log_destination = 'stderr'
+    logging_collector = on
+    log_directory = 'log'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_truncate_on_rotation = off
+    log_rotation_age = 1d
+    log_rotation_size = 10MB
+    log_min_messages = warning
+    log_min_error_statement = error
+    log_min_duration_statement = 1000
+    log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+    log_lock_waits = on
+    log_statement = 'ddl'
+    log_temp_files = 10MB
+    
+    # Security
+    ssl = on
+    ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL'
+    ssl_prefer_server_ciphers = on
+    password_encryption = scram-sha-256
+    
+    # Statistics
+    shared_preload_libraries = 'pg_stat_statements'
+    track_activity_query_size = 1024
+    track_counts = on
+    track_functions = all
+    track_io_timing = on
+    
+  pg_hba.conf: |
+    # ==================================================
+    # PostgreSQL Client Authentication Configuration
+    # ==================================================
+    
+    # TYPE  DATABASE        USER            ADDRESS                 METHOD
+    
+    # Local connections
+    local   all             postgres                                peer
+    local   all             all                                     scram-sha-256
+    
+    # IPv4 local connections
+    host    all             all             127.0.0.1/32            scram-sha-256
+    
+    # IPv6 local connections
+    host    all             all             ::1/128                 scram-sha-256
+    
+    # Pod network connections (adjust subnet as needed)
+    host    all             ddh_app         10.0.0.0/8              scram-sha-256
+    host    all             ddh_app         172.16.0.0/12           scram-sha-256
+    host    all             ddh_app         192.168.0.0/16          scram-sha-256
+    
+    # Replication connections
+    host    replication     all             10.0.0.0/8              scram-sha-256
+    host    replication     all             172.16.0.0/12           scram-sha-256
+    host    replication     all             192.168.0.0/16          scram-sha-256
+---
+# ==================================================
+# REDIS CONFIGURATION
+# ==================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddh-redis-config
+  namespace: ddh-production
+  labels:
+    app.kubernetes.io/name: ddh-redis
+    app.kubernetes.io/component: config
+data:
+  redis.conf: |
+    # ==================================================
+    # REDIS PRODUCTION CONFIGURATION
+    # ==================================================
+    
+    # Network
+    bind 0.0.0.0
+    port 6379
+    timeout 300
+    tcp-keepalive 300
+    
+    # Security
+    requirepass changeme  # Will be overridden by secret
+    rename-command FLUSHDB ""
+    rename-command FLUSHALL ""
+    rename-command DEBUG ""
+    rename-command CONFIG "CONFIG_09f911029d74e35bd84156c5635688c0"
+    
+    # Memory management
+    maxmemory 512mb
+    maxmemory-policy allkeys-lru
+    maxmemory-samples 5
+    
+    # Persistence
+    save 900 1
+    save 300 10
+    save 60 10000
+    stop-writes-on-bgsave-error yes
+    rdbcompression yes
+    rdbchecksum yes
+    dbfilename dump.rdb
+    dir /data
+    
+    # Append only file
+    appendonly yes
+    appendfilename "appendonly.aof"
+    appendfsync everysec
+    no-appendfsync-on-rewrite no
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    aof-load-truncated yes
+    
+    # Logging
+    loglevel notice
+    logfile ""
+    syslog-enabled no
+    
+    # Client output buffer limits
+    client-output-buffer-limit normal 0 0 0
+    client-output-buffer-limit replica 256mb 64mb 60
+    client-output-buffer-limit pubsub 32mb 8mb 60
+    
+    # Slow log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+---
+# ==================================================
+# RABBITMQ CONFIGURATION
+# ==================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ddh-rabbitmq-config
+  namespace: ddh-production
+  labels:
+    app.kubernetes.io/name: ddh-rabbitmq
+    app.kubernetes.io/component: config
+data:
+  rabbitmq.conf: |
+    # ==================================================
+    # RABBITMQ PRODUCTION CONFIGURATION
+    # ==================================================
+    
+    # Clustering
+    cluster_formation.peer_discovery_backend = k8s
+    cluster_formation.k8s.host = kubernetes.default
+    cluster_formation.k8s.address_type = hostname
+    cluster_formation.k8s.hostname_suffix = .ddh-rabbitmq-service.ddh-production.svc.cluster.local
+    
+    # Networking
+    listeners.tcp.default = 5672
+    
+    # Security
+    auth_backends.1 = internal
+    auth_mechanisms.1 = PLAIN
+    auth_mechanisms.2 = AMQPLAIN
+    
+    # Memory and disk
+    vm_memory_high_watermark.relative = 0.6
+    disk_free_limit.relative = 1.0
+    
+    # Management plugin
+    management.tcp.port = 15672
+    management.load_definitions = /etc/rabbitmq/definitions.json
+    
+    # Logging
+    log.console = true
+    log.console.level = info
+    log.file = false
+    
+  enabled_plugins: |
+    [rabbitmq_management,rabbitmq_prometheus].
+    
+  definitions.json: |
+    {
+      "vhosts": [
+        {"name": "ddh_production"}
+      ],
+      "users": [
+        {
+          "name": "ddh_app",
+          "password": "changeme",
+          "tags": ""
+        }
+      ],
+      "permissions": [
+        {
+          "user": "ddh_app",
+          "vhost": "ddh_production",
+          "configure": ".*",
+          "write": ".*",
+          "read": ".*"
+        }
+      ],
+      "exchanges": [
+        {
+          "name": "ddh.events",
+          "vhost": "ddh_production",
+          "type": "topic",
+          "durable": true,
+          "auto_delete": false
+        }
+      ],
+      "queues": [
+        {
+          "name": "ddh.auth.events",
+          "vhost": "ddh_production",
+          "durable": true,
+          "auto_delete": false,
+          "arguments": {
+            "x-message-ttl": 86400000
+          }
+        }
+      ]
+    }

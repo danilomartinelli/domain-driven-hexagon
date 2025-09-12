@@ -63,8 +63,11 @@
     "migration:validate:tests": "NODE_ENV=test ts-node database/migrate-new validate",
     "seed:up": "ts-node database/seed",
     "depcruise": "depcruise",
-    "deps:validate": "depcruise src --config .dependency-cruiser.js --output-type err-long",
-    "deps:graph": "depcruise src --include-only \"^src\" --config --output-type dot | dot -T svg > assets/dependency-graph.svg"
+    "deps:validate": "depcruise src --config devtools/.dependency-cruiser.js --output-type err-long",
+    "deps:graph": "depcruise src --include-only \"^src\" --config devtools/.dependency-cruiser.js --output-type dot | dot -T svg > public/assets/dependency-graph.svg",
+    "docker:build": "devtools/scripts/docker-build.sh",
+    "docker:build:prod": "devtools/scripts/docker-build.sh production latest",
+    "docker:security": "devtools/scripts/security-scan.sh ddh/app:latest all"
   },
   "dependencies": {
     "@nestjs/apollo": "^13.1.0",

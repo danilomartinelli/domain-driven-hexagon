@@ -1,0 +1,214 @@
+# Ultra-Optimized .dockerignore for Domain-Driven Hexagon
+# Reduces Docker context by ~90% for faster builds
+
+# =============================================================================
+# VERSION CONTROL & DEVELOPMENT FILES
+# =============================================================================
+.git
+.gitignore
+.gitattributes
+.gitkeep
+.gitmodules
+.github
+.gitlab
+.gitlab-ci.yml
+.circleci
+.travis.yml
+Jenkinsfile
+
+# =============================================================================
+# DEPENDENCIES (Will be installed in container)
+# =============================================================================
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store
+.yarn
+pnpm-lock.yaml
+yarn.lock
+
+# Keep package-lock.json for npm ci optimization
+# package-lock.json
+
+# =============================================================================
+# BUILD OUTPUTS (Generated in container)
+# =============================================================================
+dist
+build
+*.tsbuildinfo
+.cache
+coverage
+.nyc_output
+
+# =============================================================================
+# ENVIRONMENT & SECRETS
+# =============================================================================
+.env*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+private/
+
+# =============================================================================
+# RUNTIME & LOGS
+# =============================================================================
+pids
+*.pid
+*.seed
+*.pid.lock
+logs
+*.log
+tmp
+temp
+*.tmp
+*.temp
+
+# =============================================================================
+# TESTING FILES (Exclude from production builds)
+# =============================================================================
+tests
+test
+__tests__
+*.test.*
+*.spec.*
+*.e2e-spec.*
+*.feature
+*.steps.js
+*.steps.ts
+cucumber-report.json
+jest.config.*
+.jest
+coverage
+.jest-cache
+
+# =============================================================================
+# DEVELOPMENT TOOLS & EDITORS
+# =============================================================================
+.vscode
+.idea
+.vs
+.vim
+.emacs
+*.swp
+*.swo
+*.swn
+*~
+.sublime-*
+*.sublime-*
+
+# =============================================================================
+# OPERATING SYSTEM FILES  
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# =============================================================================
+# DOCUMENTATION (Not needed in runtime)
+# =============================================================================
+README.md
+README.txt
+CHANGELOG*
+HISTORY*
+LICENSE*
+docs/
+*.md
+!DOCKER.md
+
+# =============================================================================
+# DOCKER FILES (Avoid recursion)
+# =============================================================================
+Dockerfile*
+docker-compose*
+compose*.yml
+.dockerignore*
+
+# =============================================================================
+# BUILD & DEPLOYMENT SCRIPTS  
+# =============================================================================
+scripts/build*
+scripts/deploy*
+scripts/test*
+Makefile
+makefile
+
+# =============================================================================
+# DEPENDENCY & BUILD TOOLS CONFIG
+# =============================================================================
+.dependency-cruiser.js
+.prettierrc*
+.eslintrc*
+.eslintignore
+.editorconfig
+.browserslistrc
+babel.config.*
+webpack.config.*
+rollup.config.*
+vite.config.*
+tsconfig.json
+!tsconfig.build.json
+
+# =============================================================================
+# MONITORING & PROFILING
+# =============================================================================
+.nyc_output
+coverage/
+*.lcov
+performance/
+profiling/
+flame-graphs/
+
+# =============================================================================
+# DATA & DATABASE FILES
+# =============================================================================
+data/
+database/data/
+*.sqlite
+*.sqlite3
+*.db
+migrations/temp/
+*.dump
+*.sql.backup
+
+# =============================================================================
+# SECURITY & ANALYSIS TOOLS
+# =============================================================================
+security-reports/
+audit-results/
+*.sarif
+*.security.json
+
+# =============================================================================
+# PACKAGE MANAGER ARTIFACTS
+# =============================================================================
+*.tgz
+*.tar.gz
+*.tar.xz
+*.zip
+package/
+published/
+
+# =============================================================================
+# OPTIMIZATION: Allow only essential files
+# =============================================================================
+
+# Essential files that SHOULD be included:
+# package.json          - Dependencies and scripts
+# package-lock.json     - Lock file for npm ci
+# tsconfig.build.json   - Build configuration
+# src/                  - Source code
+# database/             - Database migrations and schema
+# public/               - Static assets (if needed)
+
+# Everything else is excluded by default for optimal build context

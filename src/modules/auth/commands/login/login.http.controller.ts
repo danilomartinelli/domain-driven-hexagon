@@ -5,7 +5,7 @@ import {
   Post,
   UnauthorizedException,
   BadRequestException,
-  TooManyRequestsException,
+  HttpException,
   Req,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
@@ -79,7 +79,7 @@ export class LoginHttpController {
           throw new UnauthorizedException(error.message);
         }
         if (error instanceof AccountLockedError) {
-          throw new TooManyRequestsException(error.message);
+          throw new HttpException(error.message, HttpStatus.TOO_MANY_REQUESTS);
         }
         if (error instanceof AccountInactiveError) {
           throw new UnauthorizedException(error.message);

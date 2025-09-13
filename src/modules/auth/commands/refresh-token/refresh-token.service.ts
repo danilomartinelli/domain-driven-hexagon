@@ -43,7 +43,8 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
       try {
         tokenPayload = await this.jwtService.verifyRefreshToken(refreshToken);
       } catch (error) {
-        await this.logFailedAttempt(undefined, 'REFRESH_TOKEN_INVALID_JWT', { error: error.message }, ipAddress, userAgent);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        await this.logFailedAttempt(undefined, 'REFRESH_TOKEN_INVALID_JWT', { error: errorMessage }, ipAddress, userAgent);
         return Err(new InvalidTokenError());
       }
 

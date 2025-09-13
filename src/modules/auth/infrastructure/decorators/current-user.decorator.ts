@@ -24,7 +24,9 @@ export const CurrentUser = createParamDecorator(
       id: user.sub,
     };
 
-    return data ? enrichedUser[data] : enrichedUser;
+    return data && typeof data === 'string' && data in enrichedUser 
+      ? (enrichedUser as any)[data] 
+      : enrichedUser;
   },
 );
 

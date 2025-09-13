@@ -224,7 +224,7 @@ export class PostgreSqlQueryBuilderStrategy implements QueryBuilderStrategy {
 
     // Handle boolean explicitly
     if (typeof value === 'boolean') {
-      return value;
+      return sql.unsafe`${value}`;
     }
 
     // Handle numbers with validation
@@ -232,7 +232,7 @@ export class PostgreSqlQueryBuilderStrategy implements QueryBuilderStrategy {
       if (!Number.isFinite(value)) {
         throw new QueryBuilderError('Invalid number value (NaN or Infinity)', 'INVALID_NUMBER');
       }
-      return value;
+      return sql.unsafe`${value}`;
     }
 
     // Handle strings and other primitive types

@@ -26,7 +26,7 @@ export interface ValidationError {
  */
 export interface ValidationStrategy {
   validateModel<T>(data: unknown, schema: ZodSchema<T>): ValidationResult<T>;
-  validateId<T>(id: unknown, schema?: ZodType<T>): ValidationResult<T>;
+  validateId<T extends string | number = string>(id: unknown, schema?: ZodType<T>): ValidationResult<T>;
   validateBatch<T>(data: unknown[], schema: ZodSchema<T>): ValidationResult<T[]>;
 }
 
@@ -102,17 +102,17 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
       if (result.success) {
         return {
           success: true,
-          data: result.data,
+          data: result.data as T,
         };
       }
 
       return {
         success: false,
-        errors: result.error.errors.map(err => ({
+        errors: result.error.issues.map(err => ({
           path: err.path.map(p => String(p)),
           message: err.message,
           code: err.code,
-          received: err.received,
+          received: (err as any).received || 'unknown',
           expected: this.getExpectedType(validationSchema),
         })),
       };
@@ -212,18 +212,18 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
       if (result.success) {
         return {
           success: true,
-          data: result.data,
+          data: result.data as T,
         };
       }
 
       return {
         success: false,
-        errors: result.error.errors.map(err => ({
+        errors: result.error.issues.map(err => ({
           path: err.path.map(p => String(p)),
           message: err.message,
           code: err.code,
-          received: err.received,
-          expected: this.getExpectedFromPath(schema, err.path),
+          received: (err as any).received || 'unknown',
+          expected: this.getExpectedFromPath(schema, err.path.map(p => String(p))),
         })),
       };
     };
@@ -302,11 +302,11 @@ export class SimpleValidationStrategy implements ValidationStrategy {
       if (error instanceof z.ZodError) {
         return {
           success: false,
-          errors: error.errors.map(err => ({
+          errors: error.issues.map(err => ({
             path: err.path.map(p => String(p)),
             message: err.message,
             code: err.code,
-            received: err.received,
+            received: (err as any).received || 'unknown',
           })),
         };
       }
@@ -323,9 +323,13 @@ export class SimpleValidationStrategy implements ValidationStrategy {
     }
   }
 
-  validateId<T>(id: unknown, schema?: ZodType<T>): ValidationResult<T> {
-    const validationSchema = schema || z.string();
-    return this.validateModel(id, validationSchema);
+  validateId<T extends string | number = string>(id: unknown, schema?: ZodType<T>): ValidationResult<T> {
+    if (schema) {
+      return this.validateModel(id, schema);
+    }
+    // For the default string case, we need to cast properly
+    const stringValidation = this.validateModel(id, z.string());
+    return stringValidation as ValidationResult<T>;
   }
 
   validateBatch<T>(data: unknown[], schema: ZodSchema<T>): ValidationResult<T[]> {

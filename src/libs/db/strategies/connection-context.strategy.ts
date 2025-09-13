@@ -124,7 +124,8 @@ export class RequestScopedConnectionContextStrategy implements ConnectionContext
 
   private getTransactionConnection(): DatabaseTransactionConnection | null {
     try {
-      return RequestContextService.getTransactionConnection();
+      const connection = RequestContextService.getTransactionConnection();
+      return connection ?? null;
     } catch {
       return null;
     }

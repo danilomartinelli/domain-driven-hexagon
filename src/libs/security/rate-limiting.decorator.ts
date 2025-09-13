@@ -143,12 +143,14 @@ export interface RateLimitMetadata {
  */
 export const CustomRateLimit = (config: RateLimitConfig, metadata?: RateLimitMetadata) => {
   return (target: any, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
-    // Apply the basic rate limiting
-    RateLimit(config)(target, propertyKey, descriptor);
-    
-    // Add custom metadata if provided
-    if (metadata && propertyKey) {
-      SetMetadata(RATE_LIMIT_METADATA, metadata)(target, propertyKey, descriptor);
+    // Apply the basic rate limiting only if we have the required parameters
+    if (propertyKey !== undefined && descriptor !== undefined) {
+      RateLimit(config)(target, propertyKey, descriptor);
+      
+      // Add custom metadata if provided
+      if (metadata) {
+        SetMetadata(RATE_LIMIT_METADATA, metadata)(target, propertyKey, descriptor);
+      }
     }
   };
 };

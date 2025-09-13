@@ -4,6 +4,7 @@ export const AUTH_DI_TOKENS = {
   RoleRepository: Symbol('ROLE_REPOSITORY'),
   PermissionRepository: Symbol('PERMISSION_REPOSITORY'),
   RefreshTokenRepository: Symbol('REFRESH_TOKEN_REPOSITORY'),
+  AuthAuditLogRepository: Symbol('AUTH_AUDIT_LOG_REPOSITORY'),
   
   // Services
   JwtService: Symbol('JWT_SERVICE'),

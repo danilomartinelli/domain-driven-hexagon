@@ -52,4 +52,15 @@ export class Guard {
     }
     return false;
   }
+
+  /**
+   * Checks if value is a valid UUID
+   */
+  static isUuid(value: unknown): boolean {
+    if (typeof value !== 'string') {
+      return false;
+    }
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    return uuidRegex.test(value);
+  }
 }

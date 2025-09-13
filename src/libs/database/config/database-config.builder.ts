@@ -62,9 +62,9 @@ export class DatabaseConfigurationBuilder {
 
       // Step 5: Create complete configuration
       const completeConfig: DatabaseConfiguration = {
-        environment,
         connection: connectionConfig,
         ...mergedConfig,
+        environment, // Ensure environment override takes precedence
       };
 
       // Step 6: Validate complete configuration
@@ -194,22 +194,15 @@ export class DatabaseConfigurationBuilder {
       return undefined;
     }
 
+    // Build SSL config object with all properties at once
     const sslConfig: DatabaseSslConfig = {
       enabled: true,
       mode: envVars.DB_SSL_MODE ?? recommendedSsl.mode,
       rejectUnauthorized: envVars.DB_SSL_REJECT_UNAUTHORIZED ?? recommendedSsl.rejectUnauthorized,
+      ...(envVars.DB_SSL_CA && { ca: envVars.DB_SSL_CA }),
+      ...(envVars.DB_SSL_CERT && { cert: envVars.DB_SSL_CERT }),
+      ...(envVars.DB_SSL_KEY && { key: envVars.DB_SSL_KEY }),
     };
-
-    // Add certificate details if provided
-    if (envVars.DB_SSL_CA) {
-      sslConfig.ca = envVars.DB_SSL_CA;
-    }
-    if (envVars.DB_SSL_CERT) {
-      sslConfig.cert = envVars.DB_SSL_CERT;
-    }
-    if (envVars.DB_SSL_KEY) {
-      sslConfig.key = envVars.DB_SSL_KEY;
-    }
 
     return sslConfig;
   }

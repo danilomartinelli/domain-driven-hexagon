@@ -85,7 +85,7 @@ export abstract class RefactoredSqlRepositoryBase<
   protected idSchema?: ZodType<EntityId> = z.string() as unknown as ZodType<EntityId>;
 
   // Strategy instances
-  private readonly queryExecution: QueryExecutionStrategy;
+  private queryExecution!: QueryExecutionStrategy; // Initialized lazily
   private readonly queryBuilder: QueryBuilderStrategy;
   private readonly transactionManager: TransactionManagerStrategy;
   private readonly errorHandler: ErrorHandlerStrategy;
@@ -104,13 +104,6 @@ export abstract class RefactoredSqlRepositoryBase<
       ? new RequestScopedConnectionContextStrategy(pool, logger)
       : new RequestScopedConnectionContextStrategy(pool, logger); // Default to request-scoped
 
-    this.queryExecution = new PoolQueryExecutionStrategy(
-      pool,
-      logger,
-      this.tableName,
-      () => this.connectionContext.getRequestId(),
-    );
-
     this.queryBuilder = new PostgreSqlQueryBuilderStrategy();
 
     this.transactionManager = config.useAdvancedTransactions
@@ -127,9 +120,32 @@ export abstract class RefactoredSqlRepositoryBase<
   }
 
   /**
+   * Initialize the query execution strategy.
+   * This must be called by subclasses after the tableName is available.
+   */
+  protected initializeQueryExecution(): void {
+    this.queryExecution = new PoolQueryExecutionStrategy(
+      this.pool,
+      this.logger,
+      this.tableName,
+      () => this.connectionContext.getRequestId(),
+    );
+  }
+
+  /**
+   * Ensure query execution strategy is initialized before use
+   */
+  private ensureInitialized(): void {
+    if (!this.queryExecution) {
+      this.initializeQueryExecution();
+    }
+  }
+
+  /**
    * Find a single entity by its ID with enhanced validation and error handling
    */
   async findOneById(id: string): Promise<Option<Aggregate>> {
+    this.ensureInitialized();
     try {
       // Validate ID format
       const idValidation = this.validation.validateId(id, this.idSchema);
@@ -181,6 +197,7 @@ export abstract class RefactoredSqlRepositoryBase<
     orderDirection?: 'ASC' | 'DESC';
     where?: SqlToken;
   }): Promise<Aggregate[]> {
+    this.ensureInitialized();
     try {
       let query = sql.type(this.schema)`SELECT * FROM ${sql.identifier([this.tableName])}`;
 
@@ -198,7 +215,7 @@ export abstract class RefactoredSqlRepositoryBase<
       const result = await this.queryExecution.executeQuery(query, 'findAll');
       
       // Batch validate all rows
-      const modelsValidation = this.validation.validateBatch(result.rows, this.schema);
+      const modelsValidation = this.validation.validateBatch([...result.rows], this.schema);
       if (!modelsValidation.success) {
         this.logger.error(
           `[${this.connectionContext.getRequestId()}] Batch validation failed in findAll`,
@@ -247,7 +264,7 @@ export abstract class RefactoredSqlRepositoryBase<
       const totalCount = Number(countResult.rows[0]?.total || 0);
       
       // Batch validate data rows
-      const modelsValidation = this.validation.validateBatch(dataResult.rows, this.schema);
+      const modelsValidation = this.validation.validateBatch([...dataResult.rows], this.schema);
       if (!modelsValidation.success) {
         this.logger.error(
           `[${this.connectionContext.getRequestId()}] Batch validation failed in findAllPaginated`,
@@ -292,6 +309,7 @@ export abstract class RefactoredSqlRepositoryBase<
    * Insert one or more entities with optimized batch operations
    */
   async insert(entity: Aggregate | Aggregate[]): Promise<void> {
+    this.ensureInitialized();
     const entities = Array.isArray(entity) ? entity : [entity];
 
     if (entities.length === 0) {
@@ -339,6 +357,7 @@ export abstract class RefactoredSqlRepositoryBase<
    * Update an existing entity with enhanced validation
    */
   async update(entity: Aggregate): Promise<void> {
+    this.ensureInitialized();
     try {
       entity.validate();
 
@@ -383,6 +402,7 @@ export abstract class RefactoredSqlRepositoryBase<
    * Upsert (insert or update) an entity using optimized ON CONFLICT
    */
   async upsert(entity: Aggregate): Promise<void> {
+    this.ensureInitialized();
     try {
       entity.validate();
 
@@ -411,13 +431,14 @@ export abstract class RefactoredSqlRepositoryBase<
       entity.validate();
 
       const idValidation = this.validation.validateId(entity.id, this.idSchema);
-      if (!idValidation.success) {
+      if (!idValidation.success || !idValidation.data) {
         return false;
       }
 
+      const validatedId = idValidation.data;
       const query = sql.unsafe`
         DELETE FROM ${sql.identifier([this.tableName])} 
-        WHERE id = ${idValidation.data}
+        WHERE id = ${validatedId}
       `;
 
       const result = await this.queryExecution.executeWriteQuery(query, 'delete', [entity.id]);
@@ -441,19 +462,20 @@ export abstract class RefactoredSqlRepositoryBase<
   async deleteById(id: EntityId): Promise<boolean> {
     try {
       const idValidation = this.validation.validateId(id, this.idSchema);
-      if (!idValidation.success) {
+      if (!idValidation.success || !idValidation.data) {
         return false;
       }
 
+      const validatedId = idValidation.data;
       const query = sql.unsafe`
         DELETE FROM ${sql.identifier([this.tableName])} 
-        WHERE id = ${idValidation.data}
+        WHERE id = ${validatedId}
       `;
 
       const result = await this.queryExecution.executeQuery(query, 'deleteById');
       const deleted = result.rowCount > 0;
 
-      this.logOperation('deleteById', { id: idValidation.data, success: deleted });
+      this.logOperation('deleteById', { id: validatedId, success: deleted });
       return deleted;
     } catch (error) {
       this.errorHandler.handleError(error as Error, 'deleteById', this.tableName, { id });
@@ -485,13 +507,14 @@ export abstract class RefactoredSqlRepositoryBase<
   async exists(id: EntityId): Promise<boolean> {
     try {
       const idValidation = this.validation.validateId(id, this.idSchema);
-      if (!idValidation.success) {
+      if (!idValidation.success || !idValidation.data) {
         return false;
       }
 
+      const validatedId = idValidation.data;
       const query = sql.unsafe`
         SELECT 1 FROM ${sql.identifier([this.tableName])} 
-        WHERE id = ${idValidation.data} 
+        WHERE id = ${validatedId} 
         LIMIT 1
       `;
 
@@ -507,6 +530,7 @@ export abstract class RefactoredSqlRepositoryBase<
    * Count entities matching optional criteria
    */
   async count(where?: SqlToken): Promise<number> {
+    this.ensureInitialized();
     try {
       let query = sql.unsafe`SELECT COUNT(*) as total FROM ${sql.identifier([this.tableName])}`;
 

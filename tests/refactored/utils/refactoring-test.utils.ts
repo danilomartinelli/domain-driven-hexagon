@@ -7,7 +7,7 @@ import { DatabasePool, DatabaseTransactionConnection, QueryResult, SqlToken } fr
 import { LoggerPort } from '@libs/ports/logger.port';
 import { UserEntity } from '@modules/user/domain/user.entity';
 import { UserRoles } from '@modules/user/domain/user.types';
-import { DatabaseEnvironmentVariables, DatabaseEnvironment } from '@libs/database/config/database-config.types';
+import { DatabaseEnvironmentVariables, DatabaseEnvironment, DatabaseLogLevel, DatabaseSslMode } from '@libs/database/config/database-config.types';
 
 /**
  * Performance measurement utilities
@@ -408,7 +408,7 @@ export class EnvironmentTestUtils {
       DB_CONNECTION_TIMEOUT: 30000,
       DB_STATEMENT_TIMEOUT: 60000,
       DB_QUERY_TIMEOUT: 10000,
-      DB_LOG_LEVEL: 'debug',
+      DB_LOG_LEVEL: DatabaseLogLevel.DEBUG,
       DB_ENABLE_QUERY_LOGGING: true,
     };
   }
@@ -419,7 +419,7 @@ export class EnvironmentTestUtils {
       DB_HOST: 'prod-db.example.com',
       DB_PORT: 5432,
       DB_SSL: true,
-      DB_SSL_MODE: 'require',
+      DB_SSL_MODE: DatabaseSslMode.REQUIRE,
       DB_SSL_REJECT_UNAUTHORIZED: true,
       DB_MAX_POOL_SIZE: 20,
       DB_MIN_POOL_SIZE: 5,

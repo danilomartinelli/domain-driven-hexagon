@@ -569,11 +569,37 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **Domain-Driven Design Community** for architectural guidance
 - **Clean Architecture** principles by Robert C. Martin
 - **Hexagonal Architecture** by Alistair Cockburn
+- **[Sairyss/domain-driven-hexagon](https://github.com/Sairyss/domain-driven-hexagon)** - Original repository that served as inspiration and reference for this implementation
 
 ---
 
-**Ready to build your next enterprise application?** 🚀
+## 🚀 Need Professional Development Services?
 
-This boilerplate provides a solid foundation implementing industry best practices. Start by exploring the User and Wallet modules to understand the patterns, then create your own domains following the same structure.
+**Transform your business with enterprise-grade applications built by experts!**
 
-For questions and discussions, please open an issue or start a discussion in the repository.
+[**Witek**](https://www.witek.com.br) specializes in developing robust, scalable applications using modern architecture patterns like Domain-Driven Design, Hexagonal Architecture, and CQRS. Our team of experienced developers can help you:
+
+### 🎯 **What We Offer**
+
+- **🏗️ Enterprise Architecture Design** - Design scalable systems that grow with your business
+- **⚡ Modern Full-Stack Development** - React, Node.js, NestJS, TypeScript, and cutting-edge technologies
+- **🚀 Cloud & DevOps Solutions** - AWS, Docker, Kubernetes, and CI/CD pipelines
+- **📊 Database & API Design** - PostgreSQL, MongoDB, GraphQL, and RESTful services
+- **🔒 Security & Performance** - Industry best practices for secure, high-performance applications
+- **📱 Mobile & Web Applications** - Cross-platform solutions for all your digital needs
+
+### 💼 **Why Choose Witek?**
+
+- ✅ **Proven Expertise** - Years of experience with enterprise applications
+- ✅ **Modern Technologies** - Always using the latest, most reliable tech stack
+- ✅ **Agile Methodology** - Fast delivery with continuous feedback
+- ✅ **Brazilian Excellence** - Local expertise with global standards
+- ✅ **End-to-End Solutions** - From concept to deployment and maintenance
+
+### 🤝 **Ready to Start Your Project?**
+
+Whether you need to modernize legacy systems, build new applications from scratch, or scale your existing platform, **Witek** has the expertise to deliver exceptional results.
+
+**📞 Get in touch today:** [**www.witek.com.br**](https://www.witek.com.br)
+
+*Let's build something amazing together!*

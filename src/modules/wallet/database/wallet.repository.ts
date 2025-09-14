@@ -37,14 +37,16 @@ export class WalletRepository
   }
 
   /**
-   * Find wallet by user ID
+   * Find wallet by user ID with optimized query
    */
   async findByUserId(userId: string): Promise<WalletEntity | null> {
     try {
+      // Uses unique index: UQ_35472b1fe48b6330cd349709564
       const result = await this.executeQuery(
         sql.type(walletSchema)`
-          SELECT * FROM "wallets" 
+          SELECT * FROM "wallets"
           WHERE "userId" = ${userId}
+          LIMIT 1
         `,
         'findByUserId',
       );
@@ -57,6 +59,33 @@ export class WalletRepository
       return this.mapper.toDomain(validatedWallet);
     } catch (error) {
       this.handleRepositoryError(error as Error, 'findByUserId', { userId });
+      return null;
+    }
+  }
+
+  /**
+   * Find user wallet with balance check (optimized for balance queries)
+   */
+  async findUserWalletWithBalance(userId: string, minBalance = 0): Promise<WalletEntity | null> {
+    try {
+      // Uses composite index: IDX_wallets_user_balance
+      const result = await this.executeQuery(
+        sql.type(walletSchema)`
+          SELECT * FROM "wallets"
+          WHERE "userId" = ${userId} AND balance >= ${minBalance}
+          LIMIT 1
+        `,
+        'findUserWalletWithBalance',
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const validatedWallet = this.schema.parse(result.rows[0]);
+      return this.mapper.toDomain(validatedWallet);
+    } catch (error) {
+      this.handleRepositoryError(error as Error, 'findUserWalletWithBalance', { userId, minBalance });
       return null;
     }
   }

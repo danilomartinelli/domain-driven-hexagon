@@ -64,8 +64,13 @@ export class UserRepository
 
   async findOneByEmail(email: string): Promise<UserEntity | null> {
     try {
+      // Optimized query using partial index for active users
       const result = await this.executeQuery(
-        sql.type(userSchema)`SELECT * FROM "users" WHERE email = ${email}`,
+        sql.type(userSchema)`
+          SELECT * FROM "users"
+          WHERE email = ${email} AND "isActive" = true
+          LIMIT 1
+        `,
         'findOneByEmail',
       );
 
@@ -77,6 +82,33 @@ export class UserRepository
       return this.mapper.toDomain(validatedUser);
     } catch (error) {
       this.handleRepositoryError(error as Error, 'findOneByEmail', { email });
+      return null;
+    }
+  }
+
+  /**
+   * Find user by email for authentication (includes inactive users)
+   */
+  async findByEmailForAuth(email: string): Promise<UserEntity | null> {
+    try {
+      // Uses composite index: IDX_users_email_active_verified
+      const result = await this.executeQuery(
+        sql.type(userSchema)`
+          SELECT * FROM "users"
+          WHERE email = ${email}
+          LIMIT 1
+        `,
+        'findByEmailForAuth',
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const validatedUser = this.schema.parse(result.rows[0]);
+      return this.mapper.toDomain(validatedUser);
+    } catch (error) {
+      this.handleRepositoryError(error as Error, 'findByEmailForAuth', { email });
       return null;
     }
   }

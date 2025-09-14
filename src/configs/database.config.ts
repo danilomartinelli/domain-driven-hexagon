@@ -57,22 +57,22 @@ export const databaseConfig: DatabaseModuleOptions = {
     .asBool(),
 
   // Connection pool settings optimized for production
-  maximumPoolSize: get('DB_MAX_POOL_SIZE').default('20').asIntPositive(),
-  minimumPoolSize: get('DB_MIN_POOL_SIZE').default('5').asIntPositive(),
+  maximumPoolSize: get('DB_MAX_POOL_SIZE').default('25').asIntPositive(), // Increased for better concurrency
+  minimumPoolSize: get('DB_MIN_POOL_SIZE').default('10').asIntPositive(), // Higher minimum for faster response
   acquireTimeoutMillis: get('DB_ACQUIRE_TIMEOUT')
-    .default('30000')
-    .asIntPositive(),
+    .default('15000')
+    .asIntPositive(), // Reduced to fail faster
   createTimeoutMillis: get('DB_CREATE_TIMEOUT')
-    .default('30000')
-    .asIntPositive(),
+    .default('10000')
+    .asIntPositive(), // Reduced for faster failure detection
   destroyTimeoutMillis: get('DB_DESTROY_TIMEOUT')
-    .default('5000')
-    .asIntPositive(),
-  idleTimeoutMillis: get('DB_IDLE_TIMEOUT').default('300000').asIntPositive(), // 5 minutes
-  reapIntervalMillis: get('DB_REAP_INTERVAL').default('1000').asIntPositive(),
+    .default('3000')
+    .asIntPositive(), // Faster cleanup
+  idleTimeoutMillis: get('DB_IDLE_TIMEOUT').default('180000').asIntPositive(), // 3 minutes - more aggressive cleanup
+  reapIntervalMillis: get('DB_REAP_INTERVAL').default('5000').asIntPositive(), // Less frequent reaping
   createRetryIntervalMillis: get('DB_CREATE_RETRY_INTERVAL')
-    .default('200')
-    .asIntPositive(),
+    .default('500')
+    .asIntPositive(), // Slightly longer retry interval
 
   // Query timeout settings
   connectionTimeoutMillis: get('DB_CONNECTION_TIMEOUT')

@@ -42,7 +42,7 @@ export class LoginService implements ICommandHandler<LoginCommand> {
     const { email, password, ipAddress, userAgent } = command;
 
     try {
-      // Find and validate user existence
+      // Find and validate user existence using auth-specific method
       const userResult = await this.validateUserExistence(
         email,
         ipAddress,
@@ -245,9 +245,10 @@ export class LoginService implements ICommandHandler<LoginCommand> {
     ipAddress: string,
     userAgent: string,
   ): Promise<Result<any, InvalidCredentialsError>> {
-    const userOption = await this.userRepo.findByEmail(email);
+    // Use the auth-specific method to include inactive users
+    const user = await this.userRepo.findByEmailForAuth(email);
 
-    if (userOption.isNone()) {
+    if (!user) {
       await this.logFailedAttempt(
         undefined,
         'LOGIN_INVALID_EMAIL',
@@ -258,7 +259,7 @@ export class LoginService implements ICommandHandler<LoginCommand> {
       return Err(new InvalidCredentialsError());
     }
 
-    return Ok(userOption.unwrap());
+    return Ok(user);
   }
 
   /**

@@ -324,21 +324,21 @@ import { ApiResponse } from '@libs/api/api.response';
 
 ## 🏛️ Architectural Decisions
 
-### Why Slonik over TypeORM?
+### Why Slonik over TypeORM
 
 - **Raw SQL Control**: Better performance for complex queries
 - **Type Safety**: Full TypeScript support for SQL queries
 - **Migration Control**: Simple, predictable database migrations
 - **No ORM Magic**: Explicit database operations, easier debugging
 
-### Why CQRS?
+### Why CQRS
 
 - **Scalability**: Separate read/write models can be optimized independently
 - **Complexity Management**: Clear separation of concerns
 - **Event Sourcing**: Natural fit for event-driven architectures
 - **Testing**: Easier to test commands and queries in isolation
 
-### Why Domain Events?
+### Why Domain Events
 
 - **Decoupling**: Bounded contexts communicate without direct dependencies
 - **Extensibility**: Easy to add new event handlers
@@ -573,7 +573,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-## 🚀 Need Professional Development Services?
+## 🚀 Need Professional Development Services
 
 **Transform your business with enterprise-grade applications built by experts!**
 

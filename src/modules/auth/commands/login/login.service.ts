@@ -42,83 +42,39 @@ export class LoginService implements ICommandHandler<LoginCommand> {
     const { email, password, ipAddress, userAgent } = command;
 
     try {
-      // Find user by email
-      const userOption = await this.userRepo.findByEmail(email);
-
-      if (userOption.isNone()) {
-        await this.logFailedAttempt(
-          undefined,
-          'LOGIN_INVALID_EMAIL',
-          { email },
-          ipAddress,
-          userAgent,
-        );
-        return Err(new InvalidCredentialsError());
-      }
-
-      const user = userOption.unwrap();
-      const userProps = user.getProps();
-
-      // Check if account is locked
-      if (userProps.lockedUntil && userProps.lockedUntil > new Date()) {
-        await this.logFailedAttempt(
-          user.id,
-          'LOGIN_ACCOUNT_LOCKED',
-          { lockExpires: userProps.lockedUntil },
-          ipAddress,
-          userAgent,
-        );
-        return Err(new AccountLockedError());
-      }
-
-      // Check if account is active
-      if (!userProps.isActive) {
-        await this.logFailedAttempt(
-          user.id,
-          'LOGIN_ACCOUNT_INACTIVE',
-          {},
-          ipAddress,
-          userAgent,
-        );
-        return Err(new AccountInactiveError());
-      }
-
-      // Check if email is verified
-      if (!userProps.isEmailVerified) {
-        await this.logFailedAttempt(
-          user.id,
-          'LOGIN_EMAIL_NOT_VERIFIED',
-          {},
-          ipAddress,
-          userAgent,
-        );
-        return Err(new EmailNotVerifiedError());
-      }
-
-      // Verify password
-      if (!userProps.password) {
-        await this.logFailedAttempt(
-          user.id,
-          'LOGIN_NO_PASSWORD_SET',
-          {},
-          ipAddress,
-          userAgent,
-        );
-        return Err(new InvalidCredentialsError());
-      }
-
-      const isPasswordValid = await this.passwordService.compare(
-        password,
-        userProps.password,
+      // Find and validate user existence
+      const userResult = await this.validateUserExistence(
+        email,
+        ipAddress,
+        userAgent,
       );
+      if (userResult.isErr()) {
+        return userResult;
+      }
+      const user = userResult.unwrap();
 
-      if (!isPasswordValid) {
-        // Increment login attempts
-        await this.handleFailedLogin(user, ipAddress, userAgent);
-        return Err(new InvalidCredentialsError());
+      // Validate account status
+      const accountValidationResult = await this.validateAccountStatus(
+        user,
+        ipAddress,
+        userAgent,
+      );
+      if (accountValidationResult.isErr()) {
+        return accountValidationResult;
       }
 
-      // Reset login attempts on successful login
+      // Authenticate user credentials
+      const authResult = await this.authenticateCredentials(
+        user,
+        password,
+        ipAddress,
+        userAgent,
+      );
+      if (authResult.isErr()) {
+        return authResult;
+      }
+
+      // Handle successful authentication
       await this.handleSuccessfulLogin(user);
 
       // Get user roles and permissions for JWT payload
@@ -279,6 +235,121 @@ export class LoginService implements ICommandHandler<LoginCommand> {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
+  }
+
+  /**
+   * Validates user existence by email
+   */
+  private async validateUserExistence(
+    email: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<Result<any, InvalidCredentialsError>> {
+    const userOption = await this.userRepo.findByEmail(email);
+
+    if (userOption.isNone()) {
+      await this.logFailedAttempt(
+        undefined,
+        'LOGIN_INVALID_EMAIL',
+        { email },
+        ipAddress,
+        userAgent,
+      );
+      return Err(new InvalidCredentialsError());
+    }
+
+    return Ok(userOption.unwrap());
+  }
+
+  /**
+   * Validates account status (locked, active, verified)
+   */
+  private async validateAccountStatus(
+    user: any,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<
+    Result<
+      void,
+      AccountLockedError | AccountInactiveError | EmailNotVerifiedError
+    >
+  > {
+    const userProps = user.getProps();
+
+    // Check if account is locked
+    if (userProps.lockedUntil && userProps.lockedUntil > new Date()) {
+      await this.logFailedAttempt(
+        user.id,
+        'LOGIN_ACCOUNT_LOCKED',
+        { lockExpires: userProps.lockedUntil },
+        ipAddress,
+        userAgent,
+      );
+      return Err(new AccountLockedError());
+    }
+
+    // Check if account is active
+    if (!userProps.isActive) {
+      await this.logFailedAttempt(
+        user.id,
+        'LOGIN_ACCOUNT_INACTIVE',
+        {},
+        ipAddress,
+        userAgent,
+      );
+      return Err(new AccountInactiveError());
+    }
+
+    // Check if email is verified
+    if (!userProps.isEmailVerified) {
+      await this.logFailedAttempt(
+        user.id,
+        'LOGIN_EMAIL_NOT_VERIFIED',
+        {},
+        ipAddress,
+        userAgent,
+      );
+      return Err(new EmailNotVerifiedError());
+    }
+
+    return Ok(undefined);
+  }
+
+  /**
+   * Authenticates user credentials
+   */
+  private async authenticateCredentials(
+    user: any,
+    password: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<Result<void, InvalidCredentialsError>> {
+    const userProps = user.getProps();
+
+    // Verify password exists
+    if (!userProps.password) {
+      await this.logFailedAttempt(
+        user.id,
+        'LOGIN_NO_PASSWORD_SET',
+        {},
+        ipAddress,
+        userAgent,
+      );
+      return Err(new InvalidCredentialsError());
+    }
+
+    // Verify password is correct
+    const isPasswordValid = await this.passwordService.compare(
+      password,
+      userProps.password,
+    );
+
+    if (!isPasswordValid) {
+      await this.handleFailedLogin(user, ipAddress, userAgent);
+      return Err(new InvalidCredentialsError());
+    }
+
+    return Ok(undefined);
   }
 
   private async logFailedAttempt(

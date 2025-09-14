@@ -215,12 +215,15 @@ export class UserEntity extends AggregateRoot<UserProps> {
       throw new Error('Address is required');
     }
 
-    // Address validation is handled by the Address value object itself
-    try {
-      this.props.address.validate();
-    } catch (error) {
+    // Address validation is handled by the Address value object itself during construction
+    // The address is already validated when created, so we just verify it exists
+    if (
+      !this.props.address.country ||
+      !this.props.address.street ||
+      !this.props.address.postalCode
+    ) {
       throw new Error(
-        `Address validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'Address must have all required fields: country, street, and postalCode',
       );
     }
   }

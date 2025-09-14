@@ -306,7 +306,7 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
   }
 
   private handleNotFoundError(
-    error: NotFoundError,
+    _error: NotFoundError,
     context: ErrorContext,
   ): void {
     this.logger.debug(

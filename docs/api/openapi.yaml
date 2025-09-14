@@ -1,0 +1,686 @@
+openapi: 3.0.3
+info:
+  title: Domain-Driven Hexagon API
+  version: 1.0.0
+  description: |
+    A production-ready Domain-Driven Design (DDD) API implementing Hexagonal Architecture with CQRS patterns.
+
+    This API demonstrates modern software architecture principles through practical, real-world implementations using:
+    - **Domain-Driven Design (DDD)** with bounded contexts
+    - **Hexagonal Architecture** for clean separation of concerns
+    - **CQRS Pattern** with separate commands and queries
+    - **Event-Driven Architecture** with domain events
+    - **TypeScript** for type safety and developer experience
+
+    ## Authentication
+    This API uses Bearer token authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-token>
+    ```
+
+    ## Rate Limiting
+    API requests are rate-limited to prevent abuse:
+    - **Rate Limit**: 100 requests per minute per IP
+    - **Burst**: 10 requests per second
+
+    ## Error Handling
+    The API uses standard HTTP status codes and returns consistent error responses:
+    - `400` - Bad Request (validation errors)
+    - `401` - Unauthorized (missing or invalid token)
+    - `403` - Forbidden (insufficient permissions)
+    - `404` - Not Found (resource doesn't exist)
+    - `409` - Conflict (resource already exists)
+    - `500` - Internal Server Error
+
+  contact:
+    name: Danilo Martinelli
+    email: danilo.martinelli@witek.com.br
+    url: https://github.com/danilomartinelli/domain-driven-hexagon
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/v1
+    description: Local development server
+  - url: https://api.example.com/v1
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /users:
+    get:
+      summary: Find Users
+      description: |
+        Retrieve a paginated list of users with optional filtering capabilities.
+
+        This endpoint supports:
+        - **Pagination**: Control page size and offset
+        - **Filtering**: Filter by email, country, and other criteria
+        - **Sorting**: Sort by creation date, email, etc.
+
+        **Permissions Required**: `user:list`
+      operationId: findUsers
+      tags:
+        - Users
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (1-based)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+            example: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+            example: 20
+        - name: email
+          in: query
+          description: Filter users by email address
+          required: false
+          schema:
+            type: string
+            format: email
+            example: "john.doe@example.com"
+        - name: country
+          in: query
+          description: Filter users by country
+          required: false
+          schema:
+            type: string
+            example: "France"
+      responses:
+        '200':
+          description: Successfully retrieved users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPaginatedResponse'
+              examples:
+                success:
+                  summary: Successful response with users
+                  value:
+                    data:
+                      - id: "550e8400-e29b-41d4-a716-446655440000"
+                        email: "john.doe@example.com"
+                        country: "France"
+                        street: "123 Main St"
+                        postalCode: "75001"
+                        createdAt: "2024-01-15T10:30:00Z"
+                        updatedAt: "2024-01-15T10:30:00Z"
+                      - id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+                        email: "jane.smith@example.com"
+                        country: "Germany"
+                        street: "456 Oak Ave"
+                        postalCode: "10115"
+                        createdAt: "2024-01-16T14:20:00Z"
+                        updatedAt: "2024-01-16T14:20:00Z"
+                    count: 2
+                    limit: 20
+                    page: 1
+                    hasNextPage: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create User
+      description: |
+        Create a new user in the system.
+
+        This operation:
+        - **Validates** all input data according to business rules
+        - **Generates** a unique user ID
+        - **Publishes** a UserCreated domain event
+        - **Creates** associated wallet automatically via event handler
+
+        **Permissions Required**: `user:create`
+
+        **Domain Events Triggered**:
+        - `UserCreatedEvent` - Published when user is successfully created
+
+        **Side Effects**:
+        - Wallet creation (handled by domain event handler)
+        - Welcome email sending (if configured)
+      operationId: createUser
+      tags:
+        - Users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            examples:
+              basic:
+                summary: Basic user creation
+                value:
+                  email: "john.doe@example.com"
+                  name: "John Doe"
+                  country: "France"
+                  street: "123 Main Street"
+                  postalCode: "75001"
+              minimal:
+                summary: Minimal required fields
+                value:
+                  email: "jane@example.com"
+                  name: "Jane"
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdResponse'
+              examples:
+                success:
+                  summary: User created
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                conflict:
+                  summary: Email already in use
+                  value:
+                    error: "GENERIC"
+                    message: "User already exists"
+                    statusCode: 409
+                    timestamp: "2024-01-15T10:30:00Z"
+                    path: "/v1/users"
+                    correlationId: "b0c7b8c0-1234-4567-8901-123456789012"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{id}:
+    delete:
+      summary: Delete User
+      description: |
+        Delete a user from the system by ID.
+
+        This operation:
+        - **Validates** user existence
+        - **Performs** soft delete (marks as deleted)
+        - **Publishes** UserDeleted domain event
+        - **Triggers** cleanup processes via event handlers
+
+        **Permissions Required**: `user:delete`
+
+        **Domain Events Triggered**:
+        - `UserDeletedEvent` - Published when user is successfully deleted
+
+        **Side Effects**:
+        - Associated wallet deactivation
+        - Data anonymization processes
+      operationId: deleteUser
+      tags:
+        - Users
+      parameters:
+        - name: id
+          in: path
+          description: User unique identifier (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '204':
+          description: User deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+              examples:
+                not_found:
+                  summary: User not found
+                  value:
+                    error: "NOT_FOUND"
+                    message: "User with id '550e8400-e29b-41d4-a716-446655440000' not found"
+                    statusCode: 404
+                    timestamp: "2024-01-15T10:30:00Z"
+                    path: "/v1/users/550e8400-e29b-41d4-a716-446655440000"
+                    correlationId: "b0c7b8c0-1234-4567-8901-123456789012"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /wallets:
+    get:
+      summary: Find Wallets
+      description: |
+        Retrieve a paginated list of wallets with filtering capabilities.
+
+        **Permissions Required**: `wallet:list`
+      operationId: findWallets
+      tags:
+        - Wallets
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (1-based)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: userId
+          in: query
+          description: Filter wallets by user ID
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully retrieved wallets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Wallet'
+                  count:
+                    type: integer
+                  limit:
+                    type: integer
+                  page:
+                    type: integer
+                  hasNextPage:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - country
+        - street
+        - postalCode
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          description: User's email address (unique)
+          example: "john.doe@example.com"
+        country:
+          type: string
+          description: User's country of residence
+          example: "France"
+          minLength: 2
+          maxLength: 100
+        street:
+          type: string
+          description: Street address
+          example: "123 Main Street"
+          minLength: 1
+          maxLength: 255
+        postalCode:
+          type: string
+          description: Postal/ZIP code
+          example: "75001"
+          minLength: 1
+          maxLength: 20
+        createdAt:
+          type: string
+          format: date-time
+          description: Record creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-01-15T10:30:00Z"
+
+    CreateUserRequest:
+      type: object
+      required:
+        - email
+        - name
+        - country
+        - street
+        - postalCode
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address (must be unique)
+          example: "john.doe@example.com"
+          maxLength: 320
+        name:
+          type: string
+          description: User's full name
+          example: "John Doe"
+          minLength: 1
+          maxLength: 100
+        country:
+          type: string
+          description: Country of residence
+          example: "France"
+          minLength: 2
+          maxLength: 100
+        street:
+          type: string
+          description: Street address
+          example: "123 Main Street"
+          minLength: 1
+          maxLength: 255
+        postalCode:
+          type: string
+          description: Postal/ZIP code
+          example: "75001"
+          minLength: 1
+          maxLength: 20
+
+    UserPaginatedResponse:
+      type: object
+      required:
+        - data
+        - count
+        - limit
+        - page
+        - hasNextPage
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+          description: Array of user objects
+        count:
+          type: integer
+          description: Total number of users matching the query
+          example: 150
+        limit:
+          type: integer
+          description: Maximum number of items per page
+          example: 20
+        page:
+          type: integer
+          description: Current page number (1-based)
+          example: 1
+        hasNextPage:
+          type: boolean
+          description: Whether there are more pages available
+          example: true
+
+    Wallet:
+      type: object
+      required:
+        - id
+        - userId
+        - balance
+        - currency
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique wallet identifier
+          example: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        userId:
+          type: string
+          format: uuid
+          description: ID of the wallet owner
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        balance:
+          type: number
+          format: decimal
+          description: Current wallet balance
+          example: 1000.00
+          minimum: 0
+        currency:
+          type: string
+          description: Wallet currency code
+          example: "USD"
+          enum: ["USD", "EUR", "GBP", "BRL"]
+        createdAt:
+          type: string
+          format: date-time
+          description: Wallet creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-01-15T10:30:00Z"
+
+    IdResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the created resource
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    ApiError:
+      type: object
+      required:
+        - error
+        - message
+        - statusCode
+        - timestamp
+        - path
+      properties:
+        error:
+          type: string
+          description: Error code identifier
+          example: "VALIDATION_ERROR"
+          enum: ["VALIDATION_ERROR", "GENERIC", "NOT_FOUND", "UNAUTHORIZED", "FORBIDDEN"]
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Validation failed for the provided data"
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 400
+        timestamp:
+          type: string
+          format: date-time
+          description: Error occurrence timestamp
+          example: "2024-01-15T10:30:00Z"
+        path:
+          type: string
+          description: API endpoint path where error occurred
+          example: "/v1/users"
+        correlationId:
+          type: string
+          format: uuid
+          description: Unique request identifier for tracing
+          example: "b0c7b8c0-1234-4567-8901-123456789012"
+        details:
+          type: array
+          description: Additional error details (validation errors, field-specific messages)
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+              message:
+                type: string
+                example: "Invalid email format"
+              value:
+                type: string
+                example: "invalid-email"
+
+  responses:
+    BadRequest:
+      description: Bad request - validation errors
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            validation_error:
+              summary: Validation failed
+              value:
+                error: "VALIDATION_ERROR"
+                message: "Validation failed"
+                statusCode: 400
+                timestamp: "2024-01-15T10:30:00Z"
+                path: "/v1/users"
+                correlationId: "b0c7b8c0-1234-4567-8901-123456789012"
+                details:
+                  - field: "email"
+                    message: "Email is required"
+                    value: ""
+                  - field: "name"
+                    message: "Name must be at least 1 character long"
+                    value: ""
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            missing_token:
+              summary: Missing authentication token
+              value:
+                error: "UNAUTHORIZED"
+                message: "Authentication token is required"
+                statusCode: 401
+                timestamp: "2024-01-15T10:30:00Z"
+                path: "/v1/users"
+                correlationId: "b0c7b8c0-1234-4567-8901-123456789012"
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            insufficient_permissions:
+              summary: User lacks required permissions
+              value:
+                error: "FORBIDDEN"
+                message: "Insufficient permissions. Required: user:create"
+                statusCode: 403
+                timestamp: "2024-01-15T10:30:00Z"
+                path: "/v1/users"
+                correlationId: "b0c7b8c0-1234-4567-8901-123456789012"
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+          examples:
+            server_error:
+              summary: Unexpected server error
+              value:
+                error: "GENERIC"
+                message: "An unexpected error occurred"
+                statusCode: 500
+                timestamp: "2024-01-15T10:30:00Z"
+                path: "/v1/users"
+                correlationId: "b0c7b8c0-1234-4567-8901-123456789012"
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer token authentication.
+
+        Obtain a token through the authentication endpoint and include it in requests:
+        ```
+        Authorization: Bearer <your-jwt-token>
+        ```
+
+tags:
+  - name: Users
+    description: |
+      User management operations following Domain-Driven Design principles.
+
+      **Domain Concepts**:
+      - **User Aggregate**: Contains user identity and address information
+      - **Email Value Object**: Ensures email validation and uniqueness
+      - **Address Value Object**: Encapsulates address components
+
+      **Business Rules**:
+      - Email addresses must be unique across the system
+      - Users are soft-deleted (marked as inactive)
+      - User creation triggers wallet creation via domain events
+
+  - name: Wallets
+    description: |
+      Wallet management for financial operations.
+
+      **Domain Concepts**:
+      - **Wallet Aggregate**: Manages financial balance and transactions
+      - **Money Value Object**: Handles currency and amount validation
+      - **Balance Rules**: Prevents negative balances, currency consistency
+
+      **Business Rules**:
+      - Each user has exactly one wallet
+      - Wallets are created automatically when users are created
+      - Balance cannot go below zero
+      - All monetary operations are atomic

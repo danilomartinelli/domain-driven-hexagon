@@ -209,8 +209,11 @@ describe('Authentication E2E Tests', () => {
 
       const userRepository = module.get(USER_DI_TOKENS.UserRepository);
       const passwordService = module.get(AUTH_DI_TOKENS.PasswordService);
-      
-      userRepository.findByEmail.mockResolvedValue({ isSome: () => true, unwrap: () => mockUser });
+
+      userRepository.findByEmail.mockResolvedValue({
+        isSome: () => true,
+        unwrap: () => mockUser,
+      });
       passwordService.compare.mockResolvedValue(true);
 
       const response = await request(app.getHttpServer())
@@ -258,7 +261,10 @@ describe('Authentication E2E Tests', () => {
       };
 
       const userRepository = module.get(USER_DI_TOKENS.UserRepository);
-      userRepository.findByEmail.mockResolvedValue({ isSome: () => true, unwrap: () => mockUser });
+      userRepository.findByEmail.mockResolvedValue({
+        isSome: () => true,
+        unwrap: () => mockUser,
+      });
 
       await request(app.getHttpServer())
         .post('/auth/login')
@@ -285,7 +291,10 @@ describe('Authentication E2E Tests', () => {
       };
 
       const userRepository = module.get(USER_DI_TOKENS.UserRepository);
-      userRepository.findByEmail.mockResolvedValue({ isSome: () => true, unwrap: () => mockUser });
+      userRepository.findByEmail.mockResolvedValue({
+        isSome: () => true,
+        unwrap: () => mockUser,
+      });
 
       await request(app.getHttpServer())
         .post('/auth/login')
@@ -315,13 +324,24 @@ describe('Authentication E2E Tests', () => {
         }),
       };
 
-      const refreshTokenRepository = module.get(AUTH_DI_TOKENS.RefreshTokenRepository);
+      const refreshTokenRepository = module.get(
+        AUTH_DI_TOKENS.RefreshTokenRepository,
+      );
       const userRepository = module.get(USER_DI_TOKENS.UserRepository);
       const jwtService = module.get(AUTH_DI_TOKENS.JwtService);
 
-      refreshTokenRepository.findByToken.mockResolvedValue({ isSome: () => true, unwrap: () => mockTokenEntity });
-      userRepository.findOneById.mockResolvedValue({ isSome: () => true, unwrap: () => mockUser });
-      jwtService.verifyRefreshToken.mockResolvedValue({ sub: 'user-123', email: 'test@example.com' });
+      refreshTokenRepository.findByToken.mockResolvedValue({
+        isSome: () => true,
+        unwrap: () => mockTokenEntity,
+      });
+      userRepository.findOneById.mockResolvedValue({
+        isSome: () => true,
+        unwrap: () => mockUser,
+      });
+      jwtService.verifyRefreshToken.mockResolvedValue({
+        sub: 'user-123',
+        email: 'test@example.com',
+      });
 
       const response = await request(app.getHttpServer())
         .post('/auth/refresh')
@@ -338,8 +358,12 @@ describe('Authentication E2E Tests', () => {
         refreshToken: 'invalid-refresh-token',
       };
 
-      const refreshTokenRepository = module.get(AUTH_DI_TOKENS.RefreshTokenRepository);
-      refreshTokenRepository.findByToken.mockResolvedValue({ isNone: () => true });
+      const refreshTokenRepository = module.get(
+        AUTH_DI_TOKENS.RefreshTokenRepository,
+      );
+      refreshTokenRepository.findByToken.mockResolvedValue({
+        isNone: () => true,
+      });
 
       await request(app.getHttpServer())
         .post('/auth/refresh')

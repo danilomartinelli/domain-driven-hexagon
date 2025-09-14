@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import {
@@ -74,7 +74,7 @@ class TestController {
 
   @CustomRateLimit(
     { ttl: 120, limit: 20 },
-    { message: 'Custom rate limit exceeded' }
+    { message: 'Custom rate limit exceeded' },
   )
   customRateLimitEndpoint() {
     return 'custom';
@@ -87,7 +87,7 @@ class TestController {
 
   @RateLimitWithMessage(
     { ttl: 300, limit: 5 },
-    'Too many requests. Please try again later.'
+    'Too many requests. Please try again later.',
   )
   messageEndpoint() {
     return 'message';
@@ -128,7 +128,10 @@ describe('Rate Limiting Decorators', () => {
   describe('Basic Rate Limiting', () => {
     it('should apply RateLimit decorator with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.basicRateLimitEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.basicRateLimitEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -152,7 +155,10 @@ describe('Rate Limiting Decorators', () => {
   describe('Predefined Rate Limit Decorators', () => {
     it('should apply AuthRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.authEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.authEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -162,7 +168,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply ApiRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.apiEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.apiEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -172,7 +181,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply UploadRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.uploadEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.uploadEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -182,7 +194,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply SearchRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.searchEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.searchEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -192,7 +207,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply PasswordResetRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.passwordResetEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.passwordResetEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -202,7 +220,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply EmailRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.emailEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.emailEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -212,7 +233,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply AdminRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.adminEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.adminEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -222,7 +246,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply PublicApiRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.publicApiEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.publicApiEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -232,7 +259,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply UserProfileRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.userProfileEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.userProfileEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -242,7 +272,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply HeavyOperationRateLimit with correct configuration', () => {
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', controller.heavyOperationEndpoint);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.heavyOperationEndpoint,
+      );
 
       // Assert
       expect(metadata).toBeDefined();
@@ -254,8 +287,14 @@ describe('Rate Limiting Decorators', () => {
   describe('Custom Rate Limiting Features', () => {
     it('should apply CustomRateLimit with metadata', () => {
       // Act
-      const throttlerMetadata = Reflect.getMetadata('__throttler_options__', controller.customRateLimitEndpoint);
-      const customMetadata = Reflect.getMetadata(RATE_LIMIT_METADATA, controller.customRateLimitEndpoint);
+      const throttlerMetadata = Reflect.getMetadata(
+        '__throttler_options__',
+        controller.customRateLimitEndpoint,
+      );
+      const customMetadata = Reflect.getMetadata(
+        RATE_LIMIT_METADATA,
+        controller.customRateLimitEndpoint,
+      );
 
       // Assert
       expect(throttlerMetadata).toBeDefined();
@@ -267,7 +306,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply UserBasedRateLimit with custom key function', () => {
       // Act
-      const customMetadata = Reflect.getMetadata(RATE_LIMIT_METADATA, controller.userBasedEndpoint);
+      const customMetadata = Reflect.getMetadata(
+        RATE_LIMIT_METADATA,
+        controller.userBasedEndpoint,
+      );
 
       // Assert
       expect(customMetadata).toBeDefined();
@@ -277,18 +319,26 @@ describe('Rate Limiting Decorators', () => {
 
     it('should apply RateLimitWithMessage with custom message', () => {
       // Act
-      const customMetadata = Reflect.getMetadata(RATE_LIMIT_METADATA, controller.messageEndpoint);
+      const customMetadata = Reflect.getMetadata(
+        RATE_LIMIT_METADATA,
+        controller.messageEndpoint,
+      );
 
       // Assert
       expect(customMetadata).toBeDefined();
-      expect(customMetadata.message).toBe('Too many requests. Please try again later.');
+      expect(customMetadata.message).toBe(
+        'Too many requests. Please try again later.',
+      );
     });
   });
 
   describe('Rate Limiting Logic', () => {
     it('should generate different keys for user-based rate limiting', () => {
       // Arrange
-      const customMetadata = Reflect.getMetadata(RATE_LIMIT_METADATA, controller.userBasedEndpoint);
+      const customMetadata = Reflect.getMetadata(
+        RATE_LIMIT_METADATA,
+        controller.userBasedEndpoint,
+      );
       const mockReqWithUser = { user: { id: 'user-123' }, ip: '192.168.1.1' };
       const mockReqWithoutUser = { ip: '192.168.1.1' };
 
@@ -303,7 +353,10 @@ describe('Rate Limiting Decorators', () => {
 
     it('should handle edge cases in custom key generation', () => {
       // Arrange
-      const customMetadata = Reflect.getMetadata(RATE_LIMIT_METADATA, controller.userBasedEndpoint);
+      const customMetadata = Reflect.getMetadata(
+        RATE_LIMIT_METADATA,
+        controller.userBasedEndpoint,
+      );
       const mockReqEmpty = {};
 
       // Act
@@ -319,7 +372,10 @@ describe('Rate Limiting Decorators', () => {
       // Arrange
       class MultiDecoratorController {
         @AuthRateLimit()
-        @CustomRateLimit({ ttl: 300, limit: 3 }, { message: 'Too many auth attempts' })
+        @CustomRateLimit(
+          { ttl: 300, limit: 3 },
+          { message: 'Too many auth attempts' },
+        )
         multiDecoratorEndpoint() {
           return 'multi';
         }
@@ -328,8 +384,14 @@ describe('Rate Limiting Decorators', () => {
       const multiController = new MultiDecoratorController();
 
       // Act
-      const throttlerMetadata = Reflect.getMetadata('__throttler_options__', multiController.multiDecoratorEndpoint);
-      const customMetadata = Reflect.getMetadata(RATE_LIMIT_METADATA, multiController.multiDecoratorEndpoint);
+      const throttlerMetadata = Reflect.getMetadata(
+        '__throttler_options__',
+        multiController.multiDecoratorEndpoint,
+      );
+      const customMetadata = Reflect.getMetadata(
+        RATE_LIMIT_METADATA,
+        multiController.multiDecoratorEndpoint,
+      );
 
       // Assert
       expect(throttlerMetadata).toBeDefined();
@@ -342,15 +404,18 @@ describe('Rate Limiting Decorators', () => {
     it('should handle rapid decorator applications', () => {
       // Arrange
       const startTime = Date.now();
-      
+
       // Act - Apply decorators rapidly
       for (let i = 0; i < 1000; i++) {
-        class TestClass {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        class _TestClass {
           @AuthRateLimit()
-          testMethod() { return 'test'; }
+          testMethod() {
+            return 'test';
+          }
         }
       }
-      
+
       const endTime = Date.now();
 
       // Assert
@@ -376,10 +441,13 @@ describe('Rate Limiting Decorators', () => {
   describe('Integration with NestJS Throttler', () => {
     it('should work with NestJS throttler guard', async () => {
       // Arrange
-      const guard = new ThrottlerGuard({
-        throttlers: [{ ttl: 60000, limit: 10 }],
-        ignoreUserAgents: [],
-      }, reflector);
+      const guard = new ThrottlerGuard(
+        {
+          throttlers: [{ ttl: 60000, limit: 10 }],
+          ignoreUserAgents: [],
+        },
+        reflector,
+      );
 
       const mockContext = {
         switchToHttp: () => ({
@@ -415,7 +483,10 @@ describe('Rate Limiting Decorators', () => {
       const emptyController = new EmptyController();
 
       // Act
-      const metadata = Reflect.getMetadata('__throttler_options__', emptyController.regularMethod);
+      const metadata = Reflect.getMetadata(
+        '__throttler_options__',
+        emptyController.regularMethod,
+      );
 
       // Assert
       expect(metadata).toBeUndefined();
@@ -427,7 +498,8 @@ describe('Rate Limiting Decorators', () => {
 
       // Act & Assert
       expect(() => {
-        class TestClass {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        class _TestClass {
           @decorator
           property: string = 'test';
         }
@@ -442,9 +514,12 @@ describe('Rate Limiting Decorators', () => {
 
       // Act - Create many classes with decorators
       for (let i = 0; i < 1000; i++) {
-        class TempClass {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        class _TempClass {
           @AuthRateLimit()
-          tempMethod() { return 'temp'; }
+          tempMethod() {
+            return 'temp';
+          }
         }
       }
 

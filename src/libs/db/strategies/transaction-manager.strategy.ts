@@ -43,7 +43,9 @@ export interface TransactionManagerStrategy {
 /**
  * Advanced transaction manager with performance monitoring and retry logic
  */
-export class AdvancedTransactionManagerStrategy implements TransactionManagerStrategy {
+export class AdvancedTransactionManagerStrategy
+  implements TransactionManagerStrategy
+{
   private static readonly DEFAULT_TIMEOUT_MS = 30000;
   private static readonly MAX_RETRY_ATTEMPTS = 3;
   private static readonly RETRY_DELAY_MS = 100;
@@ -65,18 +67,24 @@ export class AdvancedTransactionManagerStrategy implements TransactionManagerStr
 
     return this.executeWithRetry(async (attempt: number) => {
       return this.pool.transaction(async (connection) => {
-        this.logger.debug(`[${requestId}] Transaction started (attempt ${attempt})`, {
-          isolationLevel: options.isolationLevel,
-          timeout: options.timeout,
-          readOnly: options.readOnly,
-        });
+        this.logger.debug(
+          `[${requestId}] Transaction started (attempt ${attempt})`,
+          {
+            isolationLevel: options.isolationLevel,
+            timeout: options.timeout,
+            readOnly: options.readOnly,
+          },
+        );
 
         try {
           await this.configureTransaction(connection, options);
-          
-          const transactionConnection = this.createInstrumentedConnection(connection, () => {
-            operationsCount++;
-          });
+
+          const transactionConnection = this.createInstrumentedConnection(
+            connection,
+            () => {
+              operationsCount++;
+            },
+          );
 
           const result = await handler(transactionConnection);
           const duration = performance.now() - startTime;
@@ -96,7 +104,7 @@ export class AdvancedTransactionManagerStrategy implements TransactionManagerStr
           };
         } catch (error) {
           const duration = performance.now() - startTime;
-          
+
           this.logger.error(
             `[${requestId}] Transaction failed and rolled back after ${duration.toFixed(2)}ms (attempt ${attempt})`,
             {
@@ -159,17 +167,23 @@ export class AdvancedTransactionManagerStrategy implements TransactionManagerStr
       configurations.push('READ ONLY');
     }
 
-    if (options.deferrable && options.isolationLevel === TransactionIsolationLevel.SERIALIZABLE) {
+    if (
+      options.deferrable &&
+      options.isolationLevel === TransactionIsolationLevel.SERIALIZABLE
+    ) {
       configurations.push('DEFERRABLE');
     }
 
     if (configurations.length > 0) {
       const configString = configurations.join(', ');
-      await connection.query(sql.unsafe`SET TRANSACTION ${sql.unsafe`${configString}`}`);
+      await connection.query(
+        sql.unsafe`SET TRANSACTION ${sql.unsafe`${configString}`}`,
+      );
     }
 
     // Set statement timeout if specified
-    const timeout = options.timeout ?? AdvancedTransactionManagerStrategy.DEFAULT_TIMEOUT_MS;
+    const timeout =
+      options.timeout ?? AdvancedTransactionManagerStrategy.DEFAULT_TIMEOUT_MS;
     await connection.query(sql.unsafe`SET statement_timeout = ${timeout}`);
   }
 
@@ -197,7 +211,9 @@ export class AdvancedTransactionManagerStrategy implements TransactionManagerStr
     // Check for serialization failures or deadlocks
     if ('code' in error) {
       const errorCode = (error as any).code;
-      return AdvancedTransactionManagerStrategy.SERIALIZATION_FAILURE_CODES.includes(errorCode);
+      return AdvancedTransactionManagerStrategy.SERIALIZATION_FAILURE_CODES.includes(
+        errorCode,
+      );
     }
 
     // Check for connection-related errors
@@ -209,7 +225,7 @@ export class AdvancedTransactionManagerStrategy implements TransactionManagerStr
       'timeout',
     ];
 
-    return retryablePatterns.some(pattern => errorMessage.includes(pattern));
+    return retryablePatterns.some((pattern) => errorMessage.includes(pattern));
   }
 
   private calculateRetryDelay(attempt: number): number {
@@ -217,19 +233,21 @@ export class AdvancedTransactionManagerStrategy implements TransactionManagerStr
     const baseDelay = AdvancedTransactionManagerStrategy.RETRY_DELAY_MS;
     const exponentialDelay = baseDelay * Math.pow(2, attempt - 1);
     const jitter = Math.random() * baseDelay;
-    
+
     return Math.min(exponentialDelay + jitter, 5000); // Cap at 5 seconds
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 
 /**
  * Simple transaction manager for basic use cases
  */
-export class SimpleTransactionManagerStrategy implements TransactionManagerStrategy {
+export class SimpleTransactionManagerStrategy
+  implements TransactionManagerStrategy
+{
   constructor(
     private readonly pool: DatabasePool,
     private readonly logger: LoggerPort,
@@ -267,7 +285,7 @@ export class SimpleTransactionManagerStrategy implements TransactionManagerStrat
         };
       } catch (error) {
         const duration = performance.now() - startTime;
-        
+
         this.logger.error(
           `[${requestId}] Simple transaction failed after ${duration.toFixed(2)}ms`,
           {

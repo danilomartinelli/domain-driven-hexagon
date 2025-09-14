@@ -8,7 +8,11 @@ export interface RoleRepositoryPort extends RepositoryPort<RoleEntity> {
   findActiveRoles(): Promise<RoleEntity[]>;
   findRolesWithPermission(permissionId: string): Promise<RoleEntity[]>;
   findUserRoles(userId: string): Promise<RoleEntity[]>;
-  assignRoleToUser(userId: string, roleId: string, assignedBy?: string): Promise<void>;
+  assignRoleToUser(
+    userId: string,
+    roleId: string,
+    assignedBy?: string,
+  ): Promise<void>;
   unassignRoleFromUser(userId: string, roleId: string): Promise<void>;
   getUserRoleIds(userId: string): Promise<string[]>;
 }

@@ -16,7 +16,10 @@ import { RegisterCommand } from './register.command';
 import { RegisterRequestDto } from '../../dtos/register.request.dto';
 import { IdResponse } from '@libs/api/id.response.dto';
 import { UserAlreadyExistsError } from '@modules/user/domain/user.errors';
-import { PasswordMismatchError, WeakPasswordError } from '../../domain/auth.errors';
+import {
+  PasswordMismatchError,
+  WeakPasswordError,
+} from '../../domain/auth.errors';
 import { ApiErrorResponse } from '@libs/api/api-error.response';
 import { AggregateID } from '@libs/ddd';
 import { Public } from '../../infrastructure/decorators/auth.decorator';
@@ -57,7 +60,8 @@ export class RegisterHttpController {
       userAgent: body.userAgent || req.get('User-Agent'),
     });
 
-    const result: Result<AggregateID, Error> = await this.commandBus.execute(command);
+    const result: Result<AggregateID, Error> =
+      await this.commandBus.execute(command);
 
     return match(result, {
       Ok: (id: string) => new IdResponse(id),
@@ -71,7 +75,7 @@ export class RegisterHttpController {
         if (error instanceof WeakPasswordError) {
           throw new BadRequestException(error.message);
         }
-        
+
         // Generic error handling
         throw new BadRequestException(error.message || 'Registration failed');
       },

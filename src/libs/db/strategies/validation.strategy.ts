@@ -1,5 +1,4 @@
 import { ZodSchema, ZodType, z } from 'zod';
-import { ObjectLiteral } from '../../types';
 
 /**
  * Validation result with detailed error information
@@ -26,8 +25,14 @@ export interface ValidationError {
  */
 export interface ValidationStrategy {
   validateModel<T>(data: unknown, schema: ZodSchema<T>): ValidationResult<T>;
-  validateId<T extends string | number = string>(id: unknown, schema?: ZodType<T>): ValidationResult<T>;
-  validateBatch<T>(data: unknown[], schema: ZodSchema<T>): ValidationResult<T[]>;
+  validateId<T extends string | number = string>(
+    id: unknown,
+    schema?: ZodType<T>,
+  ): ValidationResult<T>;
+  validateBatch<T>(
+    data: unknown[],
+    schema: ZodSchema<T>,
+  ): ValidationResult<T[]>;
 }
 
 /**
@@ -36,21 +41,27 @@ export interface ValidationStrategy {
 export class OptimizedValidationStrategy implements ValidationStrategy {
   private static readonly DEFAULT_ID_SCHEMA = z.string().uuid();
   private static readonly MAX_BATCH_SIZE = 1000;
-  
+
   // Cache for compiled regex patterns and validation functions
-  private readonly validationCache = new Map<string, {
-    validator: (data: unknown) => ValidationResult<any>;
-    lastUsed: number;
-  }>();
-  
+  private readonly validationCache = new Map<
+    string,
+    {
+      validator: (data: unknown) => ValidationResult<any>;
+      lastUsed: number;
+    }
+  >();
+
   private readonly schemaCache = new Map<ZodSchema<any>, string>();
   private readonly cleanupInterval: NodeJS.Timeout;
 
   constructor() {
     // Clean up cache every 5 minutes to prevent memory leaks
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupCache();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanupCache();
+      },
+      5 * 60 * 1000,
+    );
   }
 
   validateModel<T>(data: unknown, schema: ZodSchema<T>): ValidationResult<T> {
@@ -58,7 +69,7 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
       // Try to get cached validator
       const schemaKey = this.getSchemaKey(schema);
       const cached = this.validationCache.get(schemaKey);
-      
+
       if (cached) {
         cached.lastUsed = Date.now();
         return cached.validator(data);
@@ -72,22 +83,25 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
       });
 
       return validator(data);
-    } catch (error) {
+    } catch {
       return {
         success: false,
-        errors: [{
-          path: [],
-          message: 'Validation failed due to internal error',
-          code: 'VALIDATION_ERROR',
-          received: typeof data,
-        }],
+        errors: [
+          {
+            path: [],
+            message: 'Validation failed due to internal error',
+            code: 'VALIDATION_ERROR',
+            received: typeof data,
+          },
+        ],
       };
     }
   }
 
   validateId<T>(id: unknown, schema?: ZodType<T>): ValidationResult<T> {
-    const validationSchema = schema || OptimizedValidationStrategy.DEFAULT_ID_SCHEMA;
-    
+    const validationSchema =
+      schema || OptimizedValidationStrategy.DEFAULT_ID_SCHEMA;
+
     try {
       // Fast path for string UUIDs (most common case)
       if (!schema && typeof id === 'string' && this.isValidUuid(id)) {
@@ -98,7 +112,7 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
       }
 
       const result = validationSchema.safeParse(id);
-      
+
       if (result.success) {
         return {
           success: true,
@@ -108,37 +122,44 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
 
       return {
         success: false,
-        errors: result.error.issues.map(err => ({
-          path: err.path.map(p => String(p)),
+        errors: result.error.issues.map((err) => ({
+          path: err.path.map((p) => String(p)),
           message: err.message,
           code: err.code,
           received: (err as any).received || 'unknown',
           expected: this.getExpectedType(validationSchema),
         })),
       };
-    } catch (error) {
+    } catch {
       return {
         success: false,
-        errors: [{
-          path: [],
-          message: 'ID validation failed',
-          code: 'ID_VALIDATION_ERROR',
-          received: typeof id,
-        }],
+        errors: [
+          {
+            path: [],
+            message: 'ID validation failed',
+            code: 'ID_VALIDATION_ERROR',
+            received: typeof id,
+          },
+        ],
       };
     }
   }
 
-  validateBatch<T>(data: unknown[], schema: ZodSchema<T>): ValidationResult<T[]> {
+  validateBatch<T>(
+    data: unknown[],
+    schema: ZodSchema<T>,
+  ): ValidationResult<T[]> {
     if (!Array.isArray(data)) {
       return {
         success: false,
-        errors: [{
-          path: [],
-          message: 'Expected array for batch validation',
-          code: 'INVALID_BATCH_TYPE',
-          received: typeof data,
-        }],
+        errors: [
+          {
+            path: [],
+            message: 'Expected array for batch validation',
+            code: 'INVALID_BATCH_TYPE',
+            received: typeof data,
+          },
+        ],
       };
     }
 
@@ -152,12 +173,14 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
     if (data.length > OptimizedValidationStrategy.MAX_BATCH_SIZE) {
       return {
         success: false,
-        errors: [{
-          path: [],
-          message: `Batch size (${data.length}) exceeds maximum allowed (${OptimizedValidationStrategy.MAX_BATCH_SIZE})`,
-          code: 'BATCH_TOO_LARGE',
-          received: data.length,
-        }],
+        errors: [
+          {
+            path: [],
+            message: `Batch size (${data.length}) exceeds maximum allowed (${OptimizedValidationStrategy.MAX_BATCH_SIZE})`,
+            code: 'BATCH_TOO_LARGE',
+            received: data.length,
+          },
+        ],
       };
     }
 
@@ -166,19 +189,19 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
 
     // Process in chunks for better performance
     const chunkSize = Math.min(100, data.length);
-    
+
     for (let i = 0; i < data.length; i += chunkSize) {
       const chunk = data.slice(i, i + chunkSize);
-      
+
       for (let j = 0; j < chunk.length; j++) {
         const itemIndex = i + j;
         const validationResult = this.validateModel(chunk[j], schema);
-        
+
         if (validationResult.success && validationResult.data !== undefined) {
           results.push(validationResult.data);
         } else if (validationResult.errors) {
           // Add index information to errors
-          const indexedErrors = validationResult.errors.map(err => ({
+          const indexedErrors = validationResult.errors.map((err) => ({
             ...err,
             path: [String(itemIndex), ...err.path],
           }));
@@ -208,7 +231,7 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
   private createModelValidator<T>(schema: ZodSchema<T>) {
     return (data: unknown): ValidationResult<T> => {
       const result = schema.safeParse(data);
-      
+
       if (result.success) {
         return {
           success: true,
@@ -218,12 +241,15 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
 
       return {
         success: false,
-        errors: result.error.issues.map(err => ({
-          path: err.path.map(p => String(p)),
+        errors: result.error.issues.map((err) => ({
+          path: err.path.map((p) => String(p)),
           message: err.message,
           code: err.code,
           received: (err as any).received || 'unknown',
-          expected: this.getExpectedFromPath(schema, err.path.map(p => String(p))),
+          expected: this.getExpectedFromPath(
+            schema,
+            err.path.map((p) => String(p)),
+          ),
         })),
       };
     };
@@ -244,7 +270,8 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
 
   private isValidUuid(str: string): boolean {
     // Optimized UUID validation using compiled regex
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return uuidRegex.test(str);
   }
 
@@ -257,7 +284,10 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
     return 'unknown';
   }
 
-  private getExpectedFromPath(schema: ZodSchema<any>, path: (string | number)[]): string {
+  private getExpectedFromPath(
+    schema: ZodSchema<any>,
+    path: (string | number)[],
+  ): string {
     // Simplified expected type extraction for error messages
     try {
       if (path.length === 0) {
@@ -273,7 +303,7 @@ export class OptimizedValidationStrategy implements ValidationStrategy {
   private cleanupCache(): void {
     const now = Date.now();
     const maxAge = 10 * 60 * 1000; // 10 minutes
-    
+
     for (const [key, value] of this.validationCache.entries()) {
       if (now - value.lastUsed > maxAge) {
         this.validationCache.delete(key);
@@ -302,8 +332,8 @@ export class SimpleValidationStrategy implements ValidationStrategy {
       if (error instanceof z.ZodError) {
         return {
           success: false,
-          errors: error.issues.map(err => ({
-            path: err.path.map(p => String(p)),
+          errors: error.issues.map((err) => ({
+            path: err.path.map((p) => String(p)),
             message: err.message,
             code: err.code,
             received: (err as any).received || 'unknown',
@@ -313,17 +343,22 @@ export class SimpleValidationStrategy implements ValidationStrategy {
 
       return {
         success: false,
-        errors: [{
-          path: [],
-          message: 'Validation failed',
-          code: 'VALIDATION_ERROR',
-          received: typeof data,
-        }],
+        errors: [
+          {
+            path: [],
+            message: 'Validation failed',
+            code: 'VALIDATION_ERROR',
+            received: typeof data,
+          },
+        ],
       };
     }
   }
 
-  validateId<T extends string | number = string>(id: unknown, schema?: ZodType<T>): ValidationResult<T> {
+  validateId<T extends string | number = string>(
+    id: unknown,
+    schema?: ZodType<T>,
+  ): ValidationResult<T> {
     if (schema) {
       return this.validateModel(id, schema);
     }
@@ -332,16 +367,21 @@ export class SimpleValidationStrategy implements ValidationStrategy {
     return stringValidation as ValidationResult<T>;
   }
 
-  validateBatch<T>(data: unknown[], schema: ZodSchema<T>): ValidationResult<T[]> {
+  validateBatch<T>(
+    data: unknown[],
+    schema: ZodSchema<T>,
+  ): ValidationResult<T[]> {
     if (!Array.isArray(data)) {
       return {
         success: false,
-        errors: [{
-          path: [],
-          message: 'Expected array',
-          code: 'INVALID_TYPE',
-          received: typeof data,
-        }],
+        errors: [
+          {
+            path: [],
+            message: 'Expected array',
+            code: 'INVALID_TYPE',
+            received: typeof data,
+          },
+        ],
       };
     }
 
@@ -353,7 +393,7 @@ export class SimpleValidationStrategy implements ValidationStrategy {
       if (result.success && result.data !== undefined) {
         results.push(result.data);
       } else if (result.errors) {
-        const indexedErrors = result.errors.map(err => ({
+        const indexedErrors = result.errors.map((err) => ({
           ...err,
           path: [String(index), ...err.path],
         }));

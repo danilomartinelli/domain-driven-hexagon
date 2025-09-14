@@ -43,7 +43,9 @@ async function bootstrap() {
   // Swagger configuration with security
   const swaggerOptions = new DocumentBuilder()
     .setTitle('Domain-Driven Hexagon API')
-    .setDescription('A secure Domain-Driven Design API with Hexagonal Architecture')
+    .setDescription(
+      'A secure Domain-Driven Design API with Hexagonal Architecture',
+    )
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -60,7 +62,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerOptions);
-  
+
   // Only expose Swagger in non-production environments
   if (envValidator.get('NODE_ENV') !== 'production') {
     SwaggerModule.setup('docs', app, document, {
@@ -75,19 +77,19 @@ async function bootstrap() {
 
   // Get port from environment
   const port = envValidator.get('PORT');
-  
+
   // Start server
   await app.listen(port);
-  
+
   // Log startup information (with security consideration)
   const environment = envValidator.get('NODE_ENV');
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📝 Environment: ${environment}`);
-  
+
   if (environment !== 'production') {
     console.log(`📚 API Documentation: http://localhost:${port}/docs`);
   }
-  
+
   console.log('🔐 Security features enabled:');
   console.log('  ✓ Helmet security headers');
   console.log('  ✓ CORS protection');

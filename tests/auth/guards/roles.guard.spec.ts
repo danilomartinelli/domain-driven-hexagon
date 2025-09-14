@@ -70,7 +70,7 @@ describe('RolesGuard', () => {
       expect(result).toBe(true);
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(
         ROLES_METADATA_KEY,
-        [mockContext.getHandler(), mockContext.getClass()]
+        [mockContext.getHandler(), mockContext.getClass()],
       );
     });
 
@@ -118,7 +118,7 @@ describe('RolesGuard', () => {
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required roles: admin OR superuser'
+        'Access denied. Required roles: admin OR superuser',
       );
     });
 
@@ -130,7 +130,7 @@ describe('RolesGuard', () => {
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required roles: user, admin'
+        'Access denied. Required roles: user, admin',
       );
     });
 
@@ -142,7 +142,9 @@ describe('RolesGuard', () => {
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
-      expect(() => guard.canActivate(mockContext)).toThrow('User not authenticated');
+      expect(() => guard.canActivate(mockContext)).toThrow(
+        'User not authenticated',
+      );
     });
 
     it('should handle user with empty roles array', () => {
@@ -226,7 +228,10 @@ describe('RolesGuard', () => {
     it('should handle complex role hierarchy', () => {
       // Arrange
       mockRequest.user.roles = ['junior-dev', 'developer', 'team-lead'];
-      const rolesConfig = { roles: ['developer', 'senior-dev'], requireAll: false };
+      const rolesConfig = {
+        roles: ['developer', 'senior-dev'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(rolesConfig);
 
       // Act
@@ -249,7 +254,7 @@ describe('RolesGuard', () => {
       // Assert
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(
         ROLES_METADATA_KEY,
-        [mockContext.getHandler(), mockContext.getClass()]
+        [mockContext.getHandler(), mockContext.getClass()],
       );
     });
 
@@ -284,18 +289,21 @@ describe('RolesGuard', () => {
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required roles: admin'
+        'Access denied. Required roles: admin',
       );
     });
 
     it('should provide clear error message for multiple role requirements (any mode)', () => {
       // Arrange
-      const rolesConfig = { roles: ['admin', 'superuser', 'moderator'], requireAll: false };
+      const rolesConfig = {
+        roles: ['admin', 'superuser', 'moderator'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(rolesConfig);
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required roles: admin OR superuser OR moderator'
+        'Access denied. Required roles: admin OR superuser OR moderator',
       );
     });
 
@@ -306,7 +314,7 @@ describe('RolesGuard', () => {
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required roles: admin, superuser'
+        'Access denied. Required roles: admin, superuser',
       );
     });
   });
@@ -367,7 +375,7 @@ describe('RolesGuard', () => {
       mockRequest.user.roles = [...manyRoles, 'target-role'];
       const rolesConfig = { roles: ['target-role'], requireAll: false };
       reflector.getAllAndOverride.mockReturnValue(rolesConfig);
-      
+
       const startTime = Date.now();
 
       // Act
@@ -386,7 +394,7 @@ describe('RolesGuard', () => {
       mockRequest.user.roles = manyRoles;
       const rolesConfig = { roles: manyRoles, requireAll: true };
       reflector.getAllAndOverride.mockReturnValue(rolesConfig);
-      
+
       const startTime = Date.now();
 
       // Act
@@ -428,7 +436,7 @@ describe('RolesGuard', () => {
         permissions: ['admin:all', 'user:read-own'],
       };
       mockRequest.user = maliciousUser;
-      
+
       const rolesConfig = { roles: ['superuser'], requireAll: false };
       reflector.getAllAndOverride.mockReturnValue(rolesConfig);
 
@@ -472,7 +480,10 @@ describe('RolesGuard', () => {
     it('should handle multi-role requirement for sensitive operations', () => {
       // Arrange
       mockRequest.user.roles = ['admin', 'auditor', 'security-officer'];
-      const rolesConfig = { roles: ['admin', 'security-officer'], requireAll: true };
+      const rolesConfig = {
+        roles: ['admin', 'security-officer'],
+        requireAll: true,
+      };
       reflector.getAllAndOverride.mockReturnValue(rolesConfig);
 
       // Act
@@ -485,7 +496,10 @@ describe('RolesGuard', () => {
     it('should handle organization hierarchy roles', () => {
       // Arrange
       mockRequest.user.roles = ['employee', 'team-lead', 'department-head'];
-      const rolesConfig = { roles: ['manager', 'team-lead', 'department-head'], requireAll: false };
+      const rolesConfig = {
+        roles: ['manager', 'team-lead', 'department-head'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(rolesConfig);
 
       // Act

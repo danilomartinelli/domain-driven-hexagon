@@ -37,15 +37,24 @@ export enum DatabaseSslMode {
 export const DatabaseEnvironmentVariablesSchema = z.object({
   // Core connection settings
   DB_HOST: z.string().min(1, 'Database host is required'),
-  DB_PORT: z.string().regex(/^\d+$/, 'Database port must be a number').transform(Number),
+  DB_PORT: z
+    .string()
+    .regex(/^\d+$/, 'Database port must be a number')
+    .transform(Number),
   DB_USERNAME: z.string().min(1, 'Database username is required'),
   DB_PASSWORD: z.string().min(1, 'Database password is required'),
   DB_NAME: z.string().min(1, 'Database name is required'),
 
   // SSL configuration
-  DB_SSL: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
+  DB_SSL: z
+    .enum(['true', 'false'])
+    .transform((val) => val === 'true')
+    .optional(),
   DB_SSL_MODE: z.nativeEnum(DatabaseSslMode).optional(),
-  DB_SSL_REJECT_UNAUTHORIZED: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
+  DB_SSL_REJECT_UNAUTHORIZED: z
+    .enum(['true', 'false'])
+    .transform((val) => val === 'true')
+    .optional(),
   DB_SSL_CA: z.string().optional(),
   DB_SSL_CERT: z.string().optional(),
   DB_SSL_KEY: z.string().optional(),
@@ -57,7 +66,7 @@ export const DatabaseEnvironmentVariablesSchema = z.object({
   DB_CREATE_TIMEOUT: z.string().regex(/^\d+$/).transform(Number).optional(),
   DB_DESTROY_TIMEOUT: z.string().regex(/^\d+$/).transform(Number).optional(),
   DB_IDLE_TIMEOUT: z.string().regex(/^\d+$/).transform(Number).optional(),
-  
+
   // Connection timeouts
   DB_CONNECTION_TIMEOUT: z.string().regex(/^\d+$/).transform(Number).optional(),
   DB_STATEMENT_TIMEOUT: z.string().regex(/^\d+$/).transform(Number).optional(),
@@ -65,26 +74,53 @@ export const DatabaseEnvironmentVariablesSchema = z.object({
 
   // Logging configuration
   DB_LOG_LEVEL: z.nativeEnum(DatabaseLogLevel).optional(),
-  DB_ENABLE_QUERY_LOGGING: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
+  DB_ENABLE_QUERY_LOGGING: z
+    .enum(['true', 'false'])
+    .transform((val) => val === 'true')
+    .optional(),
 
   // Health check settings
-  DB_HEALTH_CHECK_INTERVAL: z.string().regex(/^\d+$/).transform(Number).optional(),
-  DB_HEALTH_CHECK_TIMEOUT: z.string().regex(/^\d+$/).transform(Number).optional(),
-  DB_HEALTH_CHECK_RETRIES: z.string().regex(/^\d+$/).transform(Number).optional(),
+  DB_HEALTH_CHECK_INTERVAL: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .optional(),
+  DB_HEALTH_CHECK_TIMEOUT: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .optional(),
+  DB_HEALTH_CHECK_RETRIES: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .optional(),
 
   // Migration settings
   DB_MIGRATION_TABLE: z.string().optional(),
   DB_MIGRATIONS_PATH: z.string().optional(),
 
   // Performance monitoring
-  DB_ENABLE_POOL_MONITORING: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
-  DB_POOL_MONITORING_INTERVAL: z.string().regex(/^\d+$/).transform(Number).optional(),
+  DB_ENABLE_POOL_MONITORING: z
+    .enum(['true', 'false'])
+    .transform((val) => val === 'true')
+    .optional(),
+  DB_POOL_MONITORING_INTERVAL: z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .optional(),
 
   // Environment
-  NODE_ENV: z.nativeEnum(DatabaseEnvironment).optional().default(DatabaseEnvironment.DEVELOPMENT),
+  NODE_ENV: z
+    .nativeEnum(DatabaseEnvironment)
+    .optional()
+    .default(DatabaseEnvironment.DEVELOPMENT),
 });
 
-export type DatabaseEnvironmentVariables = z.infer<typeof DatabaseEnvironmentVariablesSchema>;
+export type DatabaseEnvironmentVariables = z.infer<
+  typeof DatabaseEnvironmentVariablesSchema
+>;
 
 /**
  * Core database connection configuration

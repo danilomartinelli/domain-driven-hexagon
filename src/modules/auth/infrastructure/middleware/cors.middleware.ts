@@ -9,12 +9,15 @@ export class CorsMiddleware implements NestMiddleware {
 
   constructor(private readonly configService: ConfigService) {
     const allowedOrigins = this.getAllowedOrigins();
-    
+
     this.corsMiddleware = cors({
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      origin: (
+        origin: string | undefined,
+        callback: (err: Error | null, allow?: boolean) => void,
+      ) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        
+
         if (this.isOriginAllowed(origin, allowedOrigins)) {
           callback(null, true);
         } else {
@@ -52,7 +55,7 @@ export class CorsMiddleware implements NestMiddleware {
 
   private getAllowedOrigins(): string[] {
     const origins = this.configService.get<string>('CORS_ALLOWED_ORIGINS', '');
-    
+
     // Default allowed origins for development
     const defaultOrigins = [
       'http://localhost:3000',
@@ -65,7 +68,10 @@ export class CorsMiddleware implements NestMiddleware {
       return process.env.NODE_ENV === 'production' ? [] : defaultOrigins;
     }
 
-    return origins.split(',').map(origin => origin.trim()).filter(Boolean);
+    return origins
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
   }
 
   private isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
@@ -82,7 +88,7 @@ export class CorsMiddleware implements NestMiddleware {
     }
 
     // Check wildcard patterns
-    return allowedOrigins.some(allowed => {
+    return allowedOrigins.some((allowed) => {
       if (allowed.includes('*')) {
         const pattern = allowed.replace(/\*/g, '.*');
         const regex = new RegExp(`^${pattern}$`);

@@ -742,7 +742,7 @@ export abstract class SqlRepositoryBase<
     const sanitizedContext = this.sanitizeContextForLogging(context);
     const requestId = this.getRequestId();
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     // Create secure error details for logging
     const errorDetails = {
       operation,
@@ -760,7 +760,7 @@ export abstract class SqlRepositoryBase<
       if (!isProduction) {
         errorDetails['errorMessage'] = this.sanitizeErrorMessage(error.message);
       }
-      
+
       this.logger.warn(
         `[${requestId}] Unique constraint violation in ${operation}`,
         errorDetails,
@@ -768,7 +768,7 @@ export abstract class SqlRepositoryBase<
     } else if (error instanceof NotFoundError) {
       // Not found errors are generally safe to log
       errorDetails['errorCode'] = 'ENTITY_NOT_FOUND';
-      
+
       this.logger.debug(
         `[${requestId}] Entity not found in ${operation}`,
         errorDetails,
@@ -779,7 +779,7 @@ export abstract class SqlRepositoryBase<
       if (!isProduction) {
         errorDetails['errorMessage'] = this.sanitizeErrorMessage(error.message);
       }
-      
+
       this.logger.error(
         `[${requestId}] Data integrity error in ${operation}`,
         errorDetails,
@@ -787,7 +787,7 @@ export abstract class SqlRepositoryBase<
     } else {
       // Generic errors - be more careful about what we log
       errorDetails['errorCode'] = 'REPOSITORY_ERROR';
-      
+
       // Only include error message in non-production environments
       if (!isProduction) {
         errorDetails['errorMessage'] = this.sanitizeErrorMessage(error.message);
@@ -796,7 +796,7 @@ export abstract class SqlRepositoryBase<
         // In production, use a generic message but log the actual error separately for debugging
         this.logProductionError(error, operation, requestId);
       }
-      
+
       this.logger.error(
         `[${requestId}] Repository error in ${operation}`,
         errorDetails,
@@ -812,21 +812,23 @@ export abstract class SqlRepositoryBase<
    */
   private sanitizeErrorMessage(message: string): string {
     if (!message) return 'Unknown error';
-    
+
     // Remove potential sensitive data patterns
-    return message
-      // Remove connection strings
-      .replace(/postgresql:\/\/[^@]+@[^/]+\/\w+/gi, 'postgresql://[REDACTED]')
-      // Remove table/column names that might be sensitive
-      .replace(/relation "([^"]+)"/gi, 'relation "[REDACTED]"')
-      .replace(/column "([^"]+)"/gi, 'column "[REDACTED]"') 
-      // Remove potential passwords or tokens
-      .replace(/password[=:]\s*[^\s]+/gi, 'password=[REDACTED]')
-      .replace(/token[=:]\s*[^\s]+/gi, 'token=[REDACTED]')
-      // Remove SQL query details in production
-      .replace(/query:\s*.+$/gim, 'query: [REDACTED]')
-      // Limit length to prevent log injection
-      .substring(0, 500);
+    return (
+      message
+        // Remove connection strings
+        .replace(/postgresql:\/\/[^@]+@[^/]+\/\w+/gi, 'postgresql://[REDACTED]')
+        // Remove table/column names that might be sensitive
+        .replace(/relation "([^"]+)"/gi, 'relation "[REDACTED]"')
+        .replace(/column "([^"]+)"/gi, 'column "[REDACTED]"')
+        // Remove potential passwords or tokens
+        .replace(/password[=:]\s*[^\s]+/gi, 'password=[REDACTED]')
+        .replace(/token[=:]\s*[^\s]+/gi, 'token=[REDACTED]')
+        // Remove SQL query details in production
+        .replace(/query:\s*.+$/gim, 'query: [REDACTED]')
+        // Limit length to prevent log injection
+        .substring(0, 500)
+    );
   }
 
   /**
@@ -834,23 +836,29 @@ export abstract class SqlRepositoryBase<
    */
   private sanitizeStackTrace(stack?: string): string {
     if (!stack) return '';
-    
-    return stack
-      // Remove file system paths
-      .replace(/\/[^\s:]+\//g, '/[PATH]/')
-      // Remove user home directory references
-      .replace(/\/Users\/[^\/\s:]+/g, '/Users/[USER]')
-      .replace(/\/home\/[^\/\s:]+/g, '/home/[USER]')
-      // Limit stack trace length
-      .split('\n')
-      .slice(0, 10) // Only first 10 lines
-      .join('\n');
+
+    return (
+      stack
+        // Remove file system paths
+        .replace(/\/[^\s:]+\//g, '/[PATH]/')
+        // Remove user home directory references
+        .replace(/\/Users\/[^\/\s:]+/g, '/Users/[USER]')
+        .replace(/\/home\/[^\/\s:]+/g, '/home/[USER]')
+        // Limit stack trace length
+        .split('\n')
+        .slice(0, 10) // Only first 10 lines
+        .join('\n')
+    );
   }
 
   /**
    * Log production errors to secure location for debugging
    */
-  private logProductionError(error: Error, operation: string, requestId: string): void {
+  private logProductionError(
+    error: Error,
+    operation: string,
+    requestId: string,
+  ): void {
     // In a real production environment, this would write to a secure log file
     // or send to a secure logging service that developers can access
     const secureErrorDetails = {
@@ -889,8 +897,8 @@ export abstract class SqlRepositoryBase<
       'current_database',
     ];
 
-    const isSuspicious = suspiciousPatterns.some(pattern => 
-      errorMessage.includes(pattern)
+    const isSuspicious = suspiciousPatterns.some((pattern) =>
+      errorMessage.includes(pattern),
     );
 
     if (isSuspicious) {
@@ -909,7 +917,7 @@ export abstract class SqlRepositoryBase<
 
     // Track excessive errors from same source
     // In a full implementation, this would use a cache/counter service
-    const errorKey = `${operation}-${this.tableName}-${error.constructor.name}`;
+    // const errorKey = `${operation}-${this.tableName}-${error.constructor.name}`;
     // Implementation would track error frequency here
   }
 

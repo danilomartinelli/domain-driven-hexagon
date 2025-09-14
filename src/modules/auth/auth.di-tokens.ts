@@ -5,12 +5,12 @@ export const AUTH_DI_TOKENS = {
   PermissionRepository: Symbol('PERMISSION_REPOSITORY'),
   RefreshTokenRepository: Symbol('REFRESH_TOKEN_REPOSITORY'),
   AuthAuditLogRepository: Symbol('AUTH_AUDIT_LOG_REPOSITORY'),
-  
+
   // Services
   JwtService: Symbol('JWT_SERVICE'),
   PasswordService: Symbol('PASSWORD_SERVICE'),
   AuthService: Symbol('AUTH_SERVICE'),
-  
+
   // Query Handlers
   GetUserPermissionsQueryHandler: Symbol('GET_USER_PERMISSIONS_QUERY_HANDLER'),
   ValidateTokenQueryHandler: Symbol('VALIDATE_TOKEN_QUERY_HANDLER'),

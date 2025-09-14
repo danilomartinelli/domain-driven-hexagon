@@ -567,7 +567,9 @@ export class DatabaseMigrationService {
     // Check for excessive nested statements that could indicate obfuscation
     const nestedLevels = (sqlContent.match(/\(/g) || []).length;
     if (nestedLevels > 50) {
-      throw new Error('Migration contains excessive nested statements, potential obfuscation detected');
+      throw new Error(
+        'Migration contains excessive nested statements, potential obfuscation detected',
+      );
     }
 
     // Validate SQL syntax structure
@@ -590,7 +592,7 @@ export class DatabaseMigrationService {
       // Basic structural checks
       const openParens = (sqlContent.match(/\(/g) || []).length;
       const closeParens = (sqlContent.match(/\)/g) || []).length;
-      
+
       if (openParens !== closeParens) {
         this.logger.warn('Unmatched parentheses in migration SQL');
         return false;

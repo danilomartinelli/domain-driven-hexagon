@@ -11,7 +11,8 @@ export interface PasswordProps {
 
 export class Password extends ValueObject<PasswordProps> {
   private static readonly SALT_ROUNDS = 12;
-  private static readonly PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+  private static readonly PASSWORD_REGEX =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
 
   constructor(props: PasswordProps) {
     super(props);
@@ -39,7 +40,10 @@ export class Password extends ValueObject<PasswordProps> {
       return this;
     }
 
-    const hashedValue = await bcrypt.hash(this.props.value, Password.SALT_ROUNDS);
+    const hashedValue = await bcrypt.hash(
+      this.props.value,
+      Password.SALT_ROUNDS,
+    );
     return new Password({ value: hashedValue, isHashed: true });
   }
 
@@ -60,16 +64,22 @@ export class Password extends ValueObject<PasswordProps> {
     const { value } = this.props;
 
     // Length validation
-    if (!Guard.lengthIsBetween(value, AUTH_CONSTANTS.MIN_PASSWORD_LENGTH, AUTH_CONSTANTS.MAX_PASSWORD_LENGTH)) {
+    if (
+      !Guard.lengthIsBetween(
+        value,
+        AUTH_CONSTANTS.MIN_PASSWORD_LENGTH,
+        AUTH_CONSTANTS.MAX_PASSWORD_LENGTH,
+      )
+    ) {
       throw new WeakPasswordError(
-        `Password must be between ${AUTH_CONSTANTS.MIN_PASSWORD_LENGTH} and ${AUTH_CONSTANTS.MAX_PASSWORD_LENGTH} characters`
+        `Password must be between ${AUTH_CONSTANTS.MIN_PASSWORD_LENGTH} and ${AUTH_CONSTANTS.MAX_PASSWORD_LENGTH} characters`,
       );
     }
 
     // Complexity validation
     if (!Password.PASSWORD_REGEX.test(value)) {
       throw new WeakPasswordError(
-        'Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character'
+        'Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character',
       );
     }
 
@@ -83,12 +93,14 @@ export class Password extends ValueObject<PasswordProps> {
 
     for (const pattern of commonPatterns) {
       if (pattern.test(value)) {
-        throw new WeakPasswordError('Password contains common patterns and is not secure');
+        throw new WeakPasswordError(
+          'Password contains common patterns and is not secure',
+        );
       }
     }
   }
 
-  protected *getEqualityComponents() {
+  protected *getEqualityComponents(): Generator<unknown, void, unknown> {
     yield this.props.value;
     yield this.props.isHashed;
   }

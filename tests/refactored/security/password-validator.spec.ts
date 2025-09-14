@@ -7,7 +7,6 @@ import {
   OptimizedPasswordValidator,
   PasswordValidationConfig,
   DEFAULT_PASSWORD_CONFIG,
-  PasswordValidationResult,
 } from '@libs/security/password-validator';
 import {
   PerformanceMeasurement,
@@ -37,18 +36,20 @@ describe('OptimizedPasswordValidator', () => {
       it('should enforce minimum length requirements', () => {
         // Arrange
         const shortPassword = 'Abc1!';
-        
+
         // Act
         const result = validator.validate(shortPassword);
 
         // Assert
         expect(result.isValid).toBe(false);
-        expect(result.errors).toEqual(expect.arrayContaining([
-          expect.objectContaining({
-            code: 'TOO_SHORT',
-            severity: 'high'
-          })
-        ]));
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              code: 'TOO_SHORT',
+              severity: 'high',
+            }),
+          ]),
+        );
         expect(result.suggestions).toContain('Use at least 8 characters');
       });
 
@@ -66,9 +67,11 @@ describe('OptimizedPasswordValidator', () => {
 
           // Assert
           expect(result.isValid).toBe(false);
-          expect(result.errors).toEqual(expect.arrayContaining([
-            expect.objectContaining({ code: missingClass })
-          ]));
+          expect(result.errors).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ code: missingClass }),
+            ]),
+          );
         });
       });
 
@@ -81,7 +84,7 @@ describe('OptimizedPasswordValidator', () => {
           'V3ryStr0ng#2024',
         ];
 
-        strongPasswords.forEach(password => {
+        strongPasswords.forEach((password) => {
           // Act
           const result = validator.validate(password);
 
@@ -96,7 +99,10 @@ describe('OptimizedPasswordValidator', () => {
         // Arrange
         const passwordTests = [
           { password: 'Abc123!', expectedScoreRange: [30, 50] },
-          { password: 'MyVerySecureP@ssw0rd123', expectedScoreRange: [85, 100] },
+          {
+            password: 'MyVerySecureP@ssw0rd123',
+            expectedScoreRange: [85, 100],
+          },
           { password: 'a1!A', expectedScoreRange: [0, 30] },
         ];
 
@@ -121,30 +127,38 @@ describe('OptimizedPasswordValidator', () => {
           '123Password!',
         ];
 
-        weakPasswords.forEach(password => {
+        weakPasswords.forEach((password) => {
           // Act
           const result = validator.validate(password);
 
           // Assert
-          expect(result.errors).toEqual(expect.arrayContaining([
-            expect.objectContaining({ code: 'KEYBOARD_SEQUENCE' })
-          ]));
-          expect(result.suggestions).toContain('Avoid keyboard sequences and patterns');
+          expect(result.errors).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ code: 'KEYBOARD_SEQUENCE' }),
+            ]),
+          );
+          expect(result.suggestions).toContain(
+            'Avoid keyboard sequences and patterns',
+          );
         });
       });
 
       it('should detect consecutive repeating characters', () => {
         // Arrange
         const passwordWithRepeats = 'Passworddd123!';
-        
+
         // Act
         const result = validator.validate(passwordWithRepeats);
 
         // Assert
-        expect(result.errors).toEqual(expect.arrayContaining([
-          expect.objectContaining({ code: 'CONSECUTIVE_CHARS' })
-        ]));
-        expect(result.suggestions).toContain('Avoid repeating the same character multiple times');
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ code: 'CONSECUTIVE_CHARS' }),
+          ]),
+        );
+        expect(result.suggestions).toContain(
+          'Avoid repeating the same character multiple times',
+        );
       });
 
       it('should detect common patterns', () => {
@@ -159,9 +173,11 @@ describe('OptimizedPasswordValidator', () => {
           const result = validator.validate(password);
 
           // Assert
-          expect(result.errors).toEqual(expect.arrayContaining([
-            expect.objectContaining({ code: expectedCode })
-          ]));
+          expect(result.errors).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ code: expectedCode }),
+            ]),
+          );
         });
       });
 
@@ -174,14 +190,16 @@ describe('OptimizedPasswordValidator', () => {
           'Root@dm1n',
         ];
 
-        forbiddenPasswords.forEach(password => {
+        forbiddenPasswords.forEach((password) => {
           // Act
           const result = validator.validate(password);
 
           // Assert
-          expect(result.errors).toEqual(expect.arrayContaining([
-            expect.objectContaining({ code: 'FORBIDDEN_PATTERN' })
-          ]));
+          expect(result.errors).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ code: 'FORBIDDEN_PATTERN' }),
+            ]),
+          );
         });
       });
     });
@@ -197,34 +215,36 @@ describe('OptimizedPasswordValidator', () => {
           'Welcome123!',
         ];
 
-        commonPasswords.forEach(password => {
+        commonPasswords.forEach((password) => {
           // Act
           const result = validator.validate(password);
 
           // Assert
-          expect(result.errors).toEqual(expect.arrayContaining([
-            expect.objectContaining({ code: 'COMMON_PASSWORD' })
-          ]));
-          expect(result.suggestions).toContain('Choose a unique password that is not commonly used');
+          expect(result.errors).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ code: 'COMMON_PASSWORD' }),
+            ]),
+          );
+          expect(result.suggestions).toContain(
+            'Choose a unique password that is not commonly used',
+          );
         });
       });
 
       it('should handle case variations of common passwords', () => {
         // Arrange
-        const caseVariations = [
-          'PASSWORD',
-          'Password',
-          'pAsSwOrD',
-        ];
+        const caseVariations = ['PASSWORD', 'Password', 'pAsSwOrD'];
 
-        caseVariations.forEach(password => {
+        caseVariations.forEach((password) => {
           // Act
           const result = validator.validate(password);
 
           // Assert
-          expect(result.errors).toEqual(expect.arrayContaining([
-            expect.objectContaining({ code: 'COMMON_PASSWORD' })
-          ]));
+          expect(result.errors).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ code: 'COMMON_PASSWORD' }),
+            ]),
+          );
         });
       });
     });
@@ -240,15 +260,26 @@ describe('OptimizedPasswordValidator', () => {
             const hasUppercase = new RegExp('[A-Z]').test(password);
             const hasLowercase = new RegExp('[a-z]').test(password);
             const hasNumbers = new RegExp('[0-9]').test(password);
-            const hasSpecialChars = new RegExp('[!@#$%^&*()_+\\-=\\[\\]{};\':"\\\\|,.<>\\/?]').test(password);
+            const hasSpecialChars = new RegExp(
+              '[!@#$%^&*()_+\\-=\\[\\]{};\':"\\\\|,.<>\\/?]',
+            ).test(password);
             const hasConsecutive = new RegExp('(.)\\1{3,}').test(password);
-            const hasKeyboardSeq = new RegExp('(123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|qwe|wer|ert|rty|tyu|yui|uio|iop|asd|sdf|dfg|fgh|ghj|hjk|jkl|zxc|xcv|cvb|vbn|bnm)', 'i').test(password);
+            const hasKeyboardSeq = new RegExp(
+              '(123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|qwe|wer|ert|rty|tyu|yui|uio|iop|asd|sdf|dfg|fgh|ghj|hjk|jkl|zxc|xcv|cvb|vbn|bnm)',
+              'i',
+            ).test(password);
 
             return {
-              isValid: hasUppercase && hasLowercase && hasNumbers && hasSpecialChars && !hasConsecutive && !hasKeyboardSeq,
+              isValid:
+                hasUppercase &&
+                hasLowercase &&
+                hasNumbers &&
+                hasSpecialChars &&
+                !hasConsecutive &&
+                !hasKeyboardSeq,
               score: 75,
               errors: [],
-              suggestions: []
+              suggestions: [],
             };
           }
         }
@@ -260,7 +291,7 @@ describe('OptimizedPasswordValidator', () => {
         const naiveBenchmark = await BenchmarkRunner.run(
           'naive-validation',
           () => naiveValidator.validate(testPassword),
-          200
+          200,
         );
 
         // Benchmark optimized approach (clear cache first to avoid cache advantages)
@@ -268,7 +299,7 @@ describe('OptimizedPasswordValidator', () => {
         const optimizedBenchmark = await BenchmarkRunner.run(
           'optimized-validation',
           () => validator.validate(testPassword),
-          200
+          200,
         );
 
         // Assert 95% improvement
@@ -276,7 +307,7 @@ describe('OptimizedPasswordValidator', () => {
           naiveBenchmark.stats,
           optimizedBenchmark.stats,
           95,
-          'Password validation performance improvement'
+          'Password validation performance improvement',
         );
       });
 
@@ -288,9 +319,9 @@ describe('OptimizedPasswordValidator', () => {
         const benchmark = await BenchmarkRunner.run(
           'load-test-validation',
           () => {
-            passwords.forEach(pwd => validator.validate(pwd));
+            passwords.forEach((pwd) => validator.validate(pwd));
           },
-          10
+          10,
         );
 
         // Assert
@@ -328,7 +359,7 @@ describe('OptimizedPasswordValidator', () => {
         const cacheTest = await CacheTestUtils.testCacheEffectiveness(
           (password: string) => validator.validate(password),
           passwords,
-          80 // Expected 80%+ cache hit rate
+          80, // Expected 80%+ cache hit rate
         );
 
         // Assert
@@ -338,10 +369,13 @@ describe('OptimizedPasswordValidator', () => {
 
       it('should limit cache size to prevent memory bloat', () => {
         // Arrange - Generate more passwords than cache limit (1000)
-        const manyPasswords = Array.from({ length: 1200 }, (_, i) => `Password${i}!`);
+        const manyPasswords = Array.from(
+          { length: 1200 },
+          (_, i) => `Password${i}!`,
+        );
 
         // Act
-        manyPasswords.forEach(password => validator.validate(password));
+        manyPasswords.forEach((password) => validator.validate(password));
 
         // Assert
         const metrics = validator.getMetrics();
@@ -352,10 +386,13 @@ describe('OptimizedPasswordValidator', () => {
       it('should clean up cache periodically', (done) => {
         // This test is more about ensuring the cleanup mechanism exists
         // In a real scenario, we would mock setTimeout/setInterval
-        
+
         // Arrange
-        const passwords = Array.from({ length: 600 }, (_, i) => `CleanupTest${i}!`);
-        passwords.forEach(password => validator.validate(password));
+        const passwords = Array.from(
+          { length: 600 },
+          (_, i) => `CleanupTest${i}!`,
+        );
+        passwords.forEach((password) => validator.validate(password));
 
         // Act
         expect(validator.getMetrics().cacheSize).toBe(600);
@@ -371,15 +408,16 @@ describe('OptimizedPasswordValidator', () => {
     describe('Memory Usage Optimization', () => {
       it('should demonstrate 52% memory usage reduction compared to naive implementation', async () => {
         // Arrange
-        const testPasswords = Array.from({ length: 500 }, (_, i) => 
-          `MemoryTest${i}!Password123`
+        const testPasswords = Array.from(
+          { length: 500 },
+          (_, i) => `MemoryTest${i}!Password123`,
         );
 
         // Measure baseline memory usage
         MemoryMeasurement.takeSnapshot('before-validation');
 
         // Act - Process passwords with optimized validator
-        testPasswords.forEach(password => validator.validate(password));
+        testPasswords.forEach((password) => validator.validate(password));
 
         // Force garbage collection if available
         if (global.gc) {
@@ -389,11 +427,14 @@ describe('OptimizedPasswordValidator', () => {
         MemoryMeasurement.takeSnapshot('after-validation');
 
         // Assert
-        const memoryDelta = MemoryMeasurement.getUsageDelta('before-validation', 'after-validation');
-        
+        const memoryDelta = MemoryMeasurement.getUsageDelta(
+          'before-validation',
+          'after-validation',
+        );
+
         // Memory usage should be reasonable for 500 password validations
         const memoryUsageKB = memoryDelta.heapUsedDelta / 1024;
-        
+
         // Should use less than 200KB for 500 validations (demonstrating efficiency)
         expect(memoryUsageKB).toBeLessThan(200);
       });
@@ -418,7 +459,10 @@ describe('OptimizedPasswordValidator', () => {
         MemoryMeasurement.takeSnapshot('after-repeat');
 
         // Assert
-        const memoryDelta = MemoryMeasurement.getUsageDelta('before-repeat', 'after-repeat');
+        const memoryDelta = MemoryMeasurement.getUsageDelta(
+          'before-repeat',
+          'after-repeat',
+        );
         const memoryIncreaseKB = memoryDelta.heapUsedDelta / 1024;
 
         // Memory increase should be minimal due to caching
@@ -445,9 +489,11 @@ describe('OptimizedPasswordValidator', () => {
 
       // Assert
       expect(result.isValid).toBe(false); // Should fail due to longer minLength requirement
-      expect(result.errors).toEqual(expect.arrayContaining([
-        expect.objectContaining({ code: 'TOO_SHORT' })
-      ]));
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'TOO_SHORT' }),
+        ]),
+      );
     });
 
     it('should respect custom forbidden patterns', () => {
@@ -462,12 +508,14 @@ describe('OptimizedPasswordValidator', () => {
       const result = customValidator.validate('MycompanyPassword123!');
 
       // Assert
-      expect(result.errors).toEqual(expect.arrayContaining([
-        expect.objectContaining({ 
-          code: 'FORBIDDEN_PATTERN',
-          message: expect.stringContaining('mycompany')
-        })
-      ]));
+      expect(result.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: 'FORBIDDEN_PATTERN',
+            message: expect.stringContaining('mycompany'),
+          }),
+        ]),
+      );
     });
 
     it('should disable common password checks when configured', () => {
@@ -476,16 +524,20 @@ describe('OptimizedPasswordValidator', () => {
         ...DEFAULT_PASSWORD_CONFIG,
         enableCommonPasswordCheck: false,
       };
-      const customValidator = new OptimizedPasswordValidator(configWithoutCommonCheck);
+      const customValidator = new OptimizedPasswordValidator(
+        configWithoutCommonCheck,
+      );
 
       // Act
       const result = customValidator.validate('Password123!'); // This is a common password
 
       // Assert
       // Should not have common password error since it's disabled
-      expect(result.errors).not.toEqual(expect.arrayContaining([
-        expect.objectContaining({ code: 'COMMON_PASSWORD' })
-      ]));
+      expect(result.errors).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ code: 'COMMON_PASSWORD' }),
+        ]),
+      );
     });
   });
 
@@ -501,8 +553,8 @@ describe('OptimizedPasswordValidator', () => {
         expect.objectContaining({
           code: 'EMPTY_PASSWORD',
           message: 'Password cannot be empty',
-          severity: 'high'
-        })
+          severity: 'high',
+        }),
       ]);
     });
 
@@ -510,10 +562,10 @@ describe('OptimizedPasswordValidator', () => {
       // Act & Assert
       expect(() => validator.validate(null as any)).not.toThrow();
       expect(() => validator.validate(undefined as any)).not.toThrow();
-      
+
       const nullResult = validator.validate(null as any);
       const undefinedResult = validator.validate(undefined as any);
-      
+
       expect(nullResult.isValid).toBe(false);
       expect(undefinedResult.isValid).toBe(false);
     });
@@ -526,9 +578,9 @@ describe('OptimizedPasswordValidator', () => {
       const result = validator.validate(veryLongPassword);
 
       // Assert
-      expect(result.errors).toEqual(expect.arrayContaining([
-        expect.objectContaining({ code: 'TOO_LONG' })
-      ]));
+      expect(result.errors).toEqual(
+        expect.arrayContaining([expect.objectContaining({ code: 'TOO_LONG' })]),
+      );
     });
 
     it('should handle unicode characters properly', () => {
@@ -550,12 +602,12 @@ describe('OptimizedPasswordValidator', () => {
       const passwords = ['Test123!', 'Another456!', 'Test123!']; // Third is repeat
 
       // Act
-      passwords.forEach(password => validator.validate(password));
+      passwords.forEach((password) => validator.validate(password));
 
       // Assert
       const metrics = validator.getMetrics();
       expect(metrics.validationCount).toBe(3);
-      expect(metrics.cacheHitRate).toBe(1/3); // One cache hit out of three validations
+      expect(metrics.cacheHitRate).toBe(1 / 3); // One cache hit out of three validations
       expect(metrics.cacheSize).toBe(2); // Two unique passwords cached
     });
 
@@ -584,7 +636,7 @@ describe('OptimizedPasswordValidator', () => {
         'my favorite book is 1984 by orwell',
       ];
 
-      nistCompliantPasswords.forEach(password => {
+      nistCompliantPasswords.forEach((password) => {
         // Act
         const result = validator.validate(password);
 
@@ -607,7 +659,9 @@ describe('OptimizedPasswordValidator', () => {
       // Both should be valid, but passphrase might score higher due to length and entropy
       expect(complexResult.isValid).toBe(true);
       expect(passphraseResult.isValid).toBe(true);
-      expect(passphraseResult.score).toBeGreaterThanOrEqual(complexResult.score);
+      expect(passphraseResult.score).toBeGreaterThanOrEqual(
+        complexResult.score,
+      );
     });
   });
 });

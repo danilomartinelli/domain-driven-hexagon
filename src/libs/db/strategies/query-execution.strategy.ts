@@ -1,12 +1,24 @@
-import { DatabasePool, DatabaseTransactionConnection, QueryResult, SqlToken } from 'slonik';
+import {
+  DatabasePool,
+  DatabaseTransactionConnection,
+  QueryResult,
+  SqlToken,
+} from 'slonik';
 import { LoggerPort } from '../../ports/logger.port';
 
 /**
  * Strategy interface for query execution with different connection types
  */
 export interface QueryExecutionStrategy {
-  executeQuery<T = any>(query: SqlToken, operation: string): Promise<QueryResult<T>>;
-  executeWriteQuery<T = any>(query: SqlToken, operation: string, entityIds?: string[]): Promise<QueryResult<T>>;
+  executeQuery<T = any>(
+    query: SqlToken,
+    operation: string,
+  ): Promise<QueryResult<T>>;
+  executeWriteQuery<T = any>(
+    query: SqlToken,
+    operation: string,
+    entityIds?: string[],
+  ): Promise<QueryResult<T>>;
 }
 
 /**
@@ -23,17 +35,27 @@ export class PoolQueryExecutionStrategy implements QueryExecutionStrategy {
     private readonly getRequestId: () => string,
   ) {}
 
-  async executeQuery<T = any>(query: SqlToken, operation: string): Promise<QueryResult<T>> {
+  async executeQuery<T = any>(
+    query: SqlToken,
+    operation: string,
+  ): Promise<QueryResult<T>> {
     const startTime = performance.now();
     const requestId = this.getRequestId();
 
-    this.logger.debug(`[${requestId}] Executing ${operation} on table "${this.tableName}"`);
+    this.logger.debug(
+      `[${requestId}] Executing ${operation} on table "${this.tableName}"`,
+    );
 
     try {
       const result = await this.pool.query(query as any);
       const duration = performance.now() - startTime;
 
-      this.logQueryPerformance(requestId, operation, duration, result.rowCount || 0);
+      this.logQueryPerformance(
+        requestId,
+        operation,
+        duration,
+        result.rowCount || 0,
+      );
       return result as QueryResult<T>;
     } catch (error) {
       const duration = performance.now() - startTime;
@@ -58,11 +80,23 @@ export class PoolQueryExecutionStrategy implements QueryExecutionStrategy {
       const result = await this.pool.query(query as any);
       const duration = performance.now() - startTime;
 
-      this.logWriteQueryResult(requestId, operation, duration, result.rowCount || 0, entityIds);
+      this.logWriteQueryResult(
+        requestId,
+        operation,
+        duration,
+        result.rowCount || 0,
+        entityIds,
+      );
       return result as QueryResult<T>;
     } catch (error) {
       const duration = performance.now() - startTime;
-      this.handleWriteQueryError(requestId, operation, duration, entityIds, error as Error);
+      this.handleWriteQueryError(
+        requestId,
+        operation,
+        duration,
+        entityIds,
+        error as Error,
+      );
       throw error;
     }
   }
@@ -74,17 +108,26 @@ export class PoolQueryExecutionStrategy implements QueryExecutionStrategy {
     affectedRows: number,
   ): void {
     if (durationMs > PoolQueryExecutionStrategy.SLOW_QUERY_THRESHOLD_MS) {
-      this.logger.warn(`[${requestId}] Slow query detected: ${operation} took ${durationMs.toFixed(2)}ms`, {
-        operation,
-        table: this.tableName,
-        duration: durationMs,
-        affectedRows,
-        severity: durationMs > PoolQueryExecutionStrategy.QUERY_TIMEOUT_WARNING_MS ? 'HIGH' : 'MEDIUM',
-      });
+      this.logger.warn(
+        `[${requestId}] Slow query detected: ${operation} took ${durationMs.toFixed(2)}ms`,
+        {
+          operation,
+          table: this.tableName,
+          duration: durationMs,
+          affectedRows,
+          severity:
+            durationMs > PoolQueryExecutionStrategy.QUERY_TIMEOUT_WARNING_MS
+              ? 'HIGH'
+              : 'MEDIUM',
+        },
+      );
     } else {
-      this.logger.debug(`[${requestId}] Query completed: ${operation} in ${durationMs.toFixed(2)}ms`, {
-        affectedRows,
-      });
+      this.logger.debug(
+        `[${requestId}] Query completed: ${operation} in ${durationMs.toFixed(2)}ms`,
+        {
+          affectedRows,
+        },
+      );
     }
   }
 
@@ -106,12 +149,20 @@ export class PoolQueryExecutionStrategy implements QueryExecutionStrategy {
     );
   }
 
-  private handleQueryError(requestId: string, operation: string, durationMs: number, error: Error): void {
-    this.logger.error(`[${requestId}] Query ${operation} failed after ${durationMs.toFixed(2)}ms`, {
-      error: error.message,
-      table: this.tableName,
-      errorType: error.constructor.name,
-    });
+  private handleQueryError(
+    requestId: string,
+    operation: string,
+    durationMs: number,
+    error: Error,
+  ): void {
+    this.logger.error(
+      `[${requestId}] Query ${operation} failed after ${durationMs.toFixed(2)}ms`,
+      {
+        error: error.message,
+        table: this.tableName,
+        errorType: error.constructor.name,
+      },
+    );
   }
 
   private handleWriteQueryError(
@@ -121,19 +172,24 @@ export class PoolQueryExecutionStrategy implements QueryExecutionStrategy {
     entityIds: string[],
     error: Error,
   ): void {
-    this.logger.error(`[${requestId}] Write operation ${operation} failed after ${durationMs.toFixed(2)}ms`, {
-      error: error.message,
-      table: this.tableName,
-      entityCount: entityIds.length,
-      errorType: error.constructor.name,
-    });
+    this.logger.error(
+      `[${requestId}] Write operation ${operation} failed after ${durationMs.toFixed(2)}ms`,
+      {
+        error: error.message,
+        table: this.tableName,
+        entityCount: entityIds.length,
+        errorType: error.constructor.name,
+      },
+    );
   }
 }
 
 /**
  * Transaction-based query execution strategy for transactional operations
  */
-export class TransactionQueryExecutionStrategy implements QueryExecutionStrategy {
+export class TransactionQueryExecutionStrategy
+  implements QueryExecutionStrategy
+{
   constructor(
     private readonly connection: DatabaseTransactionConnection,
     private readonly logger: LoggerPort,
@@ -141,11 +197,16 @@ export class TransactionQueryExecutionStrategy implements QueryExecutionStrategy
     private readonly getRequestId: () => string,
   ) {}
 
-  async executeQuery<T = any>(query: SqlToken, operation: string): Promise<QueryResult<T>> {
+  async executeQuery<T = any>(
+    query: SqlToken,
+    operation: string,
+  ): Promise<QueryResult<T>> {
     const startTime = performance.now();
     const requestId = this.getRequestId();
 
-    this.logger.debug(`[${requestId}] Executing transactional ${operation} on table "${this.tableName}"`);
+    this.logger.debug(
+      `[${requestId}] Executing transactional ${operation} on table "${this.tableName}"`,
+    );
 
     try {
       const result = await this.connection.query(query as any);

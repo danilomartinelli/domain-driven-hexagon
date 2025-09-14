@@ -79,7 +79,9 @@ export class RefreshTokenEntity extends AggregateRoot<RefreshTokenProps> {
 
   validate(): void {
     if (!Guard.lengthIsBetween(this.props.token, 10, 500)) {
-      throw new ArgumentInvalidException('Token must be between 10 and 500 characters');
+      throw new ArgumentInvalidException(
+        'Token must be between 10 and 500 characters',
+      );
     }
 
     if (!Guard.isUuid(this.props.userId)) {
@@ -90,28 +92,46 @@ export class RefreshTokenEntity extends AggregateRoot<RefreshTokenProps> {
       throw new ArgumentInvalidException('Expires at must be a future date');
     }
 
-    if (this.props.createdByIp && !this.isValidIpAddress(this.props.createdByIp)) {
-      throw new ArgumentInvalidException('Created by IP must be a valid IP address');
+    if (
+      this.props.createdByIp &&
+      !this.isValidIpAddress(this.props.createdByIp)
+    ) {
+      throw new ArgumentInvalidException(
+        'Created by IP must be a valid IP address',
+      );
     }
 
-    if (this.props.revokedByIp && !this.isValidIpAddress(this.props.revokedByIp)) {
-      throw new ArgumentInvalidException('Revoked by IP must be a valid IP address');
+    if (
+      this.props.revokedByIp &&
+      !this.isValidIpAddress(this.props.revokedByIp)
+    ) {
+      throw new ArgumentInvalidException(
+        'Revoked by IP must be a valid IP address',
+      );
     }
 
-    if (this.props.replacedByToken && !Guard.lengthIsBetween(this.props.replacedByToken, 10, 500)) {
-      throw new ArgumentInvalidException('Replaced by token must be between 10 and 500 characters');
+    if (
+      this.props.replacedByToken &&
+      !Guard.lengthIsBetween(this.props.replacedByToken, 10, 500)
+    ) {
+      throw new ArgumentInvalidException(
+        'Replaced by token must be between 10 and 500 characters',
+      );
     }
 
     if (this.props.userAgent && this.props.userAgent.length > 1000) {
-      throw new ArgumentInvalidException('User agent must not exceed 1000 characters');
+      throw new ArgumentInvalidException(
+        'User agent must not exceed 1000 characters',
+      );
     }
   }
 
   private isValidIpAddress(ip: string): boolean {
     // Simple IPv4 and IPv6 validation
-    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const ipv4Regex =
+      /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$/;
-    
+
     return ipv4Regex.test(ip) || ipv6Regex.test(ip);
   }
 }

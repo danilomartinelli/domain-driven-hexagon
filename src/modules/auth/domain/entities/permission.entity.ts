@@ -50,35 +50,52 @@ export class PermissionEntity extends AggregateRoot<PermissionProps> {
 
   validate(): void {
     if (!Guard.lengthIsBetween(this.props.name, 2, 100)) {
-      throw new ArgumentInvalidException('Permission name must be between 2 and 100 characters');
+      throw new ArgumentInvalidException(
+        'Permission name must be between 2 and 100 characters',
+      );
     }
 
     if (!Guard.lengthIsBetween(this.props.resource, 2, 50)) {
-      throw new ArgumentInvalidException('Permission resource must be between 2 and 50 characters');
+      throw new ArgumentInvalidException(
+        'Permission resource must be between 2 and 50 characters',
+      );
     }
 
     if (!Guard.lengthIsBetween(this.props.action, 2, 50)) {
-      throw new ArgumentInvalidException('Permission action must be between 2 and 50 characters');
+      throw new ArgumentInvalidException(
+        'Permission action must be between 2 and 50 characters',
+      );
     }
 
-    if (this.props.description && !Guard.lengthIsBetween(this.props.description, 0, 255)) {
-      throw new ArgumentInvalidException('Permission description must not exceed 255 characters');
+    if (
+      this.props.description &&
+      !Guard.lengthIsBetween(this.props.description, 0, 255)
+    ) {
+      throw new ArgumentInvalidException(
+        'Permission description must not exceed 255 characters',
+      );
     }
 
     // Validate naming conventions
     const namePattern = /^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$/;
     if (!namePattern.test(this.props.name)) {
-      throw new ArgumentInvalidException('Permission name must follow the pattern "resource:action" with lowercase letters, numbers, underscores, and hyphens');
+      throw new ArgumentInvalidException(
+        'Permission name must follow the pattern "resource:action" with lowercase letters, numbers, underscores, and hyphens',
+      );
     }
 
     const resourcePattern = /^[a-z][a-z0-9_-]*$/;
     if (!resourcePattern.test(this.props.resource)) {
-      throw new ArgumentInvalidException('Permission resource must contain only lowercase letters, numbers, underscores, and hyphens');
+      throw new ArgumentInvalidException(
+        'Permission resource must contain only lowercase letters, numbers, underscores, and hyphens',
+      );
     }
 
     const actionPattern = /^[a-z][a-z0-9_-]*$/;
     if (!actionPattern.test(this.props.action)) {
-      throw new ArgumentInvalidException('Permission action must contain only lowercase letters, numbers, underscores, and hyphens');
+      throw new ArgumentInvalidException(
+        'Permission action must contain only lowercase letters, numbers, underscores, and hyphens',
+      );
     }
   }
 }

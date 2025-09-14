@@ -20,19 +20,20 @@ export class LogoutService implements ICommandHandler<LogoutCommand> {
   ) {}
 
   async execute(command: LogoutCommand): Promise<Result<boolean, Error>> {
-    const { userId, refreshToken, ipAddress, userAgent, logoutAllDevices } = command;
+    const { userId, refreshToken, ipAddress, userAgent, logoutAllDevices } =
+      command;
 
     try {
       if (logoutAllDevices) {
         // Revoke all refresh tokens for the user
         await this.refreshTokenRepo.revokeAllUserTokens(userId, ipAddress);
-        
+
         await this.logSuccessfulAttempt(
-          userId, 
-          'LOGOUT_ALL_DEVICES', 
-          { deviceCount: 'all' }, 
-          ipAddress, 
-          userAgent
+          userId,
+          'LOGOUT_ALL_DEVICES',
+          { deviceCount: 'all' },
+          ipAddress,
+          userAgent,
         );
 
         this.logger.log('User logged out from all devices', {
@@ -42,13 +43,13 @@ export class LogoutService implements ICommandHandler<LogoutCommand> {
       } else if (refreshToken) {
         // Revoke specific refresh token
         await this.refreshTokenRepo.revokeToken(refreshToken, ipAddress);
-        
+
         await this.logSuccessfulAttempt(
-          userId, 
-          'LOGOUT_SINGLE_DEVICE', 
-          { tokenProvided: true }, 
-          ipAddress, 
-          userAgent
+          userId,
+          'LOGOUT_SINGLE_DEVICE',
+          { tokenProvided: true },
+          ipAddress,
+          userAgent,
         );
 
         this.logger.log('User logged out from single device', {
@@ -58,11 +59,11 @@ export class LogoutService implements ICommandHandler<LogoutCommand> {
       } else {
         // No refresh token provided, log the logout attempt anyway
         await this.logSuccessfulAttempt(
-          userId, 
-          'LOGOUT_NO_TOKEN', 
-          { tokenProvided: false }, 
-          ipAddress, 
-          userAgent
+          userId,
+          'LOGOUT_NO_TOKEN',
+          { tokenProvided: false },
+          ipAddress,
+          userAgent,
         );
 
         this.logger.log('User logout attempt without refresh token', {
@@ -80,18 +81,24 @@ export class LogoutService implements ICommandHandler<LogoutCommand> {
       });
 
       await this.logFailedAttempt(
-        userId, 
-        'LOGOUT_FAILED', 
-        { error: error instanceof Error ? error.message : 'Unknown error' }, 
-        ipAddress, 
-        userAgent
+        userId,
+        'LOGOUT_FAILED',
+        { error: error instanceof Error ? error.message : 'Unknown error' },
+        ipAddress,
+        userAgent,
       );
 
       return Err(error instanceof Error ? error : new Error('Logout failed'));
     }
   }
 
-  private async logSuccessfulAttempt(userId: string, action: string, details: any, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async logSuccessfulAttempt(
+    userId: string,
+    action: string,
+    details: any,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const auditLog = AuthAuditLogEntity.create({
       userId,
       action,
@@ -104,7 +111,13 @@ export class LogoutService implements ICommandHandler<LogoutCommand> {
     await this.auditLogRepo.insert(auditLog);
   }
 
-  private async logFailedAttempt(userId: string, action: string, details: any, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async logFailedAttempt(
+    userId: string,
+    action: string,
+    details: any,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const auditLog = AuthAuditLogEntity.create({
       userId,
       action,

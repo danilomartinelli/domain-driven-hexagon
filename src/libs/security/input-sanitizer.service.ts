@@ -25,11 +25,17 @@ export class InputSanitizerService {
     // Add custom sanitization rules
     purify.addHook('beforeSanitizeElements', (node) => {
       // Log potentially malicious content
-      if (node.nodeName && ['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED'].includes(node.nodeName)) {
-        this.logger.warn('Potentially malicious element detected and sanitized', {
-          element: node.nodeName,
-          content: node.textContent?.substring(0, 100),
-        });
+      if (
+        node.nodeName &&
+        ['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED'].includes(node.nodeName)
+      ) {
+        this.logger.warn(
+          'Potentially malicious element detected and sanitized',
+          {
+            element: node.nodeName,
+            content: node.textContent?.substring(0, 100),
+          },
+        );
       }
     });
 
@@ -54,15 +60,29 @@ export class InputSanitizerService {
       return String(input);
     }
 
-    const config = allowBasicTags ? {
-      ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-      ALLOWED_ATTR: [],
-      KEEP_CONTENT: true,
-    } : undefined;
+    const config = allowBasicTags
+      ? {
+          ALLOWED_TAGS: [
+            'p',
+            'br',
+            'strong',
+            'em',
+            'u',
+            'h1',
+            'h2',
+            'h3',
+            'h4',
+            'h5',
+            'h6',
+          ],
+          ALLOWED_ATTR: [],
+          KEEP_CONTENT: true,
+        }
+      : undefined;
 
     try {
       const cleaned = purify.sanitize(input, config);
-      
+
       // Double-check for any remaining script-like content
       if (this.containsScriptLikeContent(cleaned)) {
         this.logger.warn('Script-like content detected after sanitization', {
@@ -71,7 +91,7 @@ export class InputSanitizerService {
         });
         return this.stripScriptContent(cleaned);
       }
-      
+
       return cleaned;
     } catch (error) {
       this.logger.error('HTML sanitization failed', error);
@@ -89,16 +109,16 @@ export class InputSanitizerService {
 
     // Remove null bytes and control characters (except newlines and tabs)
     let sanitized = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-    
+
     // Normalize Unicode to prevent bypass attempts
     sanitized = sanitized.normalize('NFKC');
-    
+
     // Remove potentially dangerous sequences
     sanitized = this.removeDangerousSequences(sanitized);
-    
+
     // HTML encode special characters
     sanitized = this.escapeHtml(sanitized);
-    
+
     return sanitized.trim();
   }
 
@@ -119,9 +139,11 @@ export class InputSanitizerService {
 
     // Validate email format
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    
+
     if (!emailRegex.test(sanitized)) {
-      this.logger.warn('Invalid email format detected', { email: email.substring(0, 50) });
+      this.logger.warn('Invalid email format detected', {
+        email: email.substring(0, 50),
+      });
       return '';
     }
 
@@ -137,7 +159,7 @@ export class InputSanitizerService {
     }
 
     const sanitized = url.trim();
-    
+
     // Block dangerous protocols
     const dangerousProtocols = [
       'javascript:',
@@ -148,8 +170,10 @@ export class InputSanitizerService {
     ];
 
     const lowerUrl = sanitized.toLowerCase();
-    if (dangerousProtocols.some(protocol => lowerUrl.startsWith(protocol))) {
-      this.logger.warn('Dangerous protocol detected in URL', { url: url.substring(0, 100) });
+    if (dangerousProtocols.some((protocol) => lowerUrl.startsWith(protocol))) {
+      this.logger.warn('Dangerous protocol detected in URL', {
+        url: url.substring(0, 100),
+      });
       return '';
     }
 
@@ -160,14 +184,14 @@ export class InputSanitizerService {
 
     try {
       const urlObj = new URL(sanitized);
-      
+
       // Additional validation
       if (urlObj.hostname.length > 253) {
         return '';
       }
 
       return urlObj.toString();
-    } catch (error) {
+    } catch {
       this.logger.warn('Invalid URL format', { url: url.substring(0, 100) });
       return '';
     }
@@ -198,7 +222,7 @@ export class InputSanitizerService {
     ];
 
     let sanitized = input;
-    sqlPatterns.forEach(pattern => {
+    sqlPatterns.forEach((pattern) => {
       sanitized = sanitized.replace(pattern, '');
     });
 
@@ -221,15 +245,15 @@ export class InputSanitizerService {
     }
 
     if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizeObject(item)) as unknown as T;
+      return obj.map((item) => this.sanitizeObject(item)) as unknown as T;
     }
 
     const sanitized: Record<string, any> = {};
-    
+
     for (const [key, value] of Object.entries(obj)) {
       // Sanitize the key itself
       const cleanKey = this.sanitizeText(key);
-      
+
       if (typeof value === 'string') {
         // Apply specific sanitization based on field name
         sanitized[cleanKey] = this.sanitizeByFieldType(cleanKey, value);
@@ -248,23 +272,35 @@ export class InputSanitizerService {
    */
   private sanitizeByFieldType(fieldName: string, value: string): string {
     const field = fieldName.toLowerCase();
-    
+
     if (field.includes('email')) {
       return this.sanitizeEmail(value);
     }
-    
-    if (field.includes('url') || field.includes('link') || field.includes('href')) {
+
+    if (
+      field.includes('url') ||
+      field.includes('link') ||
+      field.includes('href')
+    ) {
       return this.sanitizeUrl(value);
     }
-    
-    if (field.includes('html') || field.includes('content') || field.includes('description')) {
+
+    if (
+      field.includes('html') ||
+      field.includes('content') ||
+      field.includes('description')
+    ) {
       return this.sanitizeHtml(value, true); // Allow basic HTML tags
     }
-    
-    if (field.includes('search') || field.includes('query') || field.includes('filter')) {
+
+    if (
+      field.includes('search') ||
+      field.includes('query') ||
+      field.includes('filter')
+    ) {
       return this.sanitizeSqlLike(value);
     }
-    
+
     return this.sanitizeText(value);
   }
 
@@ -300,7 +336,7 @@ export class InputSanitizerService {
       /Function\s*\(/i,
     ];
 
-    return scriptPatterns.some(pattern => pattern.test(text));
+    return scriptPatterns.some((pattern) => pattern.test(text));
   }
 
   /**
@@ -329,7 +365,7 @@ export class InputSanitizerService {
     ];
 
     let cleaned = text;
-    dangerousSequences.forEach(pattern => {
+    dangerousSequences.forEach((pattern) => {
       cleaned = cleaned.replace(pattern, '');
     });
 
@@ -339,25 +375,28 @@ export class InputSanitizerService {
   /**
    * Validate input length and complexity
    */
-  validateInputSafety(input: string, maxLength = 10000): { safe: boolean; issues: string[] } {
+  validateInputSafety(
+    input: string,
+    maxLength = 10000,
+  ): { safe: boolean; issues: string[] } {
     const issues: string[] = [];
-    
+
     if (input.length > maxLength) {
       issues.push(`Input exceeds maximum length of ${maxLength} characters`);
     }
-    
+
     // Check for excessive repetition (potential DoS)
     const repetitionPattern = /(.{1,10})\1{10,}/;
     if (repetitionPattern.test(input)) {
       issues.push('Excessive character repetition detected');
     }
-    
+
     // Check for deeply nested structures in JSON-like input
     const nestingLevel = (input.match(/[{[]/g) || []).length;
     if (nestingLevel > 50) {
       issues.push('Excessive nesting detected');
     }
-    
+
     return {
       safe: issues.length === 0,
       issues,

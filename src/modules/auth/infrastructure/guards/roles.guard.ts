@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_METADATA_KEY } from '../decorators/auth.decorator';
 import { JwtPayload } from '../../domain/auth.types';
@@ -9,10 +14,10 @@ export class RolesGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     // Get required roles from metadata
-    const rolesConfig = this.reflector.getAllAndOverride<{ roles: string[]; requireAll: boolean }>(
-      ROLES_METADATA_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const rolesConfig = this.reflector.getAllAndOverride<{
+      roles: string[];
+      requireAll: boolean;
+    }>(ROLES_METADATA_KEY, [context.getHandler(), context.getClass()]);
 
     if (!rolesConfig || !rolesConfig.roles || rolesConfig.roles.length === 0) {
       return true; // No role requirements
@@ -31,15 +36,21 @@ export class RolesGuard implements CanActivate {
 
     if (requireAll) {
       // User must have ALL required roles
-      const hasAllRoles = requiredRoles.every(role => userRoles.includes(role));
+      const hasAllRoles = requiredRoles.every((role) =>
+        userRoles.includes(role),
+      );
       if (!hasAllRoles) {
-        throw new ForbiddenException(`Access denied. Required roles: ${requiredRoles.join(', ')}`);
+        throw new ForbiddenException(
+          `Access denied. Required roles: ${requiredRoles.join(', ')}`,
+        );
       }
     } else {
       // User must have at least ONE of the required roles
-      const hasAnyRole = requiredRoles.some(role => userRoles.includes(role));
+      const hasAnyRole = requiredRoles.some((role) => userRoles.includes(role));
       if (!hasAnyRole) {
-        throw new ForbiddenException(`Access denied. Required roles: ${requiredRoles.join(' OR ')}`);
+        throw new ForbiddenException(
+          `Access denied. Required roles: ${requiredRoles.join(' OR ')}`,
+        );
       }
     }
 

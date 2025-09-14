@@ -35,7 +35,7 @@ export interface DomainOperationResult<T = void> {
 
 /**
  * User domain service implementing rich business logic with specifications.
- * 
+ *
  * This service encapsulates complex business rules and domain logic that
  * doesn't belong directly in the entity. It uses the Specification pattern
  * to ensure business rules are explicit, testable, and reusable.
@@ -44,18 +44,21 @@ export class UserDomainService implements DomainService {
   private static readonly MAX_LOGIN_ATTEMPTS = 5;
   private static readonly ACCOUNT_LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
   private static readonly PASSWORD_RESET_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
-  private static readonly EMAIL_VERIFICATION_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 hours
+  private static readonly EMAIL_VERIFICATION_TOKEN_EXPIRY_MS =
+    24 * 60 * 60 * 1000; // 24 hours
 
   /**
    * Validate user login attempt and handle security policies
    */
-  validateLoginAttempt(user: UserEntity): DomainOperationResult<{ canLogin: boolean; remainingAttempts: number }> {
+  validateLoginAttempt(
+    user: UserEntity,
+  ): DomainOperationResult<{ canLogin: boolean; remainingAttempts: number }> {
     const canLoginSpec = UserSpecificationFactory.canLogin();
-    
+
     if (!canLoginSpec.isSatisfiedBy(user)) {
       let reason = 'Login not allowed';
       let code = 'LOGIN_NOT_ALLOWED';
-      
+
       if (!user.isActive) {
         reason = 'Account is deactivated';
         code = 'ACCOUNT_DEACTIVATED';
@@ -66,7 +69,7 @@ export class UserDomainService implements DomainService {
         reason = 'Too many login attempts';
         code = 'TOO_MANY_ATTEMPTS';
       }
-      
+
       return {
         success: false,
         error: new UserDomainError(reason, code, {
@@ -76,9 +79,12 @@ export class UserDomainService implements DomainService {
         }),
       };
     }
-    
-    const remainingAttempts = Math.max(0, UserDomainService.MAX_LOGIN_ATTEMPTS - user.loginAttempts);
-    
+
+    const remainingAttempts = Math.max(
+      0,
+      UserDomainService.MAX_LOGIN_ATTEMPTS - user.loginAttempts,
+    );
+
     return {
       success: true,
       data: {
@@ -95,13 +101,15 @@ export class UserDomainService implements DomainService {
     try {
       // Reset login attempts on successful login
       user.resetLoginAttempts();
-      
+
       // Update last login timestamp
       user.updateLastLogin();
-      
+
       return {
         success: true,
-        warnings: !user.isEmailVerified ? ['Email verification pending'] : undefined,
+        warnings: !user.isEmailVerified
+          ? ['Email verification pending']
+          : undefined,
       };
     } catch (error) {
       return {
@@ -109,7 +117,10 @@ export class UserDomainService implements DomainService {
         error: new UserDomainError(
           'Failed to process successful login',
           'LOGIN_PROCESSING_ERROR',
-          { userId: user.id, error: error instanceof Error ? error.message : 'Unknown error' },
+          {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         ),
       };
     }
@@ -118,24 +129,33 @@ export class UserDomainService implements DomainService {
   /**
    * Process failed login attempt with security policies
    */
-  processFailedLogin(user: UserEntity): DomainOperationResult<{ shouldLockAccount: boolean; remainingAttempts: number }> {
+  processFailedLogin(user: UserEntity): DomainOperationResult<{
+    shouldLockAccount: boolean;
+    remainingAttempts: number;
+  }> {
     try {
       user.incrementLoginAttempts();
-      
-      const shouldLockAccount = user.loginAttempts >= UserDomainService.MAX_LOGIN_ATTEMPTS;
-      const remainingAttempts = Math.max(0, UserDomainService.MAX_LOGIN_ATTEMPTS - user.loginAttempts);
-      
+
+      const shouldLockAccount =
+        user.loginAttempts >= UserDomainService.MAX_LOGIN_ATTEMPTS;
+      const remainingAttempts = Math.max(
+        0,
+        UserDomainService.MAX_LOGIN_ATTEMPTS - user.loginAttempts,
+      );
+
       if (shouldLockAccount) {
         user.lockAccount(UserDomainService.ACCOUNT_LOCK_DURATION_MS);
       }
-      
+
       return {
         success: true,
         data: {
           shouldLockAccount,
           remainingAttempts,
         },
-        warnings: shouldLockAccount ? ['Account has been locked due to failed login attempts'] : undefined,
+        warnings: shouldLockAccount
+          ? ['Account has been locked due to failed login attempts']
+          : undefined,
       };
     } catch (error) {
       return {
@@ -143,7 +163,10 @@ export class UserDomainService implements DomainService {
         error: new UserDomainError(
           'Failed to process failed login',
           'FAILED_LOGIN_PROCESSING_ERROR',
-          { userId: user.id, error: error instanceof Error ? error.message : 'Unknown error' },
+          {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         ),
       };
     }
@@ -152,10 +175,17 @@ export class UserDomainService implements DomainService {
   /**
    * Validate and process role change with business rules
    */
-  changeUserRole(user: UserEntity, newRole: UserRoles, performedBy: UserEntity): DomainOperationResult {
+  changeUserRole(
+    user: UserEntity,
+    newRole: UserRoles,
+    performedBy: UserEntity,
+  ): DomainOperationResult {
     // Check if role change is allowed
-    const canChangeRoleSpec = new UserCanChangeRoleSpecification(newRole, performedBy);
-    
+    const canChangeRoleSpec = new UserCanChangeRoleSpecification(
+      newRole,
+      performedBy,
+    );
+
     if (!canChangeRoleSpec.isSatisfiedBy(user)) {
       return {
         success: false,
@@ -176,7 +206,7 @@ export class UserDomainService implements DomainService {
     // Check if user is eligible for role upgrade (for guest -> moderator/admin)
     if (user.role === UserRoles.guest && newRole !== UserRoles.guest) {
       const eligibleSpec = UserSpecificationFactory.canUpgradeRole();
-      
+
       if (!eligibleSpec.isSatisfiedBy(user)) {
         return {
           success: false,
@@ -186,7 +216,8 @@ export class UserDomainService implements DomainService {
             {
               userId: user.id,
               isEmailVerified: user.isEmailVerified,
-              hasSecurePassword: new UserHasSecurePasswordSpecification().isSatisfiedBy(user),
+              hasSecurePassword:
+                new UserHasSecurePasswordSpecification().isSatisfiedBy(user),
               lastLoginAt: user.lastLoginAt,
             },
           ),
@@ -206,7 +237,9 @@ export class UserDomainService implements DomainService {
         case UserRoles.guest:
           // Note: In a real system, we might need a 'demote' method
           // For now, we'll handle this through the updateAuthProps method
-          user.updateAuthProps({ /* role would be updated through a different mechanism */ });
+          user.updateAuthProps({
+            /* role would be updated through a different mechanism */
+          });
           break;
         default:
           throw new Error(`Unknown role: ${newRole}`);
@@ -214,7 +247,10 @@ export class UserDomainService implements DomainService {
 
       return {
         success: true,
-        warnings: newRole === UserRoles.admin ? ['User granted admin privileges'] : undefined,
+        warnings:
+          newRole === UserRoles.admin
+            ? ['User granted admin privileges']
+            : undefined,
       };
     } catch (error) {
       return {
@@ -222,7 +258,11 @@ export class UserDomainService implements DomainService {
         error: new UserDomainError(
           'Failed to change user role',
           'ROLE_CHANGE_FAILED',
-          { userId: user.id, newRole, error: error instanceof Error ? error.message : 'Unknown error' },
+          {
+            userId: user.id,
+            newRole,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         ),
       };
     }
@@ -231,13 +271,15 @@ export class UserDomainService implements DomainService {
   /**
    * Initiate password reset process with security validation
    */
-  initiatePasswordReset(user: UserEntity): DomainOperationResult<{ resetToken: string; expiresAt: Date }> {
+  initiatePasswordReset(
+    user: UserEntity,
+  ): DomainOperationResult<{ resetToken: string; expiresAt: Date }> {
     const canResetSpec = new UserCanResetPasswordSpecification();
-    
+
     if (!canResetSpec.isSatisfiedBy(user)) {
       let reason = 'Password reset not allowed';
       let code = 'PASSWORD_RESET_NOT_ALLOWED';
-      
+
       if (!user.isEmailVerified) {
         reason = 'Email must be verified before password reset';
         code = 'EMAIL_NOT_VERIFIED';
@@ -245,7 +287,7 @@ export class UserDomainService implements DomainService {
         reason = 'Account is locked';
         code = 'ACCOUNT_LOCKED';
       }
-      
+
       return {
         success: false,
         error: new UserDomainError(reason, code, { userId: user.id }),
@@ -255,10 +297,12 @@ export class UserDomainService implements DomainService {
     try {
       // Generate secure reset token (in real implementation, use crypto.randomBytes)
       const resetToken = this.generateSecureToken();
-      const expiresAt = new Date(Date.now() + UserDomainService.PASSWORD_RESET_TOKEN_EXPIRY_MS);
-      
+      const expiresAt = new Date(
+        Date.now() + UserDomainService.PASSWORD_RESET_TOKEN_EXPIRY_MS,
+      );
+
       user.generatePasswordResetToken(resetToken, expiresAt);
-      
+
       return {
         success: true,
         data: { resetToken, expiresAt },
@@ -269,7 +313,10 @@ export class UserDomainService implements DomainService {
         error: new UserDomainError(
           'Failed to initiate password reset',
           'PASSWORD_RESET_INITIATION_FAILED',
-          { userId: user.id, error: error instanceof Error ? error.message : 'Unknown error' },
+          {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         ),
       };
     }
@@ -278,11 +325,18 @@ export class UserDomainService implements DomainService {
   /**
    * Complete password reset with validation
    */
-  completePasswordReset(user: UserEntity, resetToken: string, newHashedPassword: string): DomainOperationResult {
+  completePasswordReset(
+    user: UserEntity,
+    resetToken: string,
+    newHashedPassword: string,
+  ): DomainOperationResult {
     const userProps = user.getProps();
-    
+
     // Validate reset token
-    if (!userProps.passwordResetToken || !userProps.passwordResetTokenExpiresAt) {
+    if (
+      !userProps.passwordResetToken ||
+      !userProps.passwordResetTokenExpiresAt
+    ) {
       return {
         success: false,
         error: new UserDomainError(
@@ -292,7 +346,7 @@ export class UserDomainService implements DomainService {
         ),
       };
     }
-    
+
     if (userProps.passwordResetToken !== resetToken) {
       return {
         success: false,
@@ -303,7 +357,7 @@ export class UserDomainService implements DomainService {
         ),
       };
     }
-    
+
     if (userProps.passwordResetTokenExpiresAt < new Date()) {
       return {
         success: false,
@@ -318,10 +372,10 @@ export class UserDomainService implements DomainService {
     try {
       // Update password and clear reset token
       user.updatePassword(newHashedPassword);
-      
+
       // Reset login attempts as password was successfully changed
       user.resetLoginAttempts();
-      
+
       return {
         success: true,
       };
@@ -331,7 +385,10 @@ export class UserDomainService implements DomainService {
         error: new UserDomainError(
           'Failed to complete password reset',
           'PASSWORD_RESET_COMPLETION_FAILED',
-          { userId: user.id, error: error instanceof Error ? error.message : 'Unknown error' },
+          {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         ),
       };
     }
@@ -340,7 +397,9 @@ export class UserDomainService implements DomainService {
   /**
    * Initiate email verification process
    */
-  initiateEmailVerification(user: UserEntity): DomainOperationResult<{ verificationToken: string }> {
+  initiateEmailVerification(
+    user: UserEntity,
+  ): DomainOperationResult<{ verificationToken: string }> {
     if (user.isEmailVerified) {
       return {
         success: false,
@@ -355,7 +414,7 @@ export class UserDomainService implements DomainService {
     try {
       const verificationToken = this.generateSecureToken();
       user.generateEmailVerificationToken(verificationToken);
-      
+
       return {
         success: true,
         data: { verificationToken },
@@ -366,7 +425,10 @@ export class UserDomainService implements DomainService {
         error: new UserDomainError(
           'Failed to initiate email verification',
           'EMAIL_VERIFICATION_INITIATION_FAILED',
-          { userId: user.id, error: error instanceof Error ? error.message : 'Unknown error' },
+          {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         ),
       };
     }
@@ -375,9 +437,14 @@ export class UserDomainService implements DomainService {
   /**
    * Complete email verification
    */
-  completeEmailVerification(user: UserEntity, verificationToken: string): DomainOperationResult {
-    const verificationSpec = new UserEmailVerificationValidSpecification(verificationToken);
-    
+  completeEmailVerification(
+    user: UserEntity,
+    verificationToken: string,
+  ): DomainOperationResult {
+    const verificationSpec = new UserEmailVerificationValidSpecification(
+      verificationToken,
+    );
+
     if (!verificationSpec.isSatisfiedBy(user)) {
       return {
         success: false,
@@ -395,7 +462,7 @@ export class UserDomainService implements DomainService {
 
     try {
       user.verifyEmail();
-      
+
       return {
         success: true,
       };
@@ -405,7 +472,10 @@ export class UserDomainService implements DomainService {
         error: new UserDomainError(
           'Failed to complete email verification',
           'EMAIL_VERIFICATION_COMPLETION_FAILED',
-          { userId: user.id, error: error instanceof Error ? error.message : 'Unknown error' },
+          {
+            userId: user.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         ),
       };
     }
@@ -414,12 +484,15 @@ export class UserDomainService implements DomainService {
   /**
    * Validate user account for deletion
    */
-  validateAccountDeletion(user: UserEntity, performedBy: UserEntity): DomainOperationResult<{ warnings: string[] }> {
+  validateAccountDeletion(
+    user: UserEntity,
+    performedBy: UserEntity,
+  ): DomainOperationResult<{ warnings: string[] }> {
     const canDeleteSpec = UserSpecificationFactory.canPerformAction('delete', {
       target: user,
       performer: performedBy,
     });
-    
+
     if (!canDeleteSpec.isSatisfiedBy(user)) {
       return {
         success: false,
@@ -437,14 +510,19 @@ export class UserDomainService implements DomainService {
     }
 
     const warnings: string[] = [];
-    
+
     // Add warnings for admin account deletion
     if (user.role === UserRoles.admin) {
-      warnings.push('Deleting admin account will remove administrative privileges');
+      warnings.push(
+        'Deleting admin account will remove administrative privileges',
+      );
     }
-    
+
     // Add warning for recent activity
-    if (user.lastLoginAt && (Date.now() - user.lastLoginAt.getTime()) < 7 * 24 * 60 * 60 * 1000) {
+    if (
+      user.lastLoginAt &&
+      Date.now() - user.lastLoginAt.getTime() < 7 * 24 * 60 * 60 * 1000
+    ) {
       warnings.push('User was active within the last 7 days');
     }
 
@@ -458,10 +536,12 @@ export class UserDomainService implements DomainService {
   /**
    * Check if user meets security requirements for sensitive operations
    */
-  validateSecurityRequirements(user: UserEntity): DomainOperationResult<{ securityScore: number; issues: string[] }> {
-    const fullyVerifiedSpec = UserSpecificationFactory.isFullyVerified();
+  validateSecurityRequirements(
+    user: UserEntity,
+  ): DomainOperationResult<{ securityScore: number; issues: string[] }> {
+    // const fullyVerifiedSpec = UserSpecificationFactory.isFullyVerified();
     const hasSecurePasswordSpec = new UserHasSecurePasswordSpecification();
-    
+
     const issues: string[] = [];
     let securityScore = 0;
 
@@ -487,7 +567,10 @@ export class UserDomainService implements DomainService {
     }
 
     // Check recent activity (20 points)
-    if (user.lastLoginAt && (Date.now() - user.lastLoginAt.getTime()) < 30 * 24 * 60 * 60 * 1000) {
+    if (
+      user.lastLoginAt &&
+      Date.now() - user.lastLoginAt.getTime() < 30 * 24 * 60 * 60 * 1000
+    ) {
       securityScore += 20;
     } else {
       issues.push('No recent login activity');
@@ -499,7 +582,10 @@ export class UserDomainService implements DomainService {
         securityScore,
         issues,
       },
-      warnings: securityScore < 80 ? ['User does not meet all security requirements'] : undefined,
+      warnings:
+        securityScore < 80
+          ? ['User does not meet all security requirements']
+          : undefined,
     };
   }
 
@@ -509,7 +595,8 @@ export class UserDomainService implements DomainService {
    */
   private generateSecureToken(): string {
     // This is a simplified implementation - use proper crypto in production
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let token = '';
     for (let i = 0; i < 32; i++) {
       token += chars.charAt(Math.floor(Math.random() * chars.length));

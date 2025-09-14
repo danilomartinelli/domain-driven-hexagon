@@ -71,17 +71,26 @@ export class RoleEntity extends AggregateRoot<RoleProps> {
 
   validate(): void {
     if (!Guard.lengthIsBetween(this.props.name, 2, 50)) {
-      throw new ArgumentInvalidException('Role name must be between 2 and 50 characters');
+      throw new ArgumentInvalidException(
+        'Role name must be between 2 and 50 characters',
+      );
     }
 
-    if (this.props.description && !Guard.lengthIsBetween(this.props.description, 0, 255)) {
-      throw new ArgumentInvalidException('Role description must not exceed 255 characters');
+    if (
+      this.props.description &&
+      !Guard.lengthIsBetween(this.props.description, 0, 255)
+    ) {
+      throw new ArgumentInvalidException(
+        'Role description must not exceed 255 characters',
+      );
     }
 
     // Validate permission IDs are UUIDs
     for (const permissionId of this.props.permissions) {
       if (!Guard.isUuid(permissionId)) {
-        throw new ArgumentInvalidException(`Invalid permission ID: ${permissionId}`);
+        throw new ArgumentInvalidException(
+          `Invalid permission ID: ${permissionId}`,
+        );
       }
     }
   }

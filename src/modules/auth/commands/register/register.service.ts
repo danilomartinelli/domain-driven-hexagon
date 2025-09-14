@@ -33,19 +33,30 @@ export class RegisterService implements ICommandHandler<RegisterCommand> {
   ) {}
 
   async execute(command: RegisterCommand): Promise<Result<AggregateID, Error>> {
-    const { email, password, confirmPassword, address, ipAddress, userAgent } = command;
+    const { email, password, confirmPassword, address, ipAddress, userAgent } =
+      command;
 
     try {
       // Validate password confirmation
       if (password !== confirmPassword) {
-        await this.logFailedAttempt('REGISTER_PASSWORD_MISMATCH', { email }, ipAddress, userAgent);
+        await this.logFailedAttempt(
+          'REGISTER_PASSWORD_MISMATCH',
+          { email },
+          ipAddress,
+          userAgent,
+        );
         return Err(new PasswordMismatchError());
       }
 
       // Check if user already exists
       const existingUserOption = await this.userRepo.findByEmail(email);
       if (existingUserOption.isSome()) {
-        await this.logFailedAttempt('REGISTER_USER_EXISTS', { email }, ipAddress, userAgent);
+        await this.logFailedAttempt(
+          'REGISTER_USER_EXISTS',
+          { email },
+          ipAddress,
+          userAgent,
+        );
         return Err(new UserAlreadyExistsError());
       }
 
@@ -81,7 +92,13 @@ export class RegisterService implements ICommandHandler<RegisterCommand> {
       await this.userRepo.insert(user);
 
       // Log successful registration
-      await this.logSuccessfulAttempt(user.id, 'REGISTER_SUCCESS', { email }, ipAddress, userAgent);
+      await this.logSuccessfulAttempt(
+        user.id,
+        'REGISTER_SUCCESS',
+        { email },
+        ipAddress,
+        userAgent,
+      );
 
       this.logger.log('User registered successfully', {
         userId: user.id,
@@ -100,11 +117,19 @@ export class RegisterService implements ICommandHandler<RegisterCommand> {
         ipAddress,
       });
 
-      return Err(error instanceof Error ? error : new Error('Registration failed'));
+      return Err(
+        error instanceof Error ? error : new Error('Registration failed'),
+      );
     }
   }
 
-  private async logSuccessfulAttempt(userId: string, action: string, details: any, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async logSuccessfulAttempt(
+    userId: string,
+    action: string,
+    details: any,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const auditLog = AuthAuditLogEntity.create({
       userId,
       action,
@@ -117,7 +142,12 @@ export class RegisterService implements ICommandHandler<RegisterCommand> {
     await this.auditLogRepo.insert(auditLog);
   }
 
-  private async logFailedAttempt(action: string, details: any, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async logFailedAttempt(
+    action: string,
+    details: any,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const auditLog = AuthAuditLogEntity.create({
       action,
       details,

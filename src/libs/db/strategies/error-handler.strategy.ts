@@ -5,7 +5,6 @@ import {
   CheckIntegrityConstraintViolationError,
   ForeignKeyIntegrityConstraintViolationError,
 } from 'slonik';
-import { ConflictException } from '@libs/exceptions';
 import { LoggerPort } from '../../ports/logger.port';
 
 /**
@@ -20,7 +19,7 @@ export enum ErrorSeverity {
 
 export enum ErrorCategory {
   INTEGRITY = 'INTEGRITY',
-  AUTHENTICATION = 'AUTHENTICATION', 
+  AUTHENTICATION = 'AUTHENTICATION',
   AUTHORIZATION = 'AUTHORIZATION',
   VALIDATION = 'VALIDATION',
   CONNECTIVITY = 'CONNECTIVITY',
@@ -48,7 +47,12 @@ export interface ErrorContext {
  * Strategy interface for handling repository errors
  */
 export interface ErrorHandlerStrategy {
-  handleError(error: Error, operation: string, table: string, context?: Record<string, unknown>): void;
+  handleError(
+    error: Error,
+    operation: string,
+    table: string,
+    context?: Record<string, unknown>,
+  ): void;
   isRetryable(error: Error): boolean;
   categorizeError(error: Error): ErrorCategory;
   getSeverity(error: Error): ErrorSeverity;
@@ -63,7 +67,7 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     'union select',
     'information_schema',
     'pg_tables',
-    'pg_user', 
+    'pg_user',
     'version()',
     'current_user',
     'current_database',
@@ -85,7 +89,10 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     'jwt',
   ];
 
-  private readonly errorCounts = new Map<string, { count: number; lastSeen: number }>();
+  private readonly errorCounts = new Map<
+    string,
+    { count: number; lastSeen: number }
+  >();
   private readonly isProduction = process.env.NODE_ENV === 'production';
 
   constructor(
@@ -93,9 +100,20 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     private readonly getRequestId: () => string,
   ) {}
 
-  handleError(error: Error, operation: string, table: string, context?: Record<string, unknown>): void {
+  handleError(
+    error: Error,
+    operation: string,
+    table: string,
+    context?: Record<string, unknown>,
+  ): void {
     const requestId = this.getRequestId();
-    const errorContext = this.buildErrorContext(error, operation, table, requestId, context);
+    const errorContext = this.buildErrorContext(
+      error,
+      operation,
+      table,
+      requestId,
+      context,
+    );
 
     // Track error patterns for security monitoring
     this.trackErrorPattern(errorContext);
@@ -133,7 +151,7 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
         '40001', // serialization_failure
         '40P01', // deadlock_detected
       ];
-      
+
       if (retryableCodes.includes(errorCode)) {
         return true;
       }
@@ -150,14 +168,16 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
       'connection refused',
     ];
 
-    return retryablePatterns.some(pattern => errorMessage.includes(pattern));
+    return retryablePatterns.some((pattern) => errorMessage.includes(pattern));
   }
 
   categorizeError(error: Error): ErrorCategory {
-    if (error instanceof UniqueIntegrityConstraintViolationError ||
-        error instanceof CheckIntegrityConstraintViolationError ||
-        error instanceof ForeignKeyIntegrityConstraintViolationError ||
-        error instanceof DataIntegrityError) {
+    if (
+      error instanceof UniqueIntegrityConstraintViolationError ||
+      error instanceof CheckIntegrityConstraintViolationError ||
+      error instanceof ForeignKeyIntegrityConstraintViolationError ||
+      error instanceof DataIntegrityError
+    ) {
       return ErrorCategory.INTEGRITY;
     }
 
@@ -167,11 +187,17 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
 
     const errorMessage = error.message.toLowerCase();
 
-    if (errorMessage.includes('permission') || errorMessage.includes('access denied')) {
+    if (
+      errorMessage.includes('permission') ||
+      errorMessage.includes('access denied')
+    ) {
       return ErrorCategory.AUTHORIZATION;
     }
 
-    if (errorMessage.includes('authentication') || errorMessage.includes('login')) {
+    if (
+      errorMessage.includes('authentication') ||
+      errorMessage.includes('login')
+    ) {
       return ErrorCategory.AUTHENTICATION;
     }
 
@@ -240,12 +266,17 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
       {
         ...context,
         errorCode: 'UNIQUE_CONSTRAINT_VIOLATION',
-        errorMessage: this.isProduction ? undefined : this.sanitizeErrorMessage(error.message),
+        errorMessage: this.isProduction
+          ? undefined
+          : this.sanitizeErrorMessage(error.message),
       },
     );
   }
 
-  private handleNotFoundError(error: NotFoundError, context: ErrorContext): void {
+  private handleNotFoundError(
+    error: NotFoundError,
+    context: ErrorContext,
+  ): void {
     this.logger.debug(
       `[${context.requestId}] Entity not found in ${context.operation}`,
       {
@@ -255,13 +286,18 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     );
   }
 
-  private handleDataIntegrityError(error: DataIntegrityError, context: ErrorContext): void {
+  private handleDataIntegrityError(
+    error: DataIntegrityError,
+    context: ErrorContext,
+  ): void {
     this.logger.error(
       `[${context.requestId}] Data integrity error in ${context.operation}`,
       {
         ...context,
         errorCode: 'DATA_INTEGRITY_ERROR',
-        errorMessage: this.isProduction ? undefined : this.sanitizeErrorMessage(error.message),
+        errorMessage: this.isProduction
+          ? undefined
+          : this.sanitizeErrorMessage(error.message),
       },
     );
   }
@@ -275,7 +311,9 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
       {
         ...context,
         errorCode: 'CHECK_CONSTRAINT_VIOLATION',
-        errorMessage: this.isProduction ? undefined : this.sanitizeErrorMessage(error.message),
+        errorMessage: this.isProduction
+          ? undefined
+          : this.sanitizeErrorMessage(error.message),
       },
     );
   }
@@ -289,7 +327,9 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
       {
         ...context,
         errorCode: 'FOREIGN_KEY_VIOLATION',
-        errorMessage: this.isProduction ? undefined : this.sanitizeErrorMessage(error.message),
+        errorMessage: this.isProduction
+          ? undefined
+          : this.sanitizeErrorMessage(error.message),
       },
     );
   }
@@ -317,7 +357,7 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
 
   private isSuspiciousError(error: Error): boolean {
     const errorMessage = error.message.toLowerCase();
-    return SecureErrorHandlerStrategy.SUSPICIOUS_PATTERNS.some(pattern =>
+    return SecureErrorHandlerStrategy.SUSPICIOUS_PATTERNS.some((pattern) =>
       errorMessage.includes(pattern),
     );
   }
@@ -325,37 +365,43 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
   private sanitizeErrorMessage(message: string): string {
     if (!message) return 'Unknown error';
 
-    return message
-      // Remove connection strings
-      .replace(/postgresql:\/\/[^@]+@[^/]+\/\w+/gi, 'postgresql://[REDACTED]')
-      // Remove table/column names that might be sensitive
-      .replace(/relation "([^"]+)"/gi, 'relation "[REDACTED]"')
-      .replace(/column "([^"]+)"/gi, 'column "[REDACTED]"')
-      // Remove potential passwords or tokens
-      .replace(/password[=:]\s*[^\s]+/gi, 'password=[REDACTED]')
-      .replace(/token[=:]\s*[^\s]+/gi, 'token=[REDACTED]')
-      // Remove SQL query details
-      .replace(/query:\s*.+$/gim, 'query: [REDACTED]')
-      // Limit length to prevent log injection
-      .substring(0, 500);
+    return (
+      message
+        // Remove connection strings
+        .replace(/postgresql:\/\/[^@]+@[^/]+\/\w+/gi, 'postgresql://[REDACTED]')
+        // Remove table/column names that might be sensitive
+        .replace(/relation "([^"]+)"/gi, 'relation "[REDACTED]"')
+        .replace(/column "([^"]+)"/gi, 'column "[REDACTED]"')
+        // Remove potential passwords or tokens
+        .replace(/password[=:]\s*[^\s]+/gi, 'password=[REDACTED]')
+        .replace(/token[=:]\s*[^\s]+/gi, 'token=[REDACTED]')
+        // Remove SQL query details
+        .replace(/query:\s*.+$/gim, 'query: [REDACTED]')
+        // Limit length to prevent log injection
+        .substring(0, 500)
+    );
   }
 
   private sanitizeStackTrace(stack?: string): string {
     if (!stack) return '';
 
-    return stack
-      // Remove file system paths
-      .replace(/\/[^\s:]+\//g, '/[PATH]/')
-      // Remove user home directory references
-      .replace(/\/Users\/[^\/\s:]+/g, '/Users/[USER]')
-      .replace(/\/home\/[^\/\s:]+/g, '/home/[USER]')
-      // Limit stack trace length
-      .split('\n')
-      .slice(0, 10)
-      .join('\n');
+    return (
+      stack
+        // Remove file system paths
+        .replace(/\/[^\s:]+\//g, '/[PATH]/')
+        // Remove user home directory references
+        .replace(/\/Users\/[^\/\s:]+/g, '/Users/[USER]')
+        .replace(/\/home\/[^\/\s:]+/g, '/home/[USER]')
+        // Limit stack trace length
+        .split('\n')
+        .slice(0, 10)
+        .join('\n')
+    );
   }
 
-  private sanitizeContext(context?: Record<string, unknown>): Record<string, unknown> | undefined {
+  private sanitizeContext(
+    context?: Record<string, unknown>,
+  ): Record<string, unknown> | undefined {
     if (!context) return undefined;
 
     const sanitized = { ...context };
@@ -363,9 +409,11 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     for (const [key, value] of Object.entries(sanitized)) {
       const lowerKey = key.toLowerCase();
 
-      if (SecureErrorHandlerStrategy.SENSITIVE_FIELD_PATTERNS.some(pattern =>
-        lowerKey.includes(pattern)
-      )) {
+      if (
+        SecureErrorHandlerStrategy.SENSITIVE_FIELD_PATTERNS.some((pattern) =>
+          lowerKey.includes(pattern),
+        )
+      ) {
         sanitized[key] = '[REDACTED]';
       } else if (typeof value === 'string' && value.length > 500) {
         sanitized[key] = value.substring(0, 500) + '...[TRUNCATED]';
@@ -388,31 +436,25 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     }
 
     // Check for excessive errors (simple rate limiting)
-    if (existing && existing.count > 10 && (now - existing.lastSeen) < 60000) {
-      this.logger.warn(
-        `[${context.requestId}] High error rate detected`,
-        {
-          errorKey,
-          count: existing.count,
-          timeWindow: '60s',
-          severity: ErrorSeverity.HIGH,
-        },
-      );
+    if (existing && existing.count > 10 && now - existing.lastSeen < 60000) {
+      this.logger.warn(`[${context.requestId}] High error rate detected`, {
+        errorKey,
+        count: existing.count,
+        timeWindow: '60s',
+        severity: ErrorSeverity.HIGH,
+      });
     }
   }
 
   private logSecurityEvent(error: Error, context: ErrorContext): void {
-    this.logger.warn(
-      `[SECURITY] Suspicious database error pattern detected`,
-      {
-        operation: context.operation,
-        table: context.table,
-        errorType: error.constructor.name,
-        requestId: context.requestId,
-        timestamp: context.timestamp,
-        severity: ErrorSeverity.CRITICAL,
-      },
-    );
+    this.logger.warn(`[SECURITY] Suspicious database error pattern detected`, {
+      operation: context.operation,
+      table: context.table,
+      errorType: error.constructor.name,
+      requestId: context.requestId,
+      timestamp: context.timestamp,
+      severity: ErrorSeverity.CRITICAL,
+    });
   }
 
   private logProductionError(error: Error, context: ErrorContext): void {

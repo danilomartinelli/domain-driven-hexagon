@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { JwtPayload } from '../../domain/auth.types';
 
 /**
@@ -17,7 +22,7 @@ export class ResourceOwnerGuard implements CanActivate {
 
     // Get resource ID from route parameters
     const resourceId = request.params.id || request.params.userId;
-    
+
     if (!resourceId) {
       throw new ForbiddenException('Resource ID not found in request');
     }
@@ -29,7 +34,9 @@ export class ResourceOwnerGuard implements CanActivate {
 
     // Check if user is accessing their own resource
     if (user.sub !== resourceId) {
-      throw new ForbiddenException('Access denied. You can only access your own resources');
+      throw new ForbiddenException(
+        'Access denied. You can only access your own resources',
+      );
     }
 
     return true;
@@ -39,7 +46,9 @@ export class ResourceOwnerGuard implements CanActivate {
 /**
  * Factory function to create resource owner guard for specific parameter names
  */
-export const createResourceOwnerGuard = (paramName: string) => {
+export const createResourceOwnerGuard = (
+  paramName: string,
+): new () => CanActivate => {
   @Injectable()
   class DynamicResourceOwnerGuard implements CanActivate {
     canActivate(context: ExecutionContext): boolean {
@@ -52,9 +61,11 @@ export const createResourceOwnerGuard = (paramName: string) => {
 
       // Get resource ID from specified parameter
       const resourceId = request.params[paramName];
-      
+
       if (!resourceId) {
-        throw new ForbiddenException(`Resource ID not found in parameter: ${paramName}`);
+        throw new ForbiddenException(
+          `Resource ID not found in parameter: ${paramName}`,
+        );
       }
 
       // Check if user is admin (admins can access any resource)
@@ -64,7 +75,9 @@ export const createResourceOwnerGuard = (paramName: string) => {
 
       // Check if user is accessing their own resource
       if (user.sub !== resourceId) {
-        throw new ForbiddenException('Access denied. You can only access your own resources');
+        throw new ForbiddenException(
+          'Access denied. You can only access your own resources',
+        );
       }
 
       return true;

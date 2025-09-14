@@ -65,15 +65,17 @@ export class LoginHttpController {
       userAgent: body.userAgent || req.get('User-Agent'),
     });
 
-    const result: Result<TokenPair, Error> = await this.commandBus.execute(command);
+    const result: Result<TokenPair, Error> =
+      await this.commandBus.execute(command);
 
     return match(result, {
-      Ok: (tokenPair: TokenPair) => new TokenResponseDto(
-        tokenPair.accessToken,
-        tokenPair.refreshToken,
-        tokenPair.tokenType,
-        tokenPair.expiresIn,
-      ),
+      Ok: (tokenPair: TokenPair) =>
+        new TokenResponseDto(
+          tokenPair.accessToken,
+          tokenPair.refreshToken,
+          tokenPair.tokenType,
+          tokenPair.expiresIn,
+        ),
       Err: (error: Error) => {
         if (error instanceof InvalidCredentialsError) {
           throw new UnauthorizedException(error.message);
@@ -87,7 +89,7 @@ export class LoginHttpController {
         if (error instanceof EmailNotVerifiedError) {
           throw new UnauthorizedException(error.message);
         }
-        
+
         // Generic error handling
         throw new BadRequestException(error.message || 'Login failed');
       },

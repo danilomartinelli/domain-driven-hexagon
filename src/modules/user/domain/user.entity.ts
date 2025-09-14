@@ -209,7 +209,8 @@ export class UserEntity extends AggregateRoot<UserProps> {
       throw new Error('Invalid email format');
     }
 
-    if (this.props.email.length > 320) { // RFC 5321 limit
+    if (this.props.email.length > 320) {
+      // RFC 5321 limit
       throw new Error('Email address too long');
     }
   }
@@ -223,7 +224,9 @@ export class UserEntity extends AggregateRoot<UserProps> {
     try {
       this.props.address.validate();
     } catch (error) {
-      throw new Error(`Address validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Address validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   }
 
@@ -244,19 +247,27 @@ export class UserEntity extends AggregateRoot<UserProps> {
     }
 
     // Validate password reset token expiration
-    if (this.props.passwordResetTokenExpiresAt && 
-        this.props.passwordResetTokenExpiresAt < new Date()) {
+    if (
+      this.props.passwordResetTokenExpiresAt &&
+      this.props.passwordResetTokenExpiresAt < new Date()
+    ) {
       // Clear expired reset tokens
       this.props.passwordResetToken = undefined;
       this.props.passwordResetTokenExpiresAt = undefined;
     }
 
     // Validate token consistency
-    if (this.props.passwordResetToken && !this.props.passwordResetTokenExpiresAt) {
+    if (
+      this.props.passwordResetToken &&
+      !this.props.passwordResetTokenExpiresAt
+    ) {
       throw new Error('Password reset token must have expiration date');
     }
 
-    if (!this.props.passwordResetToken && this.props.passwordResetTokenExpiresAt) {
+    if (
+      !this.props.passwordResetToken &&
+      this.props.passwordResetTokenExpiresAt
+    ) {
       throw new Error('Password reset expiration date without token');
     }
   }

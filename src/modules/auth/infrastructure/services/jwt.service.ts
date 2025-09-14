@@ -19,8 +19,12 @@ export class JwtService implements JwtServicePort {
     private readonly configService: ConfigService,
     private readonly logger: LoggerPort,
   ) {
-    this.accessTokenSecret = this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_SECRET');
-    this.refreshTokenSecret = this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_SECRET');
+    this.accessTokenSecret = this.configService.getOrThrow<string>(
+      'JWT_ACCESS_TOKEN_SECRET',
+    );
+    this.refreshTokenSecret = this.configService.getOrThrow<string>(
+      'JWT_REFRESH_TOKEN_SECRET',
+    );
     this.accessTokenExpiresIn = `${AUTH_CONSTANTS.ACCESS_TOKEN_EXPIRES_IN_MINUTES}m`;
     this.refreshTokenExpiresIn = `${AUTH_CONSTANTS.REFRESH_TOKEN_EXPIRES_IN_DAYS}d`;
   }

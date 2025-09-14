@@ -3,10 +3,10 @@ import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Err, Ok, Result } from 'oxide.ts';
 import { RefreshTokenCommand } from './refresh-token.command';
 import { TokenPair } from '../../domain/auth.types';
-import { 
-  InvalidTokenError, 
+import {
+  InvalidTokenError,
   RefreshTokenNotFoundError,
-  AccountInactiveError 
+  AccountInactiveError,
 } from '../../domain/auth.errors';
 import { UserRepositoryPort } from '@modules/user/database/user.repository.port';
 import { RefreshTokenRepositoryPort } from '../../database/refresh-token.repository.port';
@@ -21,7 +21,9 @@ import { AUTH_CONSTANTS } from '../../domain/auth.types';
 
 @CommandHandler(RefreshTokenCommand)
 @Injectable()
-export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand> {
+export class RefreshTokenService
+  implements ICommandHandler<RefreshTokenCommand>
+{
   constructor(
     @Inject(USER_DI_TOKENS.UserRepository)
     private readonly userRepo: UserRepositoryPort,
@@ -34,7 +36,9 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
     private readonly logger: LoggerPort,
   ) {}
 
-  async execute(command: RefreshTokenCommand): Promise<Result<TokenPair, Error>> {
+  async execute(
+    command: RefreshTokenCommand,
+  ): Promise<Result<TokenPair, Error>> {
     const { refreshToken, ipAddress, userAgent } = command;
 
     try {
@@ -43,15 +47,29 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
       try {
         tokenPayload = await this.jwtService.verifyRefreshToken(refreshToken);
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        await this.logFailedAttempt(undefined, 'REFRESH_TOKEN_INVALID_JWT', { error: errorMessage }, ipAddress, userAgent);
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        await this.logFailedAttempt(
+          undefined,
+          'REFRESH_TOKEN_INVALID_JWT',
+          { error: errorMessage },
+          ipAddress,
+          userAgent,
+        );
         return Err(new InvalidTokenError());
       }
 
       // Find the refresh token in database
-      const refreshTokenOption = await this.refreshTokenRepo.findByToken(refreshToken);
+      const refreshTokenOption =
+        await this.refreshTokenRepo.findByToken(refreshToken);
       if (refreshTokenOption.isNone()) {
-        await this.logFailedAttempt(tokenPayload.sub, 'REFRESH_TOKEN_NOT_FOUND', {}, ipAddress, userAgent);
+        await this.logFailedAttempt(
+          tokenPayload.sub,
+          'REFRESH_TOKEN_NOT_FOUND',
+          {},
+          ipAddress,
+          userAgent,
+        );
         return Err(new RefreshTokenNotFoundError());
       }
 
@@ -60,14 +78,14 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
       // Check if token is active (not revoked and not expired)
       if (!refreshTokenEntity.isActive) {
         await this.logFailedAttempt(
-          tokenPayload.sub, 
-          'REFRESH_TOKEN_INACTIVE', 
-          { 
-            isRevoked: refreshTokenEntity.isRevoked, 
-            isExpired: refreshTokenEntity.isExpired 
-          }, 
-          ipAddress, 
-          userAgent
+          tokenPayload.sub,
+          'REFRESH_TOKEN_INACTIVE',
+          {
+            isRevoked: refreshTokenEntity.isRevoked,
+            isExpired: refreshTokenEntity.isExpired,
+          },
+          ipAddress,
+          userAgent,
         );
         return Err(new RefreshTokenNotFoundError());
       }
@@ -75,7 +93,13 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
       // Find the user
       const userOption = await this.userRepo.findOneById(tokenPayload.sub);
       if (userOption.isNone()) {
-        await this.logFailedAttempt(tokenPayload.sub, 'REFRESH_TOKEN_USER_NOT_FOUND', {}, ipAddress, userAgent);
+        await this.logFailedAttempt(
+          tokenPayload.sub,
+          'REFRESH_TOKEN_USER_NOT_FOUND',
+          {},
+          ipAddress,
+          userAgent,
+        );
         return Err(new InvalidTokenError());
       }
 
@@ -84,7 +108,13 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
 
       // Check if user account is still active
       if (!userProps.isActive) {
-        await this.logFailedAttempt(user.id, 'REFRESH_TOKEN_USER_INACTIVE', {}, ipAddress, userAgent);
+        await this.logFailedAttempt(
+          user.id,
+          'REFRESH_TOKEN_USER_INACTIVE',
+          {},
+          ipAddress,
+          userAgent,
+        );
         return Err(new AccountInactiveError());
       }
 
@@ -105,10 +135,21 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
       await this.refreshTokenRepo.update(refreshTokenEntity);
 
       // Store the new refresh token
-      await this.storeRefreshToken(user.id, newTokenPair.refreshToken, ipAddress, userAgent);
+      await this.storeRefreshToken(
+        user.id,
+        newTokenPair.refreshToken,
+        ipAddress,
+        userAgent,
+      );
 
       // Log successful token refresh
-      await this.logSuccessfulAttempt(user.id, 'REFRESH_TOKEN_SUCCESS', { roles: userRoles }, ipAddress, userAgent);
+      await this.logSuccessfulAttempt(
+        user.id,
+        'REFRESH_TOKEN_SUCCESS',
+        { roles: userRoles },
+        ipAddress,
+        userAgent,
+      );
 
       this.logger.log('Refresh token used successfully', {
         userId: user.id,
@@ -123,15 +164,25 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
         ipAddress,
       });
 
-      return Err(error instanceof Error ? error : new Error('Token refresh failed'));
+      return Err(
+        error instanceof Error ? error : new Error('Token refresh failed'),
+      );
     }
   }
 
-  private async storeRefreshToken(userId: string, token: string, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async storeRefreshToken(
+    userId: string,
+    token: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const refreshToken = RefreshTokenEntity.create({
       token,
       userId,
-      expiresAt: new Date(Date.now() + AUTH_CONSTANTS.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(
+        Date.now() +
+          AUTH_CONSTANTS.REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
+      ),
       createdByIp: ipAddress,
       userAgent,
     });
@@ -139,7 +190,13 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
     await this.refreshTokenRepo.insert(refreshToken);
   }
 
-  private async logSuccessfulAttempt(userId: string, action: string, details: any, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async logSuccessfulAttempt(
+    userId: string,
+    action: string,
+    details: any,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const auditLog = AuthAuditLogEntity.create({
       userId,
       action,
@@ -152,7 +209,13 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
     await this.auditLogRepo.insert(auditLog);
   }
 
-  private async logFailedAttempt(userId: string | undefined, action: string, details: any, ipAddress?: string, userAgent?: string): Promise<void> {
+  private async logFailedAttempt(
+    userId: string | undefined,
+    action: string,
+    details: any,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
     const auditLog = AuthAuditLogEntity.create({
       userId,
       action,
@@ -166,12 +229,14 @@ export class RefreshTokenService implements ICommandHandler<RefreshTokenCommand>
   }
 
   // These methods would be implemented based on your role/permission system
-  private async getUserRoles(userId: string): Promise<string[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async getUserRoles(_userId: string): Promise<string[]> {
     // Implementation would query user roles
     return ['user']; // This should be replaced with actual role lookup
   }
 
-  private async getUserPermissions(userId: string): Promise<string[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private async getUserPermissions(_userId: string): Promise<string[]> {
     // Implementation would query user permissions via roles
     return ['user:read-own', 'wallet:read-own']; // This should be replaced with actual permission lookup
   }

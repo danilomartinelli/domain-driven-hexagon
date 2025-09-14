@@ -1,46 +1,51 @@
-import { AggregateRoot, PaginatedQueryParams, Paginated, Mapper, RepositoryPort } from '@libs/ddd';
+import {
+  AggregateRoot,
+  PaginatedQueryParams,
+  Paginated,
+  Mapper,
+  RepositoryPort,
+} from '@libs/ddd';
 import { ConflictException } from '@libs/exceptions';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { None, Option, Some } from 'oxide.ts';
-import { 
-  DatabasePool, 
+import {
+  DatabasePool,
   DatabaseTransactionConnection,
-  QueryResult, 
-  sql, 
+  QueryResult,
+  sql,
   SqlToken,
   UniqueIntegrityConstraintViolationError,
-  NotFoundError
+  NotFoundError,
 } from 'slonik';
 import { ZodSchema, ZodType, z } from 'zod';
 import { LoggerPort } from '../ports/logger.port';
 import { ObjectLiteral } from '../types';
 
 // Import our strategy interfaces
-import { 
-  QueryExecutionStrategy, 
-  PoolQueryExecutionStrategy, 
-  TransactionQueryExecutionStrategy 
+import {
+  QueryExecutionStrategy,
+  PoolQueryExecutionStrategy,
 } from './strategies/query-execution.strategy';
-import { 
-  QueryBuilderStrategy, 
-  PostgreSqlQueryBuilderStrategy 
+import {
+  QueryBuilderStrategy,
+  PostgreSqlQueryBuilderStrategy,
 } from './strategies/query-builder.strategy';
-import { 
-  TransactionManagerStrategy, 
+import {
+  TransactionManagerStrategy,
   AdvancedTransactionManagerStrategy,
-  TransactionOptions 
+  TransactionOptions,
 } from './strategies/transaction-manager.strategy';
-import { 
-  ErrorHandlerStrategy, 
-  SecureErrorHandlerStrategy 
+import {
+  ErrorHandlerStrategy,
+  SecureErrorHandlerStrategy,
 } from './strategies/error-handler.strategy';
-import { 
-  ValidationStrategy, 
-  OptimizedValidationStrategy 
+import {
+  ValidationStrategy,
+  OptimizedValidationStrategy,
 } from './strategies/validation.strategy';
-import { 
-  ConnectionContextStrategy, 
-  RequestScopedConnectionContextStrategy 
+import {
+  ConnectionContextStrategy,
+  RequestScopedConnectionContextStrategy,
 } from './strategies/connection-context.strategy';
 
 /**
@@ -56,7 +61,7 @@ export interface RepositoryStrategyConfig {
 /**
  * Refactored generic type-safe repository base class using Strategy pattern.
  * Decomposed from 964 lines into focused, testable components.
- * 
+ *
  * Key improvements:
  * - Single Responsibility Principle: Each strategy handles one concern
  * - Strategy Pattern: Pluggable algorithms for different operations
@@ -66,15 +71,15 @@ export interface RepositoryStrategyConfig {
  * - Testability: Dependency injection and mocking support
  *
  * @template Aggregate - The domain aggregate type
- * @template DbModel - The database model type  
+ * @template DbModel - The database model type
  * @template EntityId - The entity identifier type (defaults to string)
  */
 export abstract class RefactoredSqlRepositoryBase<
   Aggregate extends AggregateRoot<any>,
   DbModel extends ObjectLiteral,
   EntityId extends string | number = string,
-> implements RepositoryPort<Aggregate> {
-  
+> implements RepositoryPort<Aggregate>
+{
   /** Table name for this repository */
   protected abstract tableName: string;
 
@@ -82,7 +87,8 @@ export abstract class RefactoredSqlRepositoryBase<
   protected abstract schema: ZodSchema<DbModel>;
 
   /** Optional schema for validating entity IDs */
-  protected idSchema?: ZodType<EntityId> = z.string() as unknown as ZodType<EntityId>;
+  protected idSchema?: ZodType<EntityId> =
+    z.string() as unknown as ZodType<EntityId>;
 
   // Strategy instances
   private queryExecution!: QueryExecutionStrategy; // Initialized lazily
@@ -100,19 +106,27 @@ export abstract class RefactoredSqlRepositoryBase<
     config: RepositoryStrategyConfig = {},
   ) {
     // Initialize strategies based on configuration
-    this.connectionContext = config.useRequestScopedContext 
+    this.connectionContext = config.useRequestScopedContext
       ? new RequestScopedConnectionContextStrategy(pool, logger)
       : new RequestScopedConnectionContextStrategy(pool, logger); // Default to request-scoped
 
     this.queryBuilder = new PostgreSqlQueryBuilderStrategy();
 
     this.transactionManager = config.useAdvancedTransactions
-      ? new AdvancedTransactionManagerStrategy(pool, logger, () => this.connectionContext.getRequestId())
-      : new AdvancedTransactionManagerStrategy(pool, logger, () => this.connectionContext.getRequestId());
+      ? new AdvancedTransactionManagerStrategy(pool, logger, () =>
+          this.connectionContext.getRequestId(),
+        )
+      : new AdvancedTransactionManagerStrategy(pool, logger, () =>
+          this.connectionContext.getRequestId(),
+        );
 
     this.errorHandler = config.useSecureErrorHandling
-      ? new SecureErrorHandlerStrategy(logger, () => this.connectionContext.getRequestId())
-      : new SecureErrorHandlerStrategy(logger, () => this.connectionContext.getRequestId());
+      ? new SecureErrorHandlerStrategy(logger, () =>
+          this.connectionContext.getRequestId(),
+        )
+      : new SecureErrorHandlerStrategy(logger, () =>
+          this.connectionContext.getRequestId(),
+        );
 
     this.validation = config.useOptimizedValidation
       ? new OptimizedValidationStrategy()
@@ -157,20 +171,26 @@ export abstract class RefactoredSqlRepositoryBase<
         return None;
       }
 
-      const validatedId = idValidation.data!;
+      const validatedId = idValidation.data as string;
       const query = sql.type(this.schema)`
         SELECT * FROM ${sql.identifier([this.tableName])} 
         WHERE id = ${validatedId}
       `;
 
-      const result = await this.queryExecution.executeQuery(query, 'findOneById');
+      const result = await this.queryExecution.executeQuery(
+        query,
+        'findOneById',
+      );
 
       if (result.rows.length === 0) {
         return None;
       }
 
       // Validate database row
-      const modelValidation = this.validation.validateModel(result.rows[0], this.schema);
+      const modelValidation = this.validation.validateModel(
+        result.rows[0],
+        this.schema,
+      );
       if (!modelValidation.success) {
         this.logger.error(
           `[${this.connectionContext.getRequestId()}] Database row validation failed in findOneById`,
@@ -179,12 +199,19 @@ export abstract class RefactoredSqlRepositoryBase<
         return None;
       }
 
-      const entity = this.mapper.toDomain(modelValidation.data!);
+      const entity = this.mapper.toDomain(
+        modelValidation.data as Record<string, unknown>,
+      );
       this.logOperation('findOneById', { id: validatedId, found: true });
-      
+
       return Some(entity);
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'findOneById', this.tableName, { id });
+      this.errorHandler.handleError(
+        error as Error,
+        'findOneById',
+        this.tableName,
+        { id },
+      );
       return None;
     }
   }
@@ -199,7 +226,9 @@ export abstract class RefactoredSqlRepositoryBase<
   }): Promise<Aggregate[]> {
     this.ensureInitialized();
     try {
-      let query = sql.type(this.schema)`SELECT * FROM ${sql.identifier([this.tableName])}`;
+      let query = sql.type(
+        this.schema,
+      )`SELECT * FROM ${sql.identifier([this.tableName])}`;
 
       // Add WHERE clause if provided
       if (options?.where) {
@@ -209,13 +238,18 @@ export abstract class RefactoredSqlRepositoryBase<
       // Add ORDER BY clause if provided
       if (options?.orderBy) {
         const direction = options.orderDirection || 'ASC';
-        query = sql.type(this.schema)`${query} ORDER BY ${sql.identifier([options.orderBy])} ${sql.unsafe`${direction}`}`;
+        query = sql.type(
+          this.schema,
+        )`${query} ORDER BY ${sql.identifier([options.orderBy])} ${sql.unsafe`${direction}`}`;
       }
 
       const result = await this.queryExecution.executeQuery(query, 'findAll');
-      
+
       // Batch validate all rows
-      const modelsValidation = this.validation.validateBatch([...result.rows], this.schema);
+      const modelsValidation = this.validation.validateBatch(
+        [...result.rows],
+        this.schema,
+      );
       if (!modelsValidation.success) {
         this.logger.error(
           `[${this.connectionContext.getRequestId()}] Batch validation failed in findAll`,
@@ -224,12 +258,19 @@ export abstract class RefactoredSqlRepositoryBase<
         return [];
       }
 
-      const entities = modelsValidation.data!.map(model => this.mapper.toDomain(model));
+      const entities = (modelsValidation.data as Record<string, unknown>[]).map(
+        (model) => this.mapper.toDomain(model),
+      );
       this.logOperation('findAll', { count: entities.length });
 
       return entities;
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'findAll', this.tableName, options);
+      this.errorHandler.handleError(
+        error as Error,
+        'findAll',
+        this.tableName,
+        options,
+      );
       return [];
     }
   }
@@ -262,9 +303,12 @@ export abstract class RefactoredSqlRepositoryBase<
       ]);
 
       const totalCount = Number(countResult.rows[0]?.total || 0);
-      
+
       // Batch validate data rows
-      const modelsValidation = this.validation.validateBatch([...dataResult.rows], this.schema);
+      const modelsValidation = this.validation.validateBatch(
+        [...dataResult.rows],
+        this.schema,
+      );
       if (!modelsValidation.success) {
         this.logger.error(
           `[${this.connectionContext.getRequestId()}] Batch validation failed in findAllPaginated`,
@@ -278,7 +322,9 @@ export abstract class RefactoredSqlRepositoryBase<
         });
       }
 
-      const entities = modelsValidation.data!.map(model => this.mapper.toDomain(model));
+      const entities = (modelsValidation.data as Record<string, unknown>[]).map(
+        (model) => this.mapper.toDomain(model),
+      );
       const paginatedResult = new Paginated({
         data: entities,
         count: totalCount,
@@ -295,7 +341,12 @@ export abstract class RefactoredSqlRepositoryBase<
 
       return paginatedResult;
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'findAllPaginated', this.tableName, params);
+      this.errorHandler.handleError(
+        error as Error,
+        'findAllPaginated',
+        this.tableName,
+        params,
+      );
       return new Paginated({
         data: [],
         count: 0,
@@ -318,27 +369,39 @@ export abstract class RefactoredSqlRepositoryBase<
 
     try {
       // Validate all entities before processing
-      entities.forEach(entity => entity.validate());
+      entities.forEach((entity) => entity.validate());
 
       // Convert to persistence models
-      const persistenceModels = entities.map(entity => this.mapper.toPersistence(entity));
-      
+      const persistenceModels = entities.map((entity) =>
+        this.mapper.toPersistence(entity),
+      );
+
       // Batch validate persistence models
-      const modelsValidation = this.validation.validateBatch(persistenceModels, this.schema);
+      const modelsValidation = this.validation.validateBatch(
+        persistenceModels,
+        this.schema,
+      );
       if (!modelsValidation.success) {
-        throw new Error(`Validation failed: ${modelsValidation.errors?.map(e => e.message).join(', ')}`);
+        throw new Error(
+          `Validation failed: ${modelsValidation.errors?.map((e) => e.message).join(', ')}`,
+        );
       }
 
       // Build optimized batch insert query
-      const query = this.queryBuilder.buildInsertQuery(this.tableName, modelsValidation.data!);
-      
+      const query = this.queryBuilder.buildInsertQuery(
+        this.tableName,
+        modelsValidation.data as Record<string, unknown>[],
+      );
+
       // Execute with proper entity tracking
-      const entityIds = entities.map(e => e.id);
+      const entityIds = entities.map((e) => e.id);
       await this.queryExecution.executeWriteQuery(query, 'insert', entityIds);
 
       // Publish events for all entities in parallel
       await Promise.all(
-        entities.map(entity => entity.publishEvents(this.logger, this.eventEmitter)),
+        entities.map((entity) =>
+          entity.publishEvents(this.logger, this.eventEmitter),
+        ),
       );
 
       this.logOperation('insert', { count: entities.length, ids: entityIds });
@@ -363,25 +426,36 @@ export abstract class RefactoredSqlRepositoryBase<
 
       // Convert and validate persistence model
       const persistenceModel = this.mapper.toPersistence(entity);
-      const modelValidation = this.validation.validateModel(persistenceModel, this.schema);
+      const modelValidation = this.validation.validateModel(
+        persistenceModel,
+        this.schema,
+      );
       if (!modelValidation.success) {
-        throw new Error(`Model validation failed: ${modelValidation.errors?.map(e => e.message).join(', ')}`);
+        throw new Error(
+          `Model validation failed: ${modelValidation.errors?.map((e) => e.message).join(', ')}`,
+        );
       }
 
       // Validate entity ID
       const idValidation = this.validation.validateId(entity.id, this.idSchema);
       if (!idValidation.success) {
-        throw new Error(`ID validation failed: ${idValidation.errors?.map(e => e.message).join(', ')}`);
+        throw new Error(
+          `ID validation failed: ${idValidation.errors?.map((e) => e.message).join(', ')}`,
+        );
       }
 
       // Build update query
       const query = this.queryBuilder.buildUpdateQuery(
         this.tableName,
-        modelValidation.data!,
-        idValidation.data!,
+        modelValidation.data as Record<string, unknown>,
+        idValidation.data as string,
       );
 
-      const result = await this.queryExecution.executeWriteQuery(query, 'update', [entity.id]);
+      const result = await this.queryExecution.executeWriteQuery(
+        query,
+        'update',
+        [entity.id],
+      );
 
       if (result.rowCount === 0) {
         throw new NotFoundError(`Entity with id ${entity.id} not found`, {
@@ -393,7 +467,9 @@ export abstract class RefactoredSqlRepositoryBase<
       await entity.publishEvents(this.logger, this.eventEmitter);
       this.logOperation('update', { id: entity.id, success: true });
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'update', this.tableName, { id: entity.id });
+      this.errorHandler.handleError(error as Error, 'update', this.tableName, {
+        id: entity.id,
+      });
       throw error;
     }
   }
@@ -407,18 +483,28 @@ export abstract class RefactoredSqlRepositoryBase<
       entity.validate();
 
       const persistenceModel = this.mapper.toPersistence(entity);
-      const modelValidation = this.validation.validateModel(persistenceModel, this.schema);
+      const modelValidation = this.validation.validateModel(
+        persistenceModel,
+        this.schema,
+      );
       if (!modelValidation.success) {
-        throw new Error(`Model validation failed: ${modelValidation.errors?.map(e => e.message).join(', ')}`);
+        throw new Error(
+          `Model validation failed: ${modelValidation.errors?.map((e) => e.message).join(', ')}`,
+        );
       }
 
-      const query = this.queryBuilder.buildUpsertQuery(this.tableName, modelValidation.data!);
+      const query = this.queryBuilder.buildUpsertQuery(
+        this.tableName,
+        modelValidation.data as Record<string, unknown>,
+      );
       await this.queryExecution.executeWriteQuery(query, 'upsert', [entity.id]);
       await entity.publishEvents(this.logger, this.eventEmitter);
 
       this.logOperation('upsert', { id: entity.id, success: true });
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'upsert', this.tableName, { id: entity.id });
+      this.errorHandler.handleError(error as Error, 'upsert', this.tableName, {
+        id: entity.id,
+      });
       throw error;
     }
   }
@@ -441,7 +527,11 @@ export abstract class RefactoredSqlRepositoryBase<
         WHERE id = ${validatedId}
       `;
 
-      const result = await this.queryExecution.executeWriteQuery(query, 'delete', [entity.id]);
+      const result = await this.queryExecution.executeWriteQuery(
+        query,
+        'delete',
+        [entity.id],
+      );
       const deleted = result.rowCount > 0;
 
       if (deleted) {
@@ -451,7 +541,9 @@ export abstract class RefactoredSqlRepositoryBase<
       this.logOperation('delete', { id: entity.id, success: deleted });
       return deleted;
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'delete', this.tableName, { id: entity.id });
+      this.errorHandler.handleError(error as Error, 'delete', this.tableName, {
+        id: entity.id,
+      });
       return false;
     }
   }
@@ -472,13 +564,21 @@ export abstract class RefactoredSqlRepositoryBase<
         WHERE id = ${validatedId}
       `;
 
-      const result = await this.queryExecution.executeQuery(query, 'deleteById');
+      const result = await this.queryExecution.executeQuery(
+        query,
+        'deleteById',
+      );
       const deleted = result.rowCount > 0;
 
       this.logOperation('deleteById', { id: validatedId, success: deleted });
       return deleted;
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'deleteById', this.tableName, { id });
+      this.errorHandler.handleError(
+        error as Error,
+        'deleteById',
+        this.tableName,
+        { id },
+      );
       return false;
     }
   }
@@ -490,8 +590,11 @@ export abstract class RefactoredSqlRepositoryBase<
     handler: (connection: DatabaseTransactionConnection) => Promise<T>,
     options?: TransactionOptions,
   ): Promise<T> {
-    const transactionResult = await this.transactionManager.execute(handler, options);
-    
+    const transactionResult = await this.transactionManager.execute(
+      handler,
+      options,
+    );
+
     this.logOperation('transaction', {
       duration: transactionResult.duration,
       operationsCount: transactionResult.operationsCount,
@@ -521,7 +624,9 @@ export abstract class RefactoredSqlRepositoryBase<
       const result = await this.queryExecution.executeQuery(query, 'exists');
       return result.rows.length > 0;
     } catch (error) {
-      this.errorHandler.handleError(error as Error, 'exists', this.tableName, { id });
+      this.errorHandler.handleError(error as Error, 'exists', this.tableName, {
+        id,
+      });
       return false;
     }
   }

@@ -49,7 +49,7 @@ describe('Authentication System E2E', () => {
     }).compile();
 
     app = module.createNestApplication();
-    
+
     // Configure middleware and pipes
     app.useGlobalPipes(
       new ValidationPipe({
@@ -59,7 +59,7 @@ describe('Authentication System E2E', () => {
         transformOptions: {
           enableImplicitConversion: true,
         },
-      })
+      }),
     );
 
     await app.init();
@@ -228,8 +228,12 @@ describe('Authentication System E2E', () => {
       refreshToken = response.body.refreshToken;
 
       // Verify token format
-      expect(accessToken).toMatch(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/);
-      expect(refreshToken).toMatch(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/);
+      expect(accessToken).toMatch(
+        /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/,
+      );
+      expect(refreshToken).toMatch(
+        /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+$/,
+      );
     });
 
     it('should reject login with invalid email', async () => {
@@ -275,16 +279,16 @@ describe('Authentication System E2E', () => {
       };
 
       // Make 5 concurrent login requests
-      const concurrentRequests = Array(5).fill(0).map(() =>
-        request(app.getHttpServer())
-          .post('/auth/login')
-          .send(loginData)
-      );
+      const concurrentRequests = Array(5)
+        .fill(0)
+        .map(() =>
+          request(app.getHttpServer()).post('/auth/login').send(loginData),
+        );
 
       const responses = await Promise.all(concurrentRequests);
 
       // All should succeed (assuming user isn't locked)
-      responses.forEach(response => {
+      responses.forEach((response) => {
         expect(response.status).toBe(200);
         expect(response.body).toHaveProperty('accessToken');
       });
@@ -304,9 +308,7 @@ describe('Authentication System E2E', () => {
     });
 
     it('should reject access without authorization header', async () => {
-      await request(app.getHttpServer())
-        .get('/user/profile')
-        .expect(401);
+      await request(app.getHttpServer()).get('/user/profile').expect(401);
     });
 
     it('should reject access with invalid token', async () => {
@@ -334,7 +336,8 @@ describe('Authentication System E2E', () => {
 
     it('should handle expired tokens properly', async () => {
       // Create an expired token for testing
-      const expiredToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj3UFYzPUVaVF43FmMab6RlaQD8A9V8wFzzht-KQ';
+      const expiredToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj3UFYzPUVaVF43FmMab6RlaQD8A9V8wFzzht-KQ';
 
       await request(app.getHttpServer())
         .get('/user/profile')
@@ -392,7 +395,8 @@ describe('Authentication System E2E', () => {
       const oldRefreshToken = loginResponse.body.refreshToken;
 
       // Refresh tokens
-      const refreshResponse = await request(app.getHttpServer())
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _refreshResponse = await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({ refreshToken: oldRefreshToken })
         .expect(200);
@@ -470,22 +474,24 @@ describe('Authentication System E2E', () => {
       };
 
       // Make multiple failed login attempts
-      const requests = Array(15).fill(0).map(() =>
-        request(app.getHttpServer())
-          .post('/auth/login')
-          .send(loginData)
-      );
+      const requests = Array(15)
+        .fill(0)
+        .map(() =>
+          request(app.getHttpServer()).post('/auth/login').send(loginData),
+        );
 
       const responses = await Promise.all(requests);
 
       // Some requests should be rate limited (429)
-      const rateLimited = responses.filter(res => res.status === 429);
+      const rateLimited = responses.filter((res) => res.status === 429);
       expect(rateLimited.length).toBeGreaterThan(0);
 
       // Verify rate limit headers are present
       const rateLimitedResponse = rateLimited[0];
       expect(rateLimitedResponse.headers).toHaveProperty('x-ratelimit-limit');
-      expect(rateLimitedResponse.headers).toHaveProperty('x-ratelimit-remaining');
+      expect(rateLimitedResponse.headers).toHaveProperty(
+        'x-ratelimit-remaining',
+      );
       expect(rateLimitedResponse.headers).toHaveProperty('x-ratelimit-reset');
     });
 
@@ -503,17 +509,20 @@ describe('Authentication System E2E', () => {
       };
 
       // Make multiple registration requests
-      const requests = Array(10).fill(0).map((_, i) =>
-        request(app.getHttpServer())
-          .post('/auth/register')
-          .send({
-            ...userData,
-            email: `ratetest${Date.now()}-${i}@example.com`,
-          })
-      );
+      const requests = Array(10)
+        .fill(0)
+        .map((_, i) =>
+          request(app.getHttpServer())
+            .post('/auth/register')
+            .send({
+              ...userData,
+              email: `ratetest${Date.now()}-${i}@example.com`,
+            }),
+        );
 
       const responses = await Promise.all(requests);
-      const rateLimited = responses.filter(res => res.status === 429);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _rateLimited = responses.filter((res) => res.status === 429);
 
       // Registration might have different rate limiting behavior
       expect(responses.length).toBe(10);
@@ -558,12 +567,10 @@ describe('Authentication System E2E', () => {
 
       // Make multiple failed login attempts
       for (let i = 0; i < 6; i++) {
-        await request(app.getHttpServer())
-          .post('/auth/login')
-          .send({
-            email: testUser.email,
-            password: 'WrongPassword123!',
-          });
+        await request(app.getHttpServer()).post('/auth/login').send({
+          email: testUser.email,
+          password: 'WrongPassword123!',
+        });
       }
 
       // Account should now be locked even with correct password

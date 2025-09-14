@@ -58,19 +58,19 @@ export class SecurityInterceptor implements NestInterceptor {
     return next.handle().pipe(
       tap(() => {
         const duration = Date.now() - startTime;
-        
+
         // Log successful requests with security context
         this.logSecureRequest(request, response, duration);
       }),
       catchError((error) => {
         const duration = Date.now() - startTime;
-        
+
         // Log security-relevant errors
         this.logSecurityError(request, response, error, duration);
-        
+
         // Don't expose sensitive error details in production
         const sanitizedError = this.sanitizeError(error);
-        
+
         return throwError(() => sanitizedError);
       }),
     );
@@ -79,10 +79,16 @@ export class SecurityInterceptor implements NestInterceptor {
   /**
    * Log successful requests with security context
    */
-  private logSecureRequest(request: Request, response: Response, duration: number): void {
+  private logSecureRequest(
+    request: Request,
+    response: Response,
+    duration: number,
+  ): void {
     // Log requests to sensitive endpoints
     const sensitiveEndpoints = ['/auth', '/admin', '/user', '/upload'];
-    const isSensitive = sensitiveEndpoints.some(endpoint => request.url?.startsWith(endpoint));
+    const isSensitive = sensitiveEndpoints.some((endpoint) =>
+      request.url?.startsWith(endpoint),
+    );
 
     if (isSensitive) {
       this.securityLogger.logSecurityEvent({
@@ -120,10 +126,10 @@ export class SecurityInterceptor implements NestInterceptor {
    * Log security-relevant errors
    */
   private logSecurityError(
-    request: Request, 
-    response: Response, 
-    error: any, 
-    duration: number
+    request: Request,
+    response: Response,
+    error: any,
+    duration: number,
   ): void {
     const errorType = error.constructor.name;
     const isSecurityError = this.isSecurityRelatedError(error);
@@ -168,7 +174,7 @@ export class SecurityInterceptor implements NestInterceptor {
   private isSecurityRelatedError(error: any): boolean {
     const securityErrorTypes = [
       'UnauthorizedException',
-      'ForbiddenException', 
+      'ForbiddenException',
       'BadRequestException',
       'TooManyRequestsException',
       'ConflictException',
@@ -189,8 +195,10 @@ export class SecurityInterceptor implements NestInterceptor {
     const errorType = error.constructor.name;
     const errorMessage = (error.message || '').toLowerCase();
 
-    return securityErrorTypes.includes(errorType) ||
-           securityKeywords.some(keyword => errorMessage.includes(keyword));
+    return (
+      securityErrorTypes.includes(errorType) ||
+      securityKeywords.some((keyword) => errorMessage.includes(keyword))
+    );
   }
 
   /**
@@ -198,7 +206,7 @@ export class SecurityInterceptor implements NestInterceptor {
    */
   private sanitizeError(error: any): any {
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     if (!isProduction) {
       // In development, return full error details
       return error;
@@ -227,14 +235,14 @@ export class SecurityInterceptor implements NestInterceptor {
     const safeMessages = {
       400: 'Invalid request data',
       401: 'Authentication required',
-      403: 'Access forbidden', 
+      403: 'Access forbidden',
       404: 'Resource not found',
       429: 'Too many requests',
       500: 'Internal server error',
     };
 
     const statusCode = error.status || 500;
-    
+
     // For validation errors, provide generic message
     if (statusCode === 400 && error.message?.includes('validation')) {
       return 'Validation failed';

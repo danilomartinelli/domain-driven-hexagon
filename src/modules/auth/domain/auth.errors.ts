@@ -21,7 +21,8 @@ export class InvalidCredentialsError extends ExceptionBase {
 }
 
 export class AccountLockedError extends ExceptionBase {
-  static readonly message = 'Account is temporarily locked due to too many failed login attempts';
+  static readonly message =
+    'Account is temporarily locked due to too many failed login attempts';
 
   public readonly code = 'AUTH.ACCOUNT_LOCKED';
 
@@ -161,7 +162,8 @@ export class RoleAlreadyExistsError extends ExceptionBase {
 }
 
 export class PermissionAlreadyExistsError extends ExceptionBase {
-  static readonly message = 'Permission already exists for this resource and action';
+  static readonly message =
+    'Permission already exists for this resource and action';
 
   public readonly code = 'AUTH.PERMISSION_ALREADY_EXISTS';
 

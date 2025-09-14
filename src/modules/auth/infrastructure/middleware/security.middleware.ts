@@ -46,7 +46,7 @@ export class SecurityMiddleware implements NestMiddleware {
         if (req.headers['x-no-compression']) {
           return false;
         }
-        
+
         // Use compression for all other responses
         return compression.filter(req, res);
       },
@@ -55,18 +55,18 @@ export class SecurityMiddleware implements NestMiddleware {
     });
   }
 
-  use(req: Request, res: Response, next: NextFunction) {
+  use(req: Request, res: Response, next: NextFunction): void {
     // Apply helmet security headers
     this.helmetMiddleware(req, res, (err: any) => {
       if (err) return next(err);
-      
+
       // Apply compression
       this.compressionMiddleware(req, res, (compressionErr: any) => {
         if (compressionErr) return next(compressionErr);
-        
+
         // Add custom security headers
         this.addCustomSecurityHeaders(res);
-        
+
         next();
       });
     });
@@ -75,14 +75,17 @@ export class SecurityMiddleware implements NestMiddleware {
   private addCustomSecurityHeaders(res: Response): void {
     // Remove server information
     res.removeHeader('X-Powered-By');
-    
+
     // Custom security headers
     res.setHeader('X-API-Version', '1.0');
     res.setHeader('X-Request-ID', this.generateRequestId());
-    
+
     // Prevent caching of sensitive endpoints
     if (this.isSensitiveEndpoint(res.req as Request)) {
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader(
+        'Cache-Control',
+        'no-store, no-cache, must-revalidate, proxy-revalidate',
+      );
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       res.setHeader('Surrogate-Control', 'no-store');
@@ -91,7 +94,7 @@ export class SecurityMiddleware implements NestMiddleware {
 
   private isSensitiveEndpoint(req: Request): boolean {
     const sensitiveEndpoints = ['/auth/', '/user/', '/admin/'];
-    return sensitiveEndpoints.some(endpoint => req.path.includes(endpoint));
+    return sensitiveEndpoints.some((endpoint) => req.path.includes(endpoint));
   }
 
   private generateRequestId(): string {

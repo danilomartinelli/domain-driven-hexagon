@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_METADATA_KEY } from '../decorators/auth.decorator';
 import { JwtPayload } from '../../domain/auth.types';
@@ -9,12 +14,16 @@ export class PermissionsGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     // Get required permissions from metadata
-    const permissionsConfig = this.reflector.getAllAndOverride<{ permissions: string[]; requireAll: boolean }>(
-      PERMISSIONS_METADATA_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const permissionsConfig = this.reflector.getAllAndOverride<{
+      permissions: string[];
+      requireAll: boolean;
+    }>(PERMISSIONS_METADATA_KEY, [context.getHandler(), context.getClass()]);
 
-    if (!permissionsConfig || !permissionsConfig.permissions || permissionsConfig.permissions.length === 0) {
+    if (
+      !permissionsConfig ||
+      !permissionsConfig.permissions ||
+      permissionsConfig.permissions.length === 0
+    ) {
       return true; // No permission requirements
     }
 
@@ -31,15 +40,23 @@ export class PermissionsGuard implements CanActivate {
 
     if (requireAll) {
       // User must have ALL required permissions
-      const hasAllPermissions = requiredPermissions.every(permission => userPermissions.includes(permission));
+      const hasAllPermissions = requiredPermissions.every((permission) =>
+        userPermissions.includes(permission),
+      );
       if (!hasAllPermissions) {
-        throw new ForbiddenException(`Access denied. Required permissions: ${requiredPermissions.join(', ')}`);
+        throw new ForbiddenException(
+          `Access denied. Required permissions: ${requiredPermissions.join(', ')}`,
+        );
       }
     } else {
       // User must have at least ONE of the required permissions
-      const hasAnyPermission = requiredPermissions.some(permission => userPermissions.includes(permission));
+      const hasAnyPermission = requiredPermissions.some((permission) =>
+        userPermissions.includes(permission),
+      );
       if (!hasAnyPermission) {
-        throw new ForbiddenException(`Access denied. Required permissions: ${requiredPermissions.join(' OR ')}`);
+        throw new ForbiddenException(
+          `Access denied. Required permissions: ${requiredPermissions.join(' OR ')}`,
+        );
       }
     }
 

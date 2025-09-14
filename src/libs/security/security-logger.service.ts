@@ -13,7 +13,7 @@ export interface SecurityEvent {
   correlationId?: string;
 }
 
-export type SecurityEventType = 
+export type SecurityEventType =
   | 'REQUEST_VALIDATION_FAILED'
   | 'SLOW_REQUEST'
   | 'AUTH_FAILURE'
@@ -41,7 +41,10 @@ export class SecurityLogger {
   private readonly securityEventsBuffer: SecurityEvent[] = [];
   private readonly maxBufferSize = 1000;
   private readonly suspiciousPatterns = new Map<string, number>();
-  private readonly ipReputationCache = new Map<string, { score: number; lastUpdate: Date }>();
+  private readonly ipReputationCache = new Map<
+    string,
+    { score: number; lastUpdate: Date }
+  >();
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
@@ -58,19 +61,18 @@ export class SecurityLogger {
     try {
       // Enrich event with additional context
       const enrichedEvent = this.enrichSecurityEvent(event);
-      
+
       // Add to buffer for pattern analysis
       this.addToBuffer(enrichedEvent);
-      
+
       // Log based on severity
       this.logBySeverity(enrichedEvent);
-      
+
       // Emit event for real-time monitoring
       this.eventEmitter.emit('security.event', enrichedEvent);
-      
+
       // Check for immediate threats
       this.checkForImmediateThreats(enrichedEvent);
-      
     } catch (error) {
       // Don't let security logging failures break the application
       this.logger.error('Security logging failed', error);
@@ -81,7 +83,7 @@ export class SecurityLogger {
    * Log multiple security events in batch
    */
   logSecurityEvents(events: SecurityEvent[]): void {
-    events.forEach(event => this.logSecurityEvent(event));
+    events.forEach((event) => this.logSecurityEvent(event));
   }
 
   /**
@@ -89,19 +91,19 @@ export class SecurityLogger {
    */
   private enrichSecurityEvent(event: SecurityEvent): SecurityEvent {
     const enriched = { ...event };
-    
+
     // Add correlation ID if not present
     if (!enriched.correlationId) {
       enriched.correlationId = this.generateCorrelationId();
     }
-    
+
     // Add environment context
     enriched.details = {
       ...enriched.details,
       environment: this.envValidator.get('NODE_ENV'),
       timestamp: event.timestamp.toISOString(),
     };
-    
+
     // Add IP reputation if IP is present
     if (enriched.details.ip) {
       const reputation = this.getIpReputation(enriched.details.ip);
@@ -110,12 +112,12 @@ export class SecurityLogger {
         enriched.severity = this.escalateSeverity(enriched.severity);
       }
     }
-    
+
     // Add geographic context if available
     if (enriched.details.ip) {
       enriched.details.geoContext = this.getGeoContext(enriched.details.ip);
     }
-    
+
     return enriched;
   }
 
@@ -147,9 +149,10 @@ export class SecurityLogger {
     }
 
     // Additional logging for production monitoring
-    if (this.envValidator.get('NODE_ENV') === 'production' && 
-        (event.severity === 'HIGH' || event.severity === 'CRITICAL')) {
-      
+    if (
+      this.envValidator.get('NODE_ENV') === 'production' &&
+      (event.severity === 'HIGH' || event.severity === 'CRITICAL')
+    ) {
       // In production, you might want to send to external monitoring service
       this.sendToSecurityMonitoring(event);
     }
@@ -160,7 +163,7 @@ export class SecurityLogger {
    */
   private addToBuffer(event: SecurityEvent): void {
     this.securityEventsBuffer.push(event);
-    
+
     // Maintain buffer size
     if (this.securityEventsBuffer.length > this.maxBufferSize) {
       this.securityEventsBuffer.shift();
@@ -173,9 +176,14 @@ export class SecurityLogger {
   private checkForImmediateThreats(event: SecurityEvent): void {
     // Check for multiple auth failures from same IP
     if (event.type === 'AUTH_FAILURE' && event.details.ip) {
-      const recentFailures = this.getRecentEventsByType('AUTH_FAILURE', 5 * 60 * 1000); // 5 minutes
-      const ipFailures = recentFailures.filter(e => e.details.ip === event.details.ip);
-      
+      const recentFailures = this.getRecentEventsByType(
+        'AUTH_FAILURE',
+        5 * 60 * 1000,
+      ); // 5 minutes
+      const ipFailures = recentFailures.filter(
+        (e) => e.details.ip === event.details.ip,
+      );
+
       if (ipFailures.length >= 5) {
         this.logSecurityEvent({
           type: 'MALICIOUS_IP_DETECTED',
@@ -193,7 +201,10 @@ export class SecurityLogger {
 
     // Check for rapid-fire requests (potential DDoS)
     if (event.details.ip) {
-      const recentEvents = this.getRecentEventsByIp(event.details.ip, 60 * 1000); // 1 minute
+      const recentEvents = this.getRecentEventsByIp(
+        event.details.ip,
+        60 * 1000,
+      ); // 1 minute
       if (recentEvents.length > 100) {
         this.logSecurityEvent({
           type: 'RATE_LIMIT_EXCEEDED',
@@ -210,7 +221,10 @@ export class SecurityLogger {
     }
 
     // Check for SQL injection attempts
-    if (event.details.url && this.containsSqlInjectionPatterns(event.details.url)) {
+    if (
+      event.details.url &&
+      this.containsSqlInjectionPatterns(event.details.url)
+    ) {
       this.logSecurityEvent({
         type: 'SQL_INJECTION_ATTEMPT',
         severity: 'CRITICAL',
@@ -226,7 +240,10 @@ export class SecurityLogger {
     // Check for XSS attempts
     const xssFields = ['url', 'userAgent', 'referer'];
     for (const field of xssFields) {
-      if (event.details[field] && this.containsXssPatterns(event.details[field])) {
+      if (
+        event.details[field] &&
+        this.containsXssPatterns(event.details[field])
+      ) {
         this.logSecurityEvent({
           type: 'XSS_ATTEMPT',
           severity: 'HIGH',
@@ -246,10 +263,13 @@ export class SecurityLogger {
   /**
    * Get recent events by type
    */
-  private getRecentEventsByType(type: SecurityEventType, timeWindow: number): SecurityEvent[] {
+  private getRecentEventsByType(
+    type: SecurityEventType,
+    timeWindow: number,
+  ): SecurityEvent[] {
     const cutoff = new Date(Date.now() - timeWindow);
     return this.securityEventsBuffer.filter(
-      event => event.type === type && event.timestamp >= cutoff
+      (event) => event.type === type && event.timestamp >= cutoff,
     );
   }
 
@@ -259,7 +279,7 @@ export class SecurityLogger {
   private getRecentEventsByIp(ip: string, timeWindow: number): SecurityEvent[] {
     const cutoff = new Date(Date.now() - timeWindow);
     return this.securityEventsBuffer.filter(
-      event => event.details.ip === ip && event.timestamp >= cutoff
+      (event) => event.details.ip === ip && event.timestamp >= cutoff,
     );
   }
 
@@ -280,7 +300,7 @@ export class SecurityLogger {
       /version\(\)/i,
     ];
 
-    return sqlPatterns.some(pattern => pattern.test(input));
+    return sqlPatterns.some((pattern) => pattern.test(input));
   }
 
   /**
@@ -298,7 +318,7 @@ export class SecurityLogger {
       /window\.location/i,
     ];
 
-    return xssPatterns.some(pattern => pattern.test(input));
+    return xssPatterns.some((pattern) => pattern.test(input));
   }
 
   /**
@@ -307,16 +327,18 @@ export class SecurityLogger {
   private getIpReputation(ip: string): { score: number; lastUpdate: Date } {
     const cached = this.ipReputationCache.get(ip);
     const now = new Date();
-    
+
     // Cache for 1 hour
-    if (cached && (now.getTime() - cached.lastUpdate.getTime()) < 3600000) {
+    if (cached && now.getTime() - cached.lastUpdate.getTime() < 3600000) {
       return cached;
     }
 
     // Simple reputation scoring based on observed behavior
     const recentEvents = this.getRecentEventsByIp(ip, 24 * 60 * 60 * 1000); // 24 hours
-    const suspiciousEvents = recentEvents.filter(event => 
-      ['AUTH_FAILURE', 'SECURITY_ERROR', 'VALIDATION_ERROR'].includes(event.type)
+    const suspiciousEvents = recentEvents.filter((event) =>
+      ['AUTH_FAILURE', 'SECURITY_ERROR', 'VALIDATION_ERROR'].includes(
+        event.type,
+      ),
     );
 
     let score = 100; // Start with good reputation
@@ -325,7 +347,7 @@ export class SecurityLogger {
 
     const reputation = { score, lastUpdate: now };
     this.ipReputationCache.set(ip, reputation);
-    
+
     return reputation;
   }
 
@@ -335,7 +357,11 @@ export class SecurityLogger {
   private getGeoContext(ip: string): string {
     // In a real implementation, this would use a GeoIP service
     // For now, return a placeholder
-    if (ip.startsWith('10.') || ip.startsWith('192.168.') || ip.startsWith('127.')) {
+    if (
+      ip.startsWith('10.') ||
+      ip.startsWith('192.168.') ||
+      ip.startsWith('127.')
+    ) {
       return 'INTERNAL';
     }
     return 'EXTERNAL';
@@ -344,14 +370,19 @@ export class SecurityLogger {
   /**
    * Escalate severity level
    */
-  private escalateSeverity(currentSeverity: SecurityEvent['severity']): SecurityEvent['severity'] {
-    const severityMap: Record<SecurityEvent['severity'], SecurityEvent['severity']> = {
-      'LOW': 'MEDIUM',
-      'MEDIUM': 'HIGH',
-      'HIGH': 'CRITICAL',
-      'CRITICAL': 'CRITICAL',
+  private escalateSeverity(
+    currentSeverity: SecurityEvent['severity'],
+  ): SecurityEvent['severity'] {
+    const severityMap: Record<
+      SecurityEvent['severity'],
+      SecurityEvent['severity']
+    > = {
+      LOW: 'MEDIUM',
+      MEDIUM: 'HIGH',
+      HIGH: 'CRITICAL',
+      CRITICAL: 'CRITICAL',
     };
-    
+
     return severityMap[currentSeverity];
   }
 
@@ -371,7 +402,7 @@ export class SecurityLogger {
     // - Security monitoring dashboards
     // - Alert systems
     // - Threat intelligence platforms
-    
+
     this.logger.debug('Sending to security monitoring service', {
       type: event.type,
       severity: event.severity,
@@ -384,9 +415,12 @@ export class SecurityLogger {
    */
   private startSecurityAnalysis(): void {
     // Run security analysis every 5 minutes
-    setInterval(() => {
-      this.performPeriodicAnalysis();
-    }, 5 * 60 * 1000);
+    setInterval(
+      () => {
+        this.performPeriodicAnalysis();
+      },
+      5 * 60 * 1000,
+    );
   }
 
   /**
@@ -396,21 +430,20 @@ export class SecurityLogger {
     try {
       const now = new Date();
       const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      
+
       // Get events from last 24 hours
       const recentEvents = this.securityEventsBuffer.filter(
-        event => event.timestamp >= last24Hours
+        (event) => event.timestamp >= last24Hours,
       );
 
       // Analyze patterns
       const patterns = this.analyzeSecurityPatterns(recentEvents);
-      
+
       // Generate security summary
       this.generateSecuritySummary(patterns);
-      
+
       // Clean old cache entries
       this.cleanupCaches();
-      
     } catch (error) {
       this.logger.error('Periodic security analysis failed', error);
     }
@@ -428,17 +461,19 @@ export class SecurityLogger {
       anomalies: [] as string[],
     };
 
-    events.forEach(event => {
+    events.forEach((event) => {
       // Count event types
-      analysis.eventTypes[event.type] = (analysis.eventTypes[event.type] || 0) + 1;
-      
+      analysis.eventTypes[event.type] =
+        (analysis.eventTypes[event.type] || 0) + 1;
+
       // Count IPs
       if (event.details.ip) {
-        analysis.topIps[event.details.ip] = (analysis.topIps[event.details.ip] || 0) + 1;
+        analysis.topIps[event.details.ip] =
+          (analysis.topIps[event.details.ip] || 0) + 1;
       }
-      
+
       // Count severity
-      analysis.severityDistribution[event.severity] = 
+      analysis.severityDistribution[event.severity] =
         (analysis.severityDistribution[event.severity] || 0) + 1;
     });
 
@@ -448,7 +483,9 @@ export class SecurityLogger {
       analysis.anomalies.push('High event volume detected');
     }
 
-    const criticalEvents = events.filter(e => e.severity === 'CRITICAL').length;
+    const criticalEvents = events.filter(
+      (e) => e.severity === 'CRITICAL',
+    ).length;
     if (criticalEvents > 10) {
       analysis.anomalies.push('High number of critical events');
     }
@@ -465,7 +502,7 @@ export class SecurityLogger {
       criticalEvents: patterns.severityDistribution['CRITICAL'] || 0,
       highEvents: patterns.severityDistribution['HIGH'] || 0,
       topEventTypes: Object.entries(patterns.eventTypes)
-        .sort(([,a], [,b]) => (b as number) - (a as number))
+        .sort(([, a], [, b]) => (b as number) - (a as number))
         .slice(0, 5),
       anomalies: patterns.anomalies,
     });
@@ -509,22 +546,32 @@ export class SecurityLogger {
     const now = new Date();
     const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const lastHour = new Date(now.getTime() - 60 * 60 * 1000);
-    
-    const events24h = this.securityEventsBuffer.filter(e => e.timestamp >= last24Hours);
-    const events1h = this.securityEventsBuffer.filter(e => e.timestamp >= lastHour);
-    
+
+    const events24h = this.securityEventsBuffer.filter(
+      (e) => e.timestamp >= last24Hours,
+    );
+    const events1h = this.securityEventsBuffer.filter(
+      (e) => e.timestamp >= lastHour,
+    );
+
     return {
       events24h: events24h.length,
       events1h: events1h.length,
-      critical24h: events24h.filter(e => e.severity === 'CRITICAL').length,
-      high24h: events24h.filter(e => e.severity === 'HIGH').length,
-      uniqueIps24h: new Set(events24h.map(e => e.details.ip).filter(Boolean)).size,
+      critical24h: events24h.filter((e) => e.severity === 'CRITICAL').length,
+      high24h: events24h.filter((e) => e.severity === 'HIGH').length,
+      uniqueIps24h: new Set(events24h.map((e) => e.details.ip).filter(Boolean))
+        .size,
       topThreats: Object.entries(
-        events24h.reduce((acc, event) => {
-          acc[event.type] = (acc[event.type] || 0) + 1;
-          return acc;
-        }, {} as Record<string, number>)
-      ).sort(([,a], [,b]) => (b as number) - (a as number)).slice(0, 5),
+        events24h.reduce(
+          (acc, event) => {
+            acc[event.type] = (acc[event.type] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>,
+        ),
+      )
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .slice(0, 5),
     };
   }
 }

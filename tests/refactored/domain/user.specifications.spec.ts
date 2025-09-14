@@ -6,7 +6,6 @@
 import { UserEntity } from '@modules/user/domain/user.entity';
 import { UserRoles } from '@modules/user/domain/user.types';
 import {
-  UserSpecification,
   BaseUserSpecification,
   UserIsActiveSpecification,
   UserIsEmailVerifiedSpecification,
@@ -26,17 +25,18 @@ import {
   EligibleForRoleUpgradeSpecification,
   UserSpecificationFactory,
 } from '@modules/user/domain/specifications/user.specifications';
-import { UserTestDataBuilder, BenchmarkRunner, TestAssertions } from '../utils/refactoring-test.utils';
+import {
+  UserTestDataBuilder,
+  BenchmarkRunner,
+} from '../utils/refactoring-test.utils';
 
 describe('User Domain Specifications', () => {
   let testUser: UserEntity;
   let adminUser: UserEntity;
-  let moderatorUser: UserEntity;
 
   beforeEach(() => {
     testUser = UserTestDataBuilder.create().build();
     adminUser = UserTestDataBuilder.create().buildAdmin();
-    moderatorUser = UserTestDataBuilder.create().buildModerator();
   });
 
   describe('Individual Specifications', () => {
@@ -45,7 +45,9 @@ describe('User Domain Specifications', () => {
         it('should satisfy specification for active users', () => {
           // Arrange
           const spec = new UserIsActiveSpecification();
-          const activeUser = UserTestDataBuilder.create().withActiveStatus(true).build();
+          const activeUser = UserTestDataBuilder.create()
+            .withActiveStatus(true)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(activeUser);
@@ -59,7 +61,9 @@ describe('User Domain Specifications', () => {
         it('should not satisfy specification for inactive users', () => {
           // Arrange
           const spec = new UserIsActiveSpecification();
-          const inactiveUser = UserTestDataBuilder.create().withActiveStatus(false).build();
+          const inactiveUser = UserTestDataBuilder.create()
+            .withActiveStatus(false)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(inactiveUser);
@@ -73,7 +77,9 @@ describe('User Domain Specifications', () => {
         it('should satisfy specification for verified users', () => {
           // Arrange
           const spec = new UserIsEmailVerifiedSpecification();
-          const verifiedUser = UserTestDataBuilder.create().withEmailVerified(true).build();
+          const verifiedUser = UserTestDataBuilder.create()
+            .withEmailVerified(true)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(verifiedUser);
@@ -86,7 +92,9 @@ describe('User Domain Specifications', () => {
         it('should not satisfy specification for unverified users', () => {
           // Arrange
           const spec = new UserIsEmailVerifiedSpecification();
-          const unverifiedUser = UserTestDataBuilder.create().withEmailVerified(false).build();
+          const unverifiedUser = UserTestDataBuilder.create()
+            .withEmailVerified(false)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(unverifiedUser);
@@ -100,7 +108,9 @@ describe('User Domain Specifications', () => {
         it('should satisfy specification for unlocked users', () => {
           // Arrange
           const spec = new UserIsNotLockedSpecification();
-          const unlockedUser = UserTestDataBuilder.create().withLockedStatus(false).build();
+          const unlockedUser = UserTestDataBuilder.create()
+            .withLockedStatus(false)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(unlockedUser);
@@ -113,7 +123,9 @@ describe('User Domain Specifications', () => {
         it('should not satisfy specification for locked users', () => {
           // Arrange
           const spec = new UserIsNotLockedSpecification();
-          const lockedUser = UserTestDataBuilder.create().withLockedStatus(true).build();
+          const lockedUser = UserTestDataBuilder.create()
+            .withLockedStatus(true)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(lockedUser);
@@ -174,7 +186,9 @@ describe('User Domain Specifications', () => {
         it('should satisfy specification for users within login attempt limits', () => {
           // Arrange
           const spec = new UserLoginAttemptsWithinLimitSpecification(5);
-          const goodUser = UserTestDataBuilder.create().withLoginAttempts(3).build();
+          const goodUser = UserTestDataBuilder.create()
+            .withLoginAttempts(3)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(goodUser);
@@ -187,7 +201,9 @@ describe('User Domain Specifications', () => {
         it('should not satisfy specification for users exceeding login attempt limits', () => {
           // Arrange
           const spec = new UserLoginAttemptsWithinLimitSpecification(5);
-          const badUser = UserTestDataBuilder.create().withLoginAttempts(6).build();
+          const badUser = UserTestDataBuilder.create()
+            .withLoginAttempts(6)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(badUser);
@@ -199,7 +215,9 @@ describe('User Domain Specifications', () => {
         it('should use default max attempts when not specified', () => {
           // Arrange
           const spec = new UserLoginAttemptsWithinLimitSpecification();
-          const userAtLimit = UserTestDataBuilder.create().withLoginAttempts(4).build();
+          const userAtLimit = UserTestDataBuilder.create()
+            .withLoginAttempts(4)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(userAtLimit);
@@ -215,7 +233,9 @@ describe('User Domain Specifications', () => {
           const spec = new UserLastLoginRecentSpecification(90);
           const recentDate = new Date();
           recentDate.setDate(recentDate.getDate() - 30); // 30 days ago
-          const recentUser = UserTestDataBuilder.create().withLastLogin(recentDate).build();
+          const recentUser = UserTestDataBuilder.create()
+            .withLastLogin(recentDate)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(recentUser);
@@ -230,7 +250,9 @@ describe('User Domain Specifications', () => {
           const spec = new UserLastLoginRecentSpecification(90);
           const staleDate = new Date();
           staleDate.setDate(staleDate.getDate() - 100); // 100 days ago
-          const staleUser = UserTestDataBuilder.create().withLastLogin(staleDate).build();
+          const staleUser = UserTestDataBuilder.create()
+            .withLastLogin(staleDate)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(staleUser);
@@ -242,7 +264,9 @@ describe('User Domain Specifications', () => {
         it('should not satisfy specification for users who never logged in', () => {
           // Arrange
           const spec = new UserLastLoginRecentSpecification(90);
-          const neverLoggedInUser = UserTestDataBuilder.create().withLastLogin(null).build();
+          const neverLoggedInUser = UserTestDataBuilder.create()
+            .withLastLogin(null)
+            .build();
 
           // Act
           const result = spec.isSatisfiedBy(neverLoggedInUser);
@@ -341,7 +365,10 @@ describe('User Domain Specifications', () => {
           // Arrange
           const adminUser = UserTestDataBuilder.create().buildAdmin();
           const targetUser = UserTestDataBuilder.create().build();
-          const spec = new UserCanChangeRoleSpecification(UserRoles.moderator, adminUser);
+          const spec = new UserCanChangeRoleSpecification(
+            UserRoles.moderator,
+            adminUser,
+          );
 
           // Act
           const result = spec.isSatisfiedBy(targetUser);
@@ -354,7 +381,10 @@ describe('User Domain Specifications', () => {
           // Arrange
           const moderatorUser = UserTestDataBuilder.create().buildModerator();
           const guestUser = UserTestDataBuilder.create().build();
-          const spec = new UserCanChangeRoleSpecification(UserRoles.moderator, moderatorUser);
+          const spec = new UserCanChangeRoleSpecification(
+            UserRoles.moderator,
+            moderatorUser,
+          );
 
           // Act
           const result = spec.isSatisfiedBy(guestUser);
@@ -367,7 +397,10 @@ describe('User Domain Specifications', () => {
           // Arrange
           const moderatorUser = UserTestDataBuilder.create().buildModerator();
           const guestUser = UserTestDataBuilder.create().build();
-          const spec = new UserCanChangeRoleSpecification(UserRoles.admin, moderatorUser);
+          const spec = new UserCanChangeRoleSpecification(
+            UserRoles.admin,
+            moderatorUser,
+          );
 
           // Act
           const result = spec.isSatisfiedBy(guestUser);
@@ -380,7 +413,10 @@ describe('User Domain Specifications', () => {
           // Arrange
           const guestUser = UserTestDataBuilder.create().build();
           const targetUser = UserTestDataBuilder.create().build();
-          const spec = new UserCanChangeRoleSpecification(UserRoles.moderator, guestUser);
+          const spec = new UserCanChangeRoleSpecification(
+            UserRoles.moderator,
+            guestUser,
+          );
 
           // Act
           const result = spec.isSatisfiedBy(targetUser);
@@ -495,7 +531,7 @@ describe('User Domain Specifications', () => {
           const spec = new UserCanResetPasswordSpecification();
           const futureDate = new Date();
           futureDate.setHours(futureDate.getHours() + 1); // 1 hour from now
-          
+
           const userWithValidToken = UserTestDataBuilder.create()
             .withEmailVerified(true)
             .withLockedStatus(false)
@@ -514,7 +550,7 @@ describe('User Domain Specifications', () => {
           const spec = new UserCanResetPasswordSpecification();
           const pastDate = new Date();
           pastDate.setHours(pastDate.getHours() - 1); // 1 hour ago
-          
+
           const userWithExpiredToken = UserTestDataBuilder.create()
             .withEmailVerified(true)
             .withLockedStatus(false)
@@ -708,7 +744,7 @@ describe('User Domain Specifications', () => {
         const spec = new EligibleForRoleUpgradeSpecification();
         const recentDate = new Date();
         recentDate.setDate(recentDate.getDate() - 15); // 15 days ago (within 30 day limit)
-        
+
         const eligibleUser = UserTestDataBuilder.create()
           .withRole(UserRoles.guest)
           .withActiveStatus(true)
@@ -731,7 +767,7 @@ describe('User Domain Specifications', () => {
         const spec = new EligibleForRoleUpgradeSpecification();
         const staleDate = new Date();
         staleDate.setDate(staleDate.getDate() - 45); // 45 days ago (beyond 30 day limit)
-        
+
         const staleUser = UserTestDataBuilder.create()
           .withRole(UserRoles.guest)
           .withActiveStatus(true)
@@ -751,8 +787,7 @@ describe('User Domain Specifications', () => {
       it('should not satisfy specification for non-guest users', () => {
         // Arrange
         const spec = new EligibleForRoleUpgradeSpecification();
-        const moderatorUser = UserTestDataBuilder.create()
-          .buildModerator(); // Already has elevated role
+        const moderatorUser = UserTestDataBuilder.create().buildModerator(); // Already has elevated role
 
         // Act
         const result = spec.isSatisfiedBy(moderatorUser);
@@ -836,8 +871,9 @@ describe('User Domain Specifications', () => {
         class TrackingSpecification extends BaseUserSpecification {
           readonly name = 'TRACKING_SPEC';
           readonly description = 'Tracking specification';
-          
-          isSatisfiedBy(user: UserEntity): boolean {
+
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          isSatisfiedBy(_user: UserEntity): boolean {
             callCount++;
             return false; // Always false
           }
@@ -847,7 +883,9 @@ describe('User Domain Specifications', () => {
         const trackingSpec = new TrackingSpecification();
         const compositeSpec = alwaysTrueSpec.or(trackingSpec);
 
-        const activeUser = UserTestDataBuilder.create().withActiveStatus(true).build();
+        const activeUser = UserTestDataBuilder.create()
+          .withActiveStatus(true)
+          .build();
 
         // Act
         const result = compositeSpec.isSatisfiedBy(activeUser);
@@ -864,8 +902,12 @@ describe('User Domain Specifications', () => {
         const activeSpec = new UserIsActiveSpecification();
         const notActiveSpec = activeSpec.not();
 
-        const activeUser = UserTestDataBuilder.create().withActiveStatus(true).build();
-        const inactiveUser = UserTestDataBuilder.create().withActiveStatus(false).build();
+        const activeUser = UserTestDataBuilder.create()
+          .withActiveStatus(true)
+          .build();
+        const inactiveUser = UserTestDataBuilder.create()
+          .withActiveStatus(false)
+          .build();
 
         // Act & Assert
         expect(notActiveSpec.isSatisfiedBy(activeUser)).toBe(false);
@@ -879,7 +921,9 @@ describe('User Domain Specifications', () => {
         const activeSpec = new UserIsActiveSpecification();
         const doubleNegatedSpec = activeSpec.not().not();
 
-        const activeUser = UserTestDataBuilder.create().withActiveStatus(true).build();
+        const activeUser = UserTestDataBuilder.create()
+          .withActiveStatus(true)
+          .build();
 
         // Act
         const result = doubleNegatedSpec.isSatisfiedBy(activeUser);
@@ -898,7 +942,8 @@ describe('User Domain Specifications', () => {
         const adminSpec = new UserCanAdminSpecification();
         const lockedSpec = new UserIsNotLockedSpecification();
 
-        const complexSpec = activeSpec.and(verifiedSpec)
+        const complexSpec = activeSpec
+          .and(verifiedSpec)
           .or(adminSpec.and(lockedSpec));
 
         // Test cases
@@ -977,7 +1022,10 @@ describe('User Domain Specifications', () => {
       it('should create permission level specifications', () => {
         const roleTests = [
           { role: UserRoles.admin, expectedType: UserCanAdminSpecification },
-          { role: UserRoles.moderator, expectedType: UserCanModerateSpecification },
+          {
+            role: UserRoles.moderator,
+            expectedType: UserCanModerateSpecification,
+          },
           { role: UserRoles.guest, expectedType: UserIsActiveSpecification },
         ];
 
@@ -992,8 +1040,9 @@ describe('User Domain Specifications', () => {
 
       it('should throw error for unknown roles', () => {
         // Act & Assert
-        expect(() => UserSpecificationFactory.hasPermissionLevel('unknown' as any))
-          .toThrow('Unknown role: unknown');
+        expect(() =>
+          UserSpecificationFactory.hasPermissionLevel('unknown' as any),
+        ).toThrow('Unknown role: unknown');
       });
 
       it('should create action-based specifications', () => {
@@ -1009,33 +1058,47 @@ describe('User Domain Specifications', () => {
         expect(deleteSpec).toBeInstanceOf(UserAccountCanBeDeletedSpecification);
 
         // Test role change action
-        const changeRoleSpec = UserSpecificationFactory.canPerformAction('changeRole', {
-          target: targetUser,
-          performer: adminUser,
-          newRole: UserRoles.moderator,
-        });
+        const changeRoleSpec = UserSpecificationFactory.canPerformAction(
+          'changeRole',
+          {
+            target: targetUser,
+            performer: adminUser,
+            newRole: UserRoles.moderator,
+          },
+        );
         expect(changeRoleSpec).toBeInstanceOf(UserCanChangeRoleSpecification);
 
         // Test password reset action
-        const resetPasswordSpec = UserSpecificationFactory.canPerformAction('resetPassword', {
-          target: targetUser,
-        });
-        expect(resetPasswordSpec).toBeInstanceOf(UserCanResetPasswordSpecification);
+        const resetPasswordSpec = UserSpecificationFactory.canPerformAction(
+          'resetPassword',
+          {
+            target: targetUser,
+          },
+        );
+        expect(resetPasswordSpec).toBeInstanceOf(
+          UserCanResetPasswordSpecification,
+        );
       });
 
       it('should throw errors for missing context in factory methods', () => {
         // Act & Assert
-        expect(() => UserSpecificationFactory.canPerformAction('delete', {}))
-          .toThrow('Target and performer required for delete action');
+        expect(() =>
+          UserSpecificationFactory.canPerformAction('delete', {}),
+        ).toThrow('Target and performer required for delete action');
 
-        expect(() => UserSpecificationFactory.canPerformAction('changeRole', {
-          target: testUser,
-          performer: adminUser,
-          // Missing newRole
-        })).toThrow('Target, performer, and newRole required for changeRole action');
+        expect(() =>
+          UserSpecificationFactory.canPerformAction('changeRole', {
+            target: testUser,
+            performer: adminUser,
+            // Missing newRole
+          }),
+        ).toThrow(
+          'Target, performer, and newRole required for changeRole action',
+        );
 
-        expect(() => UserSpecificationFactory.canPerformAction('unknown' as any, {}))
-          .toThrow('Unknown action: unknown');
+        expect(() =>
+          UserSpecificationFactory.canPerformAction('unknown' as any, {}),
+        ).toThrow('Unknown action: unknown');
       });
     });
   });
@@ -1045,17 +1108,17 @@ describe('User Domain Specifications', () => {
       it('should evaluate simple specifications efficiently', async () => {
         // Arrange
         const spec = new UserIsActiveSpecification();
-        const users = Array.from({ length: 100 }, () => 
-          UserTestDataBuilder.create().build()
+        const users = Array.from({ length: 100 }, () =>
+          UserTestDataBuilder.create().build(),
         );
 
         // Act
         const benchmark = await BenchmarkRunner.run(
           'simple-specification-evaluation',
           () => {
-            users.forEach(user => spec.isSatisfiedBy(user));
+            users.forEach((user) => spec.isSatisfiedBy(user));
           },
-          50
+          50,
         );
 
         // Assert
@@ -1065,22 +1128,22 @@ describe('User Domain Specifications', () => {
       it('should evaluate complex composite specifications efficiently', async () => {
         // Arrange
         const complexSpec = UserSpecificationFactory.isFullyVerified();
-        const users = Array.from({ length: 50 }, () => 
+        const users = Array.from({ length: 50 }, () =>
           UserTestDataBuilder.create()
             .withActiveStatus(true)
             .withEmailVerified(true)
             .withLockedStatus(false)
             .withPassword('SecurePassword123!')
-            .build()
+            .build(),
         );
 
         // Act
         const benchmark = await BenchmarkRunner.run(
           'complex-specification-evaluation',
           () => {
-            users.forEach(user => complexSpec.isSatisfiedBy(user));
+            users.forEach((user) => complexSpec.isSatisfiedBy(user));
           },
-          20
+          20,
         );
 
         // Assert
@@ -1093,11 +1156,14 @@ describe('User Domain Specifications', () => {
         class SlowSpecification extends BaseUserSpecification {
           readonly name = 'SLOW_SPEC';
           readonly description = 'Slow specification';
-          
-          isSatisfiedBy(user: UserEntity): boolean {
+
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          isSatisfiedBy(_user: UserEntity): boolean {
             // Simulate slow operation
             const start = Date.now();
-            while (Date.now() - start < 1) { /* busy wait 1ms */ }
+            while (Date.now() - start < 1) {
+              /* busy wait 1ms */
+            }
             return true;
           }
         }
@@ -1107,34 +1173,38 @@ describe('User Domain Specifications', () => {
 
         // OR composition with fast spec first (should short-circuit)
         const shortCircuitSpec = fastSpec.or(slowSpec);
-        
+
         // OR composition with slow spec first (won't short-circuit as much)
         const noShortCircuitSpec = slowSpec.or(fastSpec);
 
-        const activeUsers = Array.from({ length: 20 }, () => 
-          UserTestDataBuilder.create().withActiveStatus(true).build()
+        const activeUsers = Array.from({ length: 20 }, () =>
+          UserTestDataBuilder.create().withActiveStatus(true).build(),
         );
 
         // Act
         const shortCircuitBenchmark = await BenchmarkRunner.run(
           'short-circuit-evaluation',
           () => {
-            activeUsers.forEach(user => shortCircuitSpec.isSatisfiedBy(user));
+            activeUsers.forEach((user) => shortCircuitSpec.isSatisfiedBy(user));
           },
-          10
+          10,
         );
 
         const noShortCircuitBenchmark = await BenchmarkRunner.run(
           'no-short-circuit-evaluation',
           () => {
-            activeUsers.forEach(user => noShortCircuitSpec.isSatisfiedBy(user));
+            activeUsers.forEach((user) =>
+              noShortCircuitSpec.isSatisfiedBy(user),
+            );
           },
-          10
+          10,
         );
 
         // Assert
         // Short-circuit evaluation should be significantly faster
-        expect(shortCircuitBenchmark.stats.avg).toBeLessThan(noShortCircuitBenchmark.stats.avg);
+        expect(shortCircuitBenchmark.stats.avg).toBeLessThan(
+          noShortCircuitBenchmark.stats.avg,
+        );
       });
     });
 
@@ -1160,16 +1230,19 @@ describe('User Domain Specifications', () => {
 
       it('should handle large numbers of specifications efficiently', () => {
         // Arrange
-        const specifications = Array.from({ length: 100 }, () => 
-          new UserIsActiveSpecification()
+        const specifications = Array.from(
+          { length: 100 },
+          () => new UserIsActiveSpecification(),
         );
-        const user = UserTestDataBuilder.create().withActiveStatus(true).build();
+        const user = UserTestDataBuilder.create()
+          .withActiveStatus(true)
+          .build();
 
         // Act
-        const results = specifications.map(spec => spec.isSatisfiedBy(user));
+        const results = specifications.map((spec) => spec.isSatisfiedBy(user));
 
         // Assert
-        expect(results.every(result => result === true)).toBe(true);
+        expect(results.every((result) => result === true)).toBe(true);
         expect(results).toHaveLength(100);
       });
     });
@@ -1183,7 +1256,7 @@ describe('User Domain Specifications', () => {
       // Act & Assert
       expect(() => spec.isSatisfiedBy(null as any)).not.toThrow();
       expect(() => spec.isSatisfiedBy(undefined as any)).not.toThrow();
-      
+
       // The actual behavior depends on the implementation
       // but it should not crash the application
     });
@@ -1199,19 +1272,23 @@ describe('User Domain Specifications', () => {
         },
         {
           name: 'Far future date',
-          user: UserTestDataBuilder.create().withLastLogin(new Date('2099-12-31')).build(),
+          user: UserTestDataBuilder.create()
+            .withLastLogin(new Date('2099-12-31'))
+            .build(),
           spec: new UserLastLoginRecentSpecification(),
           expectedResult: true,
         },
         {
           name: 'Far past date',
-          user: UserTestDataBuilder.create().withLastLogin(new Date('1970-01-01')).build(),
+          user: UserTestDataBuilder.create()
+            .withLastLogin(new Date('1970-01-01'))
+            .build(),
           spec: new UserLastLoginRecentSpecification(),
           expectedResult: false,
         },
       ];
 
-      edgeCases.forEach(({ name, user, spec, expectedResult }) => {
+      edgeCases.forEach(({ user, spec, expectedResult }) => {
         // Act
         const result = spec.isSatisfiedBy(user);
 
@@ -1230,7 +1307,8 @@ describe('User Domain Specifications', () => {
       try {
         (spec as any).name = 'MODIFIED_NAME';
         (spec as any).description = 'Modified description';
-      } catch (error) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
         // Expected if properties are readonly
       }
 
@@ -1244,7 +1322,7 @@ describe('User Domain Specifications', () => {
     it('should work seamlessly with UserEntity domain model', () => {
       // Arrange
       const spec = UserSpecificationFactory.canLogin();
-      
+
       // Create user through domain model methods
       const userProps = {
         email: 'integration.test@example.com',
@@ -1267,10 +1345,10 @@ describe('User Domain Specifications', () => {
     it('should respect domain entity invariants', () => {
       // This test ensures specifications work with domain entities
       // that enforce their own business rules and invariants
-      
+
       // Arrange
       const spec = new UserHasSecurePasswordSpecification();
-      
+
       // Create a user that should have password validation
       const user = UserTestDataBuilder.create()
         .withPassword('WeakPassword') // Domain might enforce minimum requirements

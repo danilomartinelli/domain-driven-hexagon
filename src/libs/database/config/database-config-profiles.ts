@@ -20,7 +20,7 @@ export class DatabaseConfigProfiles {
    */
   static readonly DEVELOPMENT: Omit<DatabaseConfiguration, 'connection'> = {
     environment: DatabaseEnvironment.DEVELOPMENT,
-    
+
     pool: {
       maximumPoolSize: 10,
       minimumPoolSize: 2,
@@ -237,7 +237,9 @@ export class DatabaseConfigProfiles {
   /**
    * Get configuration profile by environment
    */
-  static getProfile(environment: DatabaseEnvironment): Omit<DatabaseConfiguration, 'connection'> {
+  static getProfile(
+    environment: DatabaseEnvironment,
+  ): Omit<DatabaseConfiguration, 'connection'> {
     switch (environment) {
       case DatabaseEnvironment.DEVELOPMENT:
         return this.DEVELOPMENT;
@@ -254,7 +256,10 @@ export class DatabaseConfigProfiles {
   /**
    * Get all available profiles as a map
    */
-  static getAllProfiles(): Map<DatabaseEnvironment, Omit<DatabaseConfiguration, 'connection'>> {
+  static getAllProfiles(): Map<
+    DatabaseEnvironment,
+    Omit<DatabaseConfiguration, 'connection'>
+  > {
     return new Map([
       [DatabaseEnvironment.DEVELOPMENT, this.DEVELOPMENT],
       [DatabaseEnvironment.TEST, this.TEST],
@@ -273,32 +278,53 @@ export class DatabaseConfigProfiles {
 
     // Pool size validation
     if (profile.pool.minimumPoolSize >= profile.pool.maximumPoolSize) {
-      warnings.push(`${environment}: Minimum pool size should be less than maximum pool size`);
+      warnings.push(
+        `${environment}: Minimum pool size should be less than maximum pool size`,
+      );
     }
 
-    if (profile.pool.maximumPoolSize > 50 && environment !== DatabaseEnvironment.PRODUCTION) {
-      warnings.push(`${environment}: Large pool size (${profile.pool.maximumPoolSize}) may not be necessary`);
+    if (
+      profile.pool.maximumPoolSize > 50 &&
+      environment !== DatabaseEnvironment.PRODUCTION
+    ) {
+      warnings.push(
+        `${environment}: Large pool size (${profile.pool.maximumPoolSize}) may not be necessary`,
+      );
     }
 
     // Timeout validation
-    if (profile.timeouts.queryTimeoutMillis > profile.timeouts.statementTimeoutMillis) {
-      warnings.push(`${environment}: Query timeout should not exceed statement timeout`);
+    if (
+      profile.timeouts.queryTimeoutMillis >
+      profile.timeouts.statementTimeoutMillis
+    ) {
+      warnings.push(
+        `${environment}: Query timeout should not exceed statement timeout`,
+      );
     }
 
     // Logging validation for production
     if (environment === DatabaseEnvironment.PRODUCTION) {
       if (profile.logging.level === DatabaseLogLevel.DEBUG) {
-        warnings.push(`${environment}: Debug logging in production may impact performance`);
+        warnings.push(
+          `${environment}: Debug logging in production may impact performance`,
+        );
       }
-      
+
       if (profile.logging.enableQueryLogging) {
-        warnings.push(`${environment}: Query logging in production may impact performance`);
+        warnings.push(
+          `${environment}: Query logging in production may impact performance`,
+        );
       }
     }
 
     // Health check validation
-    if (!profile.healthCheck.enabled && environment === DatabaseEnvironment.PRODUCTION) {
-      warnings.push(`${environment}: Health checks should be enabled in production`);
+    if (
+      !profile.healthCheck.enabled &&
+      environment === DatabaseEnvironment.PRODUCTION
+    ) {
+      warnings.push(
+        `${environment}: Health checks should be enabled in production`,
+      );
     }
 
     return warnings;
@@ -319,21 +345,21 @@ export class DatabaseConfigProfiles {
           mode: DatabaseSslMode.PREFER,
           rejectUnauthorized: false,
         };
-      
+
       case DatabaseEnvironment.TEST:
         return {
           enabled: false, // SSL typically disabled in test
           mode: DatabaseSslMode.DISABLE,
           rejectUnauthorized: false,
         };
-      
+
       case DatabaseEnvironment.PRODUCTION:
         return {
           enabled: true, // SSL required in production
           mode: DatabaseSslMode.REQUIRE,
           rejectUnauthorized: true,
         };
-      
+
       default:
         return {
           enabled: false,

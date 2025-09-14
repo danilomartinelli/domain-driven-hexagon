@@ -10,10 +10,13 @@ export interface AuthenticatedUser extends JwtPayload {
  * Usage: @CurrentUser() user: AuthenticatedUser
  */
 export const CurrentUser = createParamDecorator(
-  (data: keyof AuthenticatedUser | undefined, ctx: ExecutionContext): AuthenticatedUser | null => {
+  (
+    data: keyof AuthenticatedUser | undefined,
+    ctx: ExecutionContext,
+  ): AuthenticatedUser | null => {
     const request = ctx.switchToHttp().getRequest();
     const user = request.user as JwtPayload;
-    
+
     if (!user) {
       return null;
     }
@@ -24,8 +27,8 @@ export const CurrentUser = createParamDecorator(
       id: user.sub,
     };
 
-    return data && typeof data === 'string' && data in enrichedUser 
-      ? (enrichedUser as any)[data] 
+    return data && typeof data === 'string' && data in enrichedUser
+      ? (enrichedUser as any)[data]
       : enrichedUser;
   },
 );
@@ -38,7 +41,7 @@ export const UserId = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): string | null => {
     const request = ctx.switchToHttp().getRequest();
     const user = request.user as JwtPayload;
-    
+
     return user?.sub || null;
   },
 );
@@ -51,20 +54,20 @@ export const UserRoles = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): string[] => {
     const request = ctx.switchToHttp().getRequest();
     const user = request.user as JwtPayload;
-    
+
     return user?.roles || [];
   },
 );
 
 /**
- * Extract user permissions from the request  
+ * Extract user permissions from the request
  * Usage: @UserPermissions() permissions: string[]
  */
 export const UserPermissions = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): string[] => {
     const request = ctx.switchToHttp().getRequest();
     const user = request.user as JwtPayload;
-    
+
     return user?.permissions || [];
   },
 );

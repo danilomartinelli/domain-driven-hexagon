@@ -3,7 +3,10 @@ import { JwtService as NestJwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@modules/auth/infrastructure/services/jwt.service';
 import { JwtPayload } from '@modules/auth/domain/auth.types';
-import { InvalidTokenError, TokenExpiredError } from '@modules/auth/domain/auth.errors';
+import {
+  InvalidTokenError,
+  TokenExpiredError,
+} from '@modules/auth/domain/auth.errors';
 import { LoggerPort } from '@libs/ports/logger.port';
 
 describe('JwtService', () => {
@@ -70,8 +73,12 @@ describe('JwtService', () => {
   describe('constructor', () => {
     it('should initialize with correct configuration', () => {
       // Assert
-      expect(configService.getOrThrow).toHaveBeenCalledWith('JWT_ACCESS_TOKEN_SECRET');
-      expect(configService.getOrThrow).toHaveBeenCalledWith('JWT_REFRESH_TOKEN_SECRET');
+      expect(configService.getOrThrow).toHaveBeenCalledWith(
+        'JWT_ACCESS_TOKEN_SECRET',
+      );
+      expect(configService.getOrThrow).toHaveBeenCalledWith(
+        'JWT_REFRESH_TOKEN_SECRET',
+      );
     });
 
     it('should throw error if secrets are not configured', async () => {
@@ -109,16 +116,20 @@ describe('JwtService', () => {
 
     it('should handle token generation errors', async () => {
       // Arrange
-      nestJwtService.signAsync.mockRejectedValue(new Error('Token generation failed'));
+      nestJwtService.signAsync.mockRejectedValue(
+        new Error('Token generation failed'),
+      );
 
       // Act & Assert
-      await expect(service.generateTokenPair(mockPayload)).rejects.toThrow('Token generation failed');
+      await expect(service.generateTokenPair(mockPayload)).rejects.toThrow(
+        'Token generation failed',
+      );
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to generate access token',
         expect.objectContaining({
           userId: 'user-123',
           error: 'Token generation failed',
-        })
+        }),
       );
     });
   });
@@ -142,14 +153,14 @@ describe('JwtService', () => {
         {
           secret: 'access-token-secret',
           expiresIn: '15m',
-        }
+        },
       );
       expect(logger.debug).toHaveBeenCalledWith(
         'Access token generated successfully',
         {
           userId: 'user-123',
           email: 'test@example.com',
-        }
+        },
       );
     });
 
@@ -175,13 +186,15 @@ describe('JwtService', () => {
       nestJwtService.signAsync.mockRejectedValue(new Error('Signing failed'));
 
       // Act & Assert
-      await expect(service.generateAccessToken(mockPayload)).rejects.toThrow('Signing failed');
+      await expect(service.generateAccessToken(mockPayload)).rejects.toThrow(
+        'Signing failed',
+      );
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to generate access token',
         expect.objectContaining({
           userId: 'user-123',
           error: 'Signing failed',
-        })
+        }),
       );
     });
   });
@@ -206,14 +219,14 @@ describe('JwtService', () => {
         {
           secret: 'refresh-token-secret',
           expiresIn: '30d',
-        }
+        },
       );
       expect(logger.debug).toHaveBeenCalledWith(
         'Refresh token generated successfully',
         {
           userId: 'user-123',
           email: 'test@example.com',
-        }
+        },
       );
     });
 
@@ -235,13 +248,15 @@ describe('JwtService', () => {
       nestJwtService.signAsync.mockRejectedValue(new Error('Signing failed'));
 
       // Act & Assert
-      await expect(service.generateRefreshToken(mockPayload)).rejects.toThrow('Signing failed');
+      await expect(service.generateRefreshToken(mockPayload)).rejects.toThrow(
+        'Signing failed',
+      );
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to generate refresh token',
         expect.objectContaining({
           userId: 'user-123',
           error: 'Signing failed',
-        })
+        }),
       );
     });
   });
@@ -265,7 +280,7 @@ describe('JwtService', () => {
         {
           userId: 'user-123',
           email: 'test@example.com',
-        }
+        },
       );
     });
 
@@ -275,12 +290,14 @@ describe('JwtService', () => {
       nestJwtService.verifyAsync.mockResolvedValue(refreshPayload);
 
       // Act & Assert
-      await expect(service.verifyAccessToken('refresh-token')).rejects.toThrow(InvalidTokenError);
+      await expect(service.verifyAccessToken('refresh-token')).rejects.toThrow(
+        InvalidTokenError,
+      );
       expect(logger.warn).toHaveBeenCalledWith(
         'Access token verification failed',
         expect.objectContaining({
           error: 'Token is not an access token',
-        })
+        }),
       );
     });
 
@@ -291,12 +308,14 @@ describe('JwtService', () => {
       nestJwtService.verifyAsync.mockRejectedValue(expiredError);
 
       // Act & Assert
-      await expect(service.verifyAccessToken('expired-token')).rejects.toThrow(TokenExpiredError);
+      await expect(service.verifyAccessToken('expired-token')).rejects.toThrow(
+        TokenExpiredError,
+      );
       expect(logger.warn).toHaveBeenCalledWith(
         'Access token verification failed',
         expect.objectContaining({
           error: 'Token expired',
-        })
+        }),
       );
     });
 
@@ -305,12 +324,14 @@ describe('JwtService', () => {
       nestJwtService.verifyAsync.mockRejectedValue(new Error('Invalid token'));
 
       // Act & Assert
-      await expect(service.verifyAccessToken('invalid-token')).rejects.toThrow(InvalidTokenError);
+      await expect(service.verifyAccessToken('invalid-token')).rejects.toThrow(
+        InvalidTokenError,
+      );
       expect(logger.warn).toHaveBeenCalledWith(
         'Access token verification failed',
         expect.objectContaining({
           error: 'Invalid token',
-        })
+        }),
       );
     });
   });
@@ -326,15 +347,18 @@ describe('JwtService', () => {
 
       // Assert
       expect(result).toEqual(verifiedPayload);
-      expect(nestJwtService.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
-        secret: 'refresh-token-secret',
-      });
+      expect(nestJwtService.verifyAsync).toHaveBeenCalledWith(
+        'valid-refresh-token',
+        {
+          secret: 'refresh-token-secret',
+        },
+      );
       expect(logger.debug).toHaveBeenCalledWith(
         'Refresh token verified successfully',
         {
           userId: 'user-123',
           email: 'test@example.com',
-        }
+        },
       );
     });
 
@@ -344,12 +368,14 @@ describe('JwtService', () => {
       nestJwtService.verifyAsync.mockResolvedValue(accessPayload);
 
       // Act & Assert
-      await expect(service.verifyRefreshToken('access-token')).rejects.toThrow(InvalidTokenError);
+      await expect(service.verifyRefreshToken('access-token')).rejects.toThrow(
+        InvalidTokenError,
+      );
       expect(logger.warn).toHaveBeenCalledWith(
         'Refresh token verification failed',
         expect.objectContaining({
           error: 'Token is not a refresh token',
-        })
+        }),
       );
     });
 
@@ -360,7 +386,9 @@ describe('JwtService', () => {
       nestJwtService.verifyAsync.mockRejectedValue(expiredError);
 
       // Act & Assert
-      await expect(service.verifyRefreshToken('expired-refresh-token')).rejects.toThrow(TokenExpiredError);
+      await expect(
+        service.verifyRefreshToken('expired-refresh-token'),
+      ).rejects.toThrow(TokenExpiredError);
     });
   });
 
@@ -392,7 +420,7 @@ describe('JwtService', () => {
         'Token decode failed',
         expect.objectContaining({
           error: 'Invalid token',
-        })
+        }),
       );
     });
 
@@ -496,15 +524,19 @@ describe('JwtService', () => {
   describe('error handling', () => {
     it('should handle unknown errors gracefully', async () => {
       // Arrange
-      nestJwtService.signAsync.mockRejectedValue('String error instead of Error object');
+      nestJwtService.signAsync.mockRejectedValue(
+        'String error instead of Error object',
+      );
 
       // Act & Assert
-      await expect(service.generateAccessToken(mockPayload)).rejects.toBe('String error instead of Error object');
+      await expect(service.generateAccessToken(mockPayload)).rejects.toBe(
+        'String error instead of Error object',
+      );
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to generate access token',
         expect.objectContaining({
           error: 'Unknown error',
-        })
+        }),
       );
     });
 
@@ -515,7 +547,9 @@ describe('JwtService', () => {
       nestJwtService.verifyAsync.mockRejectedValue(errorWithoutName);
 
       // Act & Assert
-      await expect(service.verifyAccessToken('token')).rejects.toThrow(InvalidTokenError);
+      await expect(service.verifyAccessToken('token')).rejects.toThrow(
+        InvalidTokenError,
+      );
     });
   });
 
@@ -533,13 +567,13 @@ describe('JwtService', () => {
         expect.any(Object),
         expect.objectContaining({
           secret: 'access-token-secret',
-        })
+        }),
       );
       expect(nestJwtService.signAsync).toHaveBeenCalledWith(
         expect.any(Object),
         expect.objectContaining({
           secret: 'refresh-token-secret',
-        })
+        }),
       );
     });
 
@@ -549,8 +583,12 @@ describe('JwtService', () => {
       nestJwtService.verifyAsync.mockResolvedValue(maliciousPayload);
 
       // Act & Assert
-      await expect(service.verifyAccessToken('malicious-token')).rejects.toThrow(InvalidTokenError);
-      await expect(service.verifyRefreshToken('malicious-token')).rejects.toThrow(InvalidTokenError);
+      await expect(
+        service.verifyAccessToken('malicious-token'),
+      ).rejects.toThrow(InvalidTokenError);
+      await expect(
+        service.verifyRefreshToken('malicious-token'),
+      ).rejects.toThrow(InvalidTokenError);
     });
   });
 

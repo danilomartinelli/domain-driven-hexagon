@@ -94,12 +94,14 @@ describe('PasswordService', () => {
       mockPassword.hash.mockRejectedValue(new Error('Hashing failed'));
 
       // Act & Assert
-      await expect(service.hash(mockPassword)).rejects.toThrow('Hashing failed');
+      await expect(service.hash(mockPassword)).rejects.toThrow(
+        'Hashing failed',
+      );
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to hash password',
         expect.objectContaining({
           error: 'Hashing failed',
-        })
+        }),
       );
     });
 
@@ -114,7 +116,7 @@ describe('PasswordService', () => {
         'Failed to hash password',
         expect.objectContaining({
           error: 'Unknown error',
-        })
+        }),
       );
     });
   });
@@ -129,7 +131,10 @@ describe('PasswordService', () => {
 
       // Assert
       expect(result).toBe(true);
-      expect(bcrypt.compare).toHaveBeenCalledWith('plain-password', 'hashed-password');
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'plain-password',
+        'hashed-password',
+      );
     });
 
     it('should return false for non-matching passwords', async () => {
@@ -141,12 +146,17 @@ describe('PasswordService', () => {
 
       // Assert
       expect(result).toBe(false);
-      expect(bcrypt.compare).toHaveBeenCalledWith('wrong-password', 'hashed-password');
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        'wrong-password',
+        'hashed-password',
+      );
     });
 
     it('should handle bcrypt comparison errors', async () => {
       // Arrange
-      (bcrypt.compare as jest.Mock).mockRejectedValue(new Error('Comparison failed'));
+      (bcrypt.compare as jest.Mock).mockRejectedValue(
+        new Error('Comparison failed'),
+      );
 
       // Act
       const result = await service.compare('plain-password', 'hashed-password');
@@ -157,7 +167,7 @@ describe('PasswordService', () => {
         'Failed to compare password',
         expect.objectContaining({
           error: 'Comparison failed',
-        })
+        }),
       );
     });
 
@@ -174,13 +184,15 @@ describe('PasswordService', () => {
         'Failed to compare password',
         expect.objectContaining({
           error: 'Unknown error',
-        })
+        }),
       );
     });
 
     it('should handle null or undefined inputs', async () => {
       // Arrange
-      (bcrypt.compare as jest.Mock).mockRejectedValue(new Error('Invalid input'));
+      (bcrypt.compare as jest.Mock).mockRejectedValue(
+        new Error('Invalid input'),
+      );
 
       // Act
       const result1 = await service.compare(null as any, 'hashed-password');
@@ -241,7 +253,7 @@ describe('PasswordService', () => {
         'Password validation error',
         expect.objectContaining({
           error: 'Validation error',
-        })
+        }),
       );
     });
 
@@ -260,7 +272,7 @@ describe('PasswordService', () => {
         'Password validation error',
         expect.objectContaining({
           error: 'Creation failed',
-        })
+        }),
       );
     });
 
@@ -280,7 +292,7 @@ describe('PasswordService', () => {
         'Password validation error',
         expect.objectContaining({
           error: 'Unknown error',
-        })
+        }),
       );
     });
 
@@ -297,14 +309,24 @@ describe('PasswordService', () => {
       ];
 
       (Password.create as jest.Mock).mockReturnValue(mockPassword);
-      
+
       // Mock different validation results
       mockPassword.validate
-        .mockImplementationOnce(() => { throw new WeakPasswordError('Too short'); })
-        .mockImplementationOnce(() => { throw new WeakPasswordError('No numbers'); })
-        .mockImplementationOnce(() => { throw new WeakPasswordError('No special chars'); })
-        .mockImplementationOnce(() => { throw new WeakPasswordError('No uppercase'); })
-        .mockImplementationOnce(() => { throw new WeakPasswordError('No lowercase'); })
+        .mockImplementationOnce(() => {
+          throw new WeakPasswordError('Too short');
+        })
+        .mockImplementationOnce(() => {
+          throw new WeakPasswordError('No numbers');
+        })
+        .mockImplementationOnce(() => {
+          throw new WeakPasswordError('No special chars');
+        })
+        .mockImplementationOnce(() => {
+          throw new WeakPasswordError('No uppercase');
+        })
+        .mockImplementationOnce(() => {
+          throw new WeakPasswordError('No lowercase');
+        })
         .mockImplementationOnce(() => {}) // Valid
         .mockImplementationOnce(() => {}); // Valid
 
@@ -356,7 +378,9 @@ describe('PasswordService', () => {
       });
 
       // Act & Assert
-      expect(() => service.generateSecureToken()).toThrow('Random generation failed');
+      expect(() => service.generateSecureToken()).toThrow(
+        'Random generation failed',
+      );
     });
   });
 
@@ -406,7 +430,9 @@ describe('PasswordService', () => {
       });
 
       // Act & Assert
-      expect(() => service.generateResetToken()).toThrow('Random generation failed');
+      expect(() => service.generateResetToken()).toThrow(
+        'Random generation failed',
+      );
     });
   });
 
@@ -429,7 +455,8 @@ describe('PasswordService', () => {
       try {
         // Act
         await service.hash(mockPassword);
-      } catch (error) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
         // Expected to throw
       }
 
@@ -447,7 +474,7 @@ describe('PasswordService', () => {
 
       (bcrypt.compare as jest.Mock).mockImplementation(() => {
         // Simulate consistent timing regardless of result
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
           setTimeout(() => resolve(Math.random() > 0.5), 10);
         });
       });
@@ -465,7 +492,7 @@ describe('PasswordService', () => {
       const timings = endTimes.map((end, i) => end - startTimes[i]);
       const avgTiming = timings.reduce((a, b) => a + b, 0) / timings.length;
       const maxVariance = Math.max(...timings) - Math.min(...timings);
-      
+
       expect(maxVariance).toBeLessThan(avgTiming * 0.5); // Variance should be less than 50% of average
     });
   });
@@ -478,9 +505,9 @@ describe('PasswordService', () => {
       const startTime = Date.now();
 
       // Act
-      const promises = Array(100).fill(0).map(() => 
-        service.validate('TestPassword123!')
-      );
+      const promises = Array(100)
+        .fill(0)
+        .map(() => service.validate('TestPassword123!'));
       await Promise.all(promises);
 
       const endTime = Date.now();
@@ -491,7 +518,9 @@ describe('PasswordService', () => {
 
     it('should generate tokens quickly', () => {
       // Arrange
-      (crypto.randomBytes as jest.Mock).mockReturnValue(Buffer.from('quicktoken'));
+      (crypto.randomBytes as jest.Mock).mockReturnValue(
+        Buffer.from('quicktoken'),
+      );
       const startTime = Date.now();
 
       // Act
@@ -577,7 +606,11 @@ describe('PasswordService', () => {
       // Act
       for (const password of realWorldPasswords) {
         const isValid = await service.validate(password);
-        const hashedPassword = { value: `hashed_${password}`, isHashed: false, hash: jest.fn().mockResolvedValue({ value: `hashed_${password}` }) } as any;
+        const hashedPassword = {
+          value: `hashed_${password}`,
+          isHashed: false,
+          hash: jest.fn().mockResolvedValue({ value: `hashed_${password}` }),
+        } as any;
         const hash = await service.hash(hashedPassword);
         const matches = await service.compare(password, hash);
 

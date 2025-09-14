@@ -13,7 +13,10 @@ import { match, Result } from 'oxide.ts';
 import { Request } from 'express';
 
 import { RefreshTokenCommand } from './refresh-token.command';
-import { RefreshTokenRequestDto, TokenResponseDto } from '../../dtos/auth.response.dto';
+import {
+  RefreshTokenRequestDto,
+  TokenResponseDto,
+} from '../../dtos/auth.response.dto';
 import { TokenPair } from '../../domain/auth.types';
 import {
   InvalidTokenError,
@@ -57,15 +60,17 @@ export class RefreshTokenHttpController {
       userAgent: body.userAgent || req.get('User-Agent'),
     });
 
-    const result: Result<TokenPair, Error> = await this.commandBus.execute(command);
+    const result: Result<TokenPair, Error> =
+      await this.commandBus.execute(command);
 
     return match(result, {
-      Ok: (tokenPair: TokenPair) => new TokenResponseDto(
-        tokenPair.accessToken,
-        tokenPair.refreshToken,
-        tokenPair.tokenType,
-        tokenPair.expiresIn,
-      ),
+      Ok: (tokenPair: TokenPair) =>
+        new TokenResponseDto(
+          tokenPair.accessToken,
+          tokenPair.refreshToken,
+          tokenPair.tokenType,
+          tokenPair.expiresIn,
+        ),
       Err: (error: Error) => {
         if (
           error instanceof InvalidTokenError ||
@@ -77,7 +82,7 @@ export class RefreshTokenHttpController {
         if (error instanceof AccountInactiveError) {
           throw new UnauthorizedException(error.message);
         }
-        
+
         // Generic error handling
         throw new BadRequestException(error.message || 'Token refresh failed');
       },

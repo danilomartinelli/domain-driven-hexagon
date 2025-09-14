@@ -12,7 +12,7 @@ import {
   DatabaseEnvironmentVariables,
   DatabaseSslMode,
 } from '@libs/database/config/database-config.types';
-import { EnvironmentTestUtils, TestAssertions } from '../utils/refactoring-test.utils';
+import { EnvironmentTestUtils } from '../utils/refactoring-test.utils';
 
 describe('DatabaseConfigurationBuilder', () => {
   let builder: DatabaseConfigurationBuilder;
@@ -48,28 +48,34 @@ describe('DatabaseConfigurationBuilder', () => {
 
       it('should throw validation error for invalid environment variables', () => {
         // Arrange
-        const invalidEnvVars = environmentUtils.createInvalidEnvironmentVariables();
+        const invalidEnvVars =
+          environmentUtils.createInvalidEnvironmentVariables();
 
         // Act & Assert
-        expect(() => builder.build(invalidEnvVars))
-          .toThrow(DatabaseConfigValidationError);
+        expect(() => builder.build(invalidEnvVars)).toThrow(
+          DatabaseConfigValidationError,
+        );
       });
 
       it('should validate port ranges', () => {
         // Arrange
         const invalidPortConfigs = [
           { ...environmentUtils.createTestEnvironmentVariables(), DB_PORT: 0 },
-          { ...environmentUtils.createTestEnvironmentVariables(), DB_PORT: 99999 },
+          {
+            ...environmentUtils.createTestEnvironmentVariables(),
+            DB_PORT: 99999,
+          },
           { ...environmentUtils.createTestEnvironmentVariables(), DB_PORT: -1 },
         ];
 
-        invalidPortConfigs.forEach(config => {
+        invalidPortConfigs.forEach((config) => {
           // Act & Assert
-          expect(() => builder.build(config))
-            .toThrow(expect.objectContaining({
+          expect(() => builder.build(config)).toThrow(
+            expect.objectContaining({
               field: 'DB_PORT',
-              constraint: 'port_range'
-            }));
+              constraint: 'port_range',
+            }),
+          );
         });
       });
 
@@ -82,11 +88,12 @@ describe('DatabaseConfigurationBuilder', () => {
         };
 
         // Act & Assert
-        expect(() => builder.build(invalidPoolConfig))
-          .toThrow(expect.objectContaining({
+        expect(() => builder.build(invalidPoolConfig)).toThrow(
+          expect.objectContaining({
             field: 'pool.minimumPoolSize',
-            constraint: 'pool_size_relationship'
-          }));
+            constraint: 'pool_size_relationship',
+          }),
+        );
       });
 
       it('should validate timeout constraints', () => {
@@ -97,11 +104,12 @@ describe('DatabaseConfigurationBuilder', () => {
         };
 
         // Act & Assert
-        expect(() => builder.build(invalidTimeoutConfig))
-          .toThrow(expect.objectContaining({
+        expect(() => builder.build(invalidTimeoutConfig)).toThrow(
+          expect.objectContaining({
             field: 'connectionTimeoutMillis',
-            constraint: 'min_timeout'
-          }));
+            constraint: 'min_timeout',
+          }),
+        );
       });
     });
 
@@ -134,9 +142,11 @@ describe('DatabaseConfigurationBuilder', () => {
 
         // Assert
         expect(result.environment).toBe(DatabaseEnvironment.DEVELOPMENT);
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('Environment defaulted to DEVELOPMENT')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('Environment defaulted to DEVELOPMENT'),
+          ]),
+        );
       });
 
       it('should detect test environment from CI indicators', () => {
@@ -150,9 +160,11 @@ describe('DatabaseConfigurationBuilder', () => {
 
         // Assert
         expect(result.environment).toBe(DatabaseEnvironment.TEST);
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('Environment detected as TEST based on CI')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('Environment detected as TEST based on CI'),
+          ]),
+        );
       });
     });
 
@@ -309,7 +321,9 @@ describe('DatabaseConfigurationBuilder', () => {
           };
 
           // Act & Assert
-          expect(() => builder.build(envVars)).toThrow(DatabaseConfigValidationError);
+          expect(() => builder.build(envVars)).toThrow(
+            DatabaseConfigValidationError,
+          );
         });
       });
 
@@ -325,9 +339,13 @@ describe('DatabaseConfigurationBuilder', () => {
         const result = builder.build(highPoolConfig);
 
         // Assert
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('Large pool size (25) may be unnecessary for development')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(
+              'Large pool size (25) may be unnecessary for development',
+            ),
+          ]),
+        );
       });
 
       it('should warn about short idle timeouts', () => {
@@ -341,9 +359,13 @@ describe('DatabaseConfigurationBuilder', () => {
         const result = builder.build(shortIdleConfig);
 
         // Assert
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('Short idle timeout may cause frequent connection cycling')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(
+              'Short idle timeout may cause frequent connection cycling',
+            ),
+          ]),
+        );
       });
     });
 
@@ -363,10 +385,11 @@ describe('DatabaseConfigurationBuilder', () => {
           };
 
           // Act & Assert
-          expect(() => builder.build(envVars))
-            .toThrow(expect.objectContaining({
-              field: expect.stringContaining('TimeoutMillis')
-            }));
+          expect(() => builder.build(envVars)).toThrow(
+            expect.objectContaining({
+              field: expect.stringContaining('TimeoutMillis'),
+            }),
+          );
         });
       });
 
@@ -382,9 +405,13 @@ describe('DatabaseConfigurationBuilder', () => {
         const result = builder.build(inconsistentTimeouts);
 
         // Assert
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('Query timeout should typically be less than statement timeout')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(
+              'Query timeout should typically be less than statement timeout',
+            ),
+          ]),
+        );
       });
     });
 
@@ -403,17 +430,18 @@ describe('DatabaseConfigurationBuilder', () => {
           };
 
           // Act & Assert
-          expect(() => builder.build(envVars))
-            .toThrow(expect.objectContaining({
-              constraint: expectedError
-            }));
+          expect(() => builder.build(envVars)).toThrow(
+            expect.objectContaining({
+              constraint: expectedError,
+            }),
+          );
         });
       });
 
       it('should validate health check retry counts', () => {
         const invalidRetryConfigs = [0, 11, -1]; // Outside 1-10 range
 
-        invalidRetryConfigs.forEach(retries => {
+        invalidRetryConfigs.forEach((retries) => {
           // Arrange
           const envVars = {
             ...environmentUtils.createTestEnvironmentVariables(),
@@ -421,11 +449,12 @@ describe('DatabaseConfigurationBuilder', () => {
           };
 
           // Act & Assert
-          expect(() => builder.build(envVars))
-            .toThrow(expect.objectContaining({
+          expect(() => builder.build(envVars)).toThrow(
+            expect.objectContaining({
               field: 'healthCheck.retries',
-              constraint: 'health_check_retries_range'
-            }));
+              constraint: 'health_check_retries_range',
+            }),
+          );
         });
       });
     });
@@ -444,10 +473,16 @@ describe('DatabaseConfigurationBuilder', () => {
         const result = builder.build(insecureProdConfig);
 
         // Assert
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('SSL is recommended for production environments'),
-          expect.stringContaining('Query logging may expose sensitive data in production')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(
+              'SSL is recommended for production environments',
+            ),
+            expect.stringContaining(
+              'Query logging may expose sensitive data in production',
+            ),
+          ]),
+        );
       });
 
       it('should warn about SSL certificate validation disabled', () => {
@@ -463,9 +498,13 @@ describe('DatabaseConfigurationBuilder', () => {
         const result = builder.build(insecureSslConfig);
 
         // Assert
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('SSL certificate validation should be enabled in production')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(
+              'SSL certificate validation should be enabled in production',
+            ),
+          ]),
+        );
       });
     });
 
@@ -475,13 +514,15 @@ describe('DatabaseConfigurationBuilder', () => {
           {
             env: DatabaseEnvironment.PRODUCTION,
             poolSize: 5,
-            expectedWarning: 'Consider increasing pool size for production workloads'
+            expectedWarning:
+              'Consider increasing pool size for production workloads',
           },
           {
             env: DatabaseEnvironment.TEST,
             poolSize: 15,
-            expectedWarning: 'Consider reducing pool size for test environments to save resources'
-          }
+            expectedWarning:
+              'Consider reducing pool size for test environments to save resources',
+          },
         ];
 
         environmentTests.forEach(({ env, poolSize, expectedWarning }) => {
@@ -496,9 +537,9 @@ describe('DatabaseConfigurationBuilder', () => {
           const result = builder.build(envVars);
 
           // Assert
-          expect(result.warnings).toEqual(expect.arrayContaining([
-            expect.stringContaining(expectedWarning)
-          ]));
+          expect(result.warnings).toEqual(
+            expect.arrayContaining([expect.stringContaining(expectedWarning)]),
+          );
         });
       });
 
@@ -514,9 +555,13 @@ describe('DatabaseConfigurationBuilder', () => {
         const result = builder.build(shortTimeoutConfig);
 
         // Assert
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('Very short query timeout may cause premature query cancellation in production')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(
+              'Very short query timeout may cause premature query cancellation in production',
+            ),
+          ]),
+        );
       });
 
       it('should recommend enabling monitoring in production', () => {
@@ -531,9 +576,13 @@ describe('DatabaseConfigurationBuilder', () => {
         const result = builder.build(noMonitoringConfig);
 
         // Assert
-        expect(result.warnings).toEqual(expect.arrayContaining([
-          expect.stringContaining('Enable monitoring for production environments')
-        ]));
+        expect(result.warnings).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining(
+              'Enable monitoring for production environments',
+            ),
+          ]),
+        );
       });
     });
   });
@@ -546,7 +595,8 @@ describe('DatabaseConfigurationBuilder', () => {
         maxPoolSize: 50, // Higher than default
         minTimeoutMs: 10000, // Higher than default
       };
-      const customBuilder = DatabaseConfigurationBuilder.withConstraints(customConstraints);
+      const customBuilder =
+        DatabaseConfigurationBuilder.withConstraints(customConstraints);
 
       // Test with pool size that would be valid with default constraints but invalid with custom
       const envVars = {
@@ -555,10 +605,13 @@ describe('DatabaseConfigurationBuilder', () => {
       };
 
       // Act & Assert
-      expect(() => customBuilder.build(envVars))
-        .toThrow(expect.objectContaining({
-          message: expect.stringContaining('Minimum pool size must be at least 5')
-        }));
+      expect(() => customBuilder.build(envVars)).toThrow(
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'Minimum pool size must be at least 5',
+          ),
+        }),
+      );
     });
 
     it('should validate custom timeout constraints', () => {
@@ -566,7 +619,8 @@ describe('DatabaseConfigurationBuilder', () => {
       const strictConstraints = {
         minTimeoutMs: 20000, // 20 seconds minimum
       };
-      const strictBuilder = DatabaseConfigurationBuilder.withConstraints(strictConstraints);
+      const strictBuilder =
+        DatabaseConfigurationBuilder.withConstraints(strictConstraints);
 
       const envVars = {
         ...environmentUtils.createTestEnvironmentVariables(),
@@ -574,10 +628,11 @@ describe('DatabaseConfigurationBuilder', () => {
       };
 
       // Act & Assert
-      expect(() => strictBuilder.build(envVars))
-        .toThrow(expect.objectContaining({
-          constraint: 'min_timeout'
-        }));
+      expect(() => strictBuilder.build(envVars)).toThrow(
+        expect.objectContaining({
+          constraint: 'min_timeout',
+        }),
+      );
     });
   });
 
@@ -591,7 +646,7 @@ describe('DatabaseConfigurationBuilder', () => {
         { DB_ENABLE_QUERY_LOGGING: 'yes' }, // Not a boolean
       ];
 
-      typeMismatchConfigs.forEach(config => {
+      typeMismatchConfigs.forEach((config) => {
         // Arrange
         const invalidConfig = {
           ...environmentUtils.createTestEnvironmentVariables(),
@@ -599,8 +654,9 @@ describe('DatabaseConfigurationBuilder', () => {
         };
 
         // Act & Assert
-        expect(() => builder.build(invalidConfig))
-          .toThrow(DatabaseConfigValidationError);
+        expect(() => builder.build(invalidConfig)).toThrow(
+          DatabaseConfigValidationError,
+        );
       });
     });
 
@@ -632,8 +688,9 @@ describe('DatabaseConfigurationBuilder', () => {
       };
 
       // Act & Assert
-      expect(() => builder.build(invalidEnumConfig))
-        .toThrow(DatabaseConfigValidationError);
+      expect(() => builder.build(invalidEnumConfig)).toThrow(
+        DatabaseConfigValidationError,
+      );
     });
   });
 
@@ -646,49 +703,51 @@ describe('DatabaseConfigurationBuilder', () => {
       const result = builder.build(envVars);
 
       // Assert
-      expect(result).toEqual(expect.objectContaining({
-        config: expect.objectContaining({
+      expect(result).toEqual(
+        expect.objectContaining({
+          config: expect.objectContaining({
+            environment: expect.any(String),
+            connection: expect.objectContaining({
+              host: expect.any(String),
+              port: expect.any(Number),
+              username: expect.any(String),
+              password: expect.any(String),
+              database: expect.any(String),
+            }),
+            pool: expect.objectContaining({
+              minimumPoolSize: expect.any(Number),
+              maximumPoolSize: expect.any(Number),
+              acquireTimeoutMillis: expect.any(Number),
+            }),
+            timeouts: expect.objectContaining({
+              connectionTimeoutMillis: expect.any(Number),
+              statementTimeoutMillis: expect.any(Number),
+              queryTimeoutMillis: expect.any(Number),
+            }),
+            healthCheck: expect.objectContaining({
+              intervalMs: expect.any(Number),
+              timeoutMs: expect.any(Number),
+              retries: expect.any(Number),
+            }),
+            logging: expect.objectContaining({
+              level: expect.any(String),
+              enableQueryLogging: expect.any(Boolean),
+            }),
+            migration: expect.objectContaining({
+              tableName: expect.any(String),
+              migrationsPath: expect.any(String),
+            }),
+            monitoring: expect.objectContaining({
+              enabled: expect.any(Boolean),
+              poolMonitoringIntervalMs: expect.any(Number),
+            }),
+            resilience: expect.any(Object),
+          }),
+          warnings: expect.any(Array),
           environment: expect.any(String),
-          connection: expect.objectContaining({
-            host: expect.any(String),
-            port: expect.any(Number),
-            username: expect.any(String),
-            password: expect.any(String),
-            database: expect.any(String),
-          }),
-          pool: expect.objectContaining({
-            minimumPoolSize: expect.any(Number),
-            maximumPoolSize: expect.any(Number),
-            acquireTimeoutMillis: expect.any(Number),
-          }),
-          timeouts: expect.objectContaining({
-            connectionTimeoutMillis: expect.any(Number),
-            statementTimeoutMillis: expect.any(Number),
-            queryTimeoutMillis: expect.any(Number),
-          }),
-          healthCheck: expect.objectContaining({
-            intervalMs: expect.any(Number),
-            timeoutMs: expect.any(Number),
-            retries: expect.any(Number),
-          }),
-          logging: expect.objectContaining({
-            level: expect.any(String),
-            enableQueryLogging: expect.any(Boolean),
-          }),
-          migration: expect.objectContaining({
-            tableName: expect.any(String),
-            migrationsPath: expect.any(String),
-          }),
-          monitoring: expect.objectContaining({
-            enabled: expect.any(Boolean),
-            poolMonitoringIntervalMs: expect.any(Number),
-          }),
-          resilience: expect.any(Object),
+          source: expect.stringMatching(/^(profile|environment)$/),
         }),
-        warnings: expect.any(Array),
-        environment: expect.any(String),
-        source: expect.stringMatching(/^(profile|environment)$/),
-      }));
+      );
     });
 
     it('should maintain configuration immutability', () => {
@@ -719,8 +778,9 @@ describe('DatabaseConfigurationBuilder', () => {
       };
 
       // Act & Assert
-      expect(() => builder.build(malformedEnvVars as any))
-        .toThrow(DatabaseConfigValidationError);
+      expect(() => builder.build(malformedEnvVars as any)).toThrow(
+        DatabaseConfigValidationError,
+      );
     });
 
     it('should provide helpful error messages for configuration issues', () => {
@@ -736,7 +796,9 @@ describe('DatabaseConfigurationBuilder', () => {
         builder.build(problematicConfig);
         fail('Should have thrown validation error');
       } catch (error) {
-        expect(error.message).toContain('Minimum pool size must be less than maximum pool size');
+        expect(error.message).toContain(
+          'Minimum pool size must be less than maximum pool size',
+        );
         expect(error.field).toBe('pool.minimumPoolSize');
         expect(error.constraint).toBe('pool_size_relationship');
       }
@@ -750,8 +812,9 @@ describe('DatabaseConfigurationBuilder', () => {
       };
 
       // Act & Assert
-      expect(() => builder.build(incompleteConfig as any))
-        .toThrow(DatabaseConfigValidationError);
+      expect(() => builder.build(incompleteConfig as any)).toThrow(
+        DatabaseConfigValidationError,
+      );
     });
   });
 });

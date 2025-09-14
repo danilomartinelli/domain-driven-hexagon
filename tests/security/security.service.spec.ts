@@ -105,7 +105,14 @@ describe('SecurityService', () => {
       // Assert
       expect(config).toBeDefined();
       expect(config.credentials).toBe(true);
-      expect(config.methods).toEqual(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']);
+      expect(config.methods).toEqual([
+        'GET',
+        'POST',
+        'PUT',
+        'PATCH',
+        'DELETE',
+        'OPTIONS',
+      ]);
       expect(config.maxAge).toBe(86400);
     });
 
@@ -201,12 +208,18 @@ describe('SecurityService', () => {
       service.applySecurityMiddleware(
         mockRequest as Request,
         mockResponse as Response,
-        nextFunction
+        nextFunction,
       );
 
       // Assert
-      expect(mockResponse.setHeader).toHaveBeenCalledWith('X-API-Version', '1.0');
-      expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Response-Time', expect.any(Number));
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'X-API-Version',
+        '1.0',
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'X-Response-Time',
+        expect.any(Number),
+      );
       expect(nextFunction).toHaveBeenCalled();
     });
 
@@ -221,13 +234,13 @@ describe('SecurityService', () => {
       service.applySecurityMiddleware(
         mockRequest as Request,
         mockResponse as Response,
-        nextFunction
+        nextFunction,
       );
 
       // Assert
       expect(mockResponse.setHeader).toHaveBeenCalledWith(
         'Cache-Control',
-        'no-store, no-cache, must-revalidate, proxy-revalidate'
+        'no-store, no-cache, must-revalidate, proxy-revalidate',
       );
       expect(mockResponse.setHeader).toHaveBeenCalledWith('Pragma', 'no-cache');
       expect(mockResponse.setHeader).toHaveBeenCalledWith('Expires', '0');
@@ -242,13 +255,22 @@ describe('SecurityService', () => {
       service.applySecurityMiddleware(
         mockRequest as Request,
         mockResponse as Response,
-        nextFunction
+        nextFunction,
       );
 
       // Assert
-      expect(mockResponse.setHeader).toHaveBeenCalledWith('Expect-CT', 'max-age=86400, enforce');
-      expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Download-Options', 'noopen');
-      expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Permitted-Cross-Domain-Policies', 'none');
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'Expect-CT',
+        'max-age=86400, enforce',
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'X-Download-Options',
+        'noopen',
+      );
+      expect(mockResponse.setHeader).toHaveBeenCalledWith(
+        'X-Permitted-Cross-Domain-Policies',
+        'none',
+      );
     });
   });
 
@@ -276,7 +298,9 @@ describe('SecurityService', () => {
 
       // Assert
       expect(result.valid).toBe(false);
-      expect(result.issues).toContain('Missing X-Requested-With header for sensitive endpoint');
+      expect(result.issues).toContain(
+        'Missing X-Requested-With header for sensitive endpoint',
+      );
     });
 
     it('should detect excessively long URL', () => {
@@ -312,12 +336,15 @@ describe('SecurityService', () => {
 
       // Assert
       expect(result.valid).toBe(false);
-      expect(result.issues).toContain('Potential XSS pattern in query parameters');
+      expect(result.issues).toContain(
+        'Potential XSS pattern in query parameters',
+      );
     });
 
     it('should detect multiple security issues', () => {
       // Arrange
-      mockRequest.url = "/admin/users?filter=' OR '1'='1&xss=<script>alert('xss')</script>";
+      mockRequest.url =
+        "/admin/users?filter=' OR '1'='1&xss=<script>alert('xss')</script>";
       (mockRequest.get as jest.Mock).mockReturnValue(undefined); // Missing X-Requested-With
 
       // Act
@@ -345,12 +372,12 @@ describe('SecurityService', () => {
       service.applySecurityMiddleware(
         mockRequest as Request,
         mockResponse as Response,
-        nextFunction
+        nextFunction,
       );
 
       // Assert - Note: We're testing the logging behavior indirectly
       expect(nextFunction).toHaveBeenCalled();
-      
+
       // Cleanup
       consoleSpy.mockRestore();
     });
@@ -369,12 +396,12 @@ describe('SecurityService', () => {
       service.applySecurityMiddleware(
         mockRequest as Request,
         mockResponse as Response,
-        nextFunction
+        nextFunction,
       );
 
       // Assert
       expect(nextFunction).toHaveBeenCalled();
-      
+
       // Cleanup
       consoleSpy.mockRestore();
     });

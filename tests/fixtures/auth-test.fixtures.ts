@@ -4,7 +4,6 @@ import { faker } from '@faker-js/faker';
  * Authentication test fixtures - predefined test data for consistent testing
  */
 export const AuthTestFixtures = {
-  
   /**
    * Valid user credentials for testing
    */
@@ -26,8 +25,11 @@ export const AuthTestFixtures = {
       password: 'AdminPassword789$',
       roles: ['admin', 'user'],
       permissions: [
-        'admin:manage', 'user:read-all', 'user:update-all', 
-        'user:delete', 'system:configure'
+        'admin:manage',
+        'user:read-all',
+        'user:update-all',
+        'user:delete',
+        'system:configure',
       ],
     },
   ],
@@ -63,31 +65,62 @@ export const AuthTestFixtures = {
    */
   passwordValidationCases: [
     // Valid passwords
-    { password: 'ValidPass123!', valid: true, description: 'Strong password with all requirements' },
-    { password: 'AnotherGood@Pass456', valid: true, description: 'Strong password with symbols' },
-    { password: 'MySecure#Password789', valid: true, description: 'Strong password with hash symbol' },
-    
+    {
+      password: 'ValidPass123!',
+      valid: true,
+      description: 'Strong password with all requirements',
+    },
+    {
+      password: 'AnotherGood@Pass456',
+      valid: true,
+      description: 'Strong password with symbols',
+    },
+    {
+      password: 'MySecure#Password789',
+      valid: true,
+      description: 'Strong password with hash symbol',
+    },
+
     // Invalid passwords
     { password: '123', valid: false, description: 'Too short' },
-    { password: 'password', valid: false, description: 'No uppercase, numbers, or symbols' },
-    { password: 'PASSWORD123', valid: false, description: 'No lowercase or symbols' },
-    { password: 'Password', valid: false, description: 'No numbers or symbols' },
+    {
+      password: 'password',
+      valid: false,
+      description: 'No uppercase, numbers, or symbols',
+    },
+    {
+      password: 'PASSWORD123',
+      valid: false,
+      description: 'No lowercase or symbols',
+    },
+    {
+      password: 'Password',
+      valid: false,
+      description: 'No numbers or symbols',
+    },
     { password: 'Password123', valid: false, description: 'No symbols' },
     { password: 'password123!', valid: false, description: 'No uppercase' },
     { password: 'PASSWORD123!', valid: false, description: 'No lowercase' },
     { password: 'Passworddd!', valid: false, description: 'No numbers' },
-    { password: 'a'.repeat(129), valid: false, description: 'Too long (over 128 chars)' },
+    {
+      password: 'a'.repeat(129),
+      valid: false,
+      description: 'Too long (over 128 chars)',
+    },
   ],
 
   /**
    * JWT token test cases
    */
   jwtTokens: {
-    valid: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
-    expired: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj3UFYzPUVaVF43FmMab6RlaQD8A9V8wFzzht-KQ',
+    valid:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+    expired:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE1MTYyMzkwMjJ9.4Adcj3UFYzPUVaVF43FmMab6RlaQD8A9V8wFzzht-KQ',
     malformed: 'invalid.token.here',
     none: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.',
-    tampered: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJyb2xlcyI6WyJhZG1pbiJdfQ.WRONG_SIGNATURE',
+    tampered:
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJyb2xlcyI6WyJhZG1pbiJdfQ.WRONG_SIGNATURE',
   },
 
   /**
@@ -140,7 +173,8 @@ export const AuthTestFixtures = {
       shouldBeBlocked: true,
     },
     {
-      payload: "admin'; UPDATE users SET password='hacked' WHERE email='admin'; --",
+      payload:
+        "admin'; UPDATE users SET password='hacked' WHERE email='admin'; --",
       description: 'Update injection',
       shouldBeBlocked: true,
     },
@@ -331,14 +365,14 @@ export const AuthTestFixtures = {
       concurrentUsers: 50,
       requestsPerUser: 10,
       duration: 60000, // 1 minute
-      expectedSuccessRate: 0.90,
+      expectedSuccessRate: 0.9,
     },
     {
       name: 'heavy_load',
       concurrentUsers: 100,
       requestsPerUser: 20,
       duration: 120000, // 2 minutes
-      expectedSuccessRate: 0.80,
+      expectedSuccessRate: 0.8,
     },
   ],
 
@@ -459,17 +493,35 @@ export const AuthTestFixtures = {
   auditLogScenarios: [
     {
       action: 'LOGIN_SUCCESS',
-      expectedFields: ['userId', 'email', 'ipAddress', 'userAgent', 'timestamp'],
+      expectedFields: [
+        'userId',
+        'email',
+        'ipAddress',
+        'userAgent',
+        'timestamp',
+      ],
       sensitiveFields: [], // No sensitive data should be logged
     },
     {
       action: 'LOGIN_FAILURE',
-      expectedFields: ['email', 'reason', 'ipAddress', 'userAgent', 'timestamp'],
+      expectedFields: [
+        'email',
+        'reason',
+        'ipAddress',
+        'userAgent',
+        'timestamp',
+      ],
       sensitiveFields: ['password'], // Password should never be logged
     },
     {
       action: 'ACCOUNT_LOCKED',
-      expectedFields: ['userId', 'email', 'attempts', 'lockDuration', 'ipAddress'],
+      expectedFields: [
+        'userId',
+        'email',
+        'attempts',
+        'lockDuration',
+        'ipAddress',
+      ],
       sensitiveFields: [],
     },
     {
@@ -484,16 +536,25 @@ export const AuthTestFixtures = {
  * Generate dynamic test data based on patterns
  */
 export class DynamicAuthFixtures {
-  
   /**
    * Generate users with specific patterns
    */
-  static generateUsersWithPattern(pattern: 'valid' | 'invalid' | 'edge-case', count: number = 5) {
+  static generateUsersWithPattern(
+    pattern: 'valid' | 'invalid' | 'edge-case',
+    count: number = 5,
+  ): Array<{
+    email: string;
+    password: string;
+    isActive: boolean;
+    isEmailVerified: boolean;
+    roles: string[];
+    permissions: string[];
+  }> {
     const users = [];
-    
+
     for (let i = 0; i < count; i++) {
       let user;
-      
+
       switch (pattern) {
         case 'valid':
           user = {
@@ -505,7 +566,7 @@ export class DynamicAuthFixtures {
             permissions: ['user:read-own'],
           };
           break;
-          
+
         case 'invalid':
           user = {
             email: faker.random.word(), // Invalid email format
@@ -516,22 +577,25 @@ export class DynamicAuthFixtures {
             permissions: [],
           };
           break;
-          
+
         case 'edge-case':
           user = {
             email: this.generateEdgeCaseEmail(),
             password: this.generateEdgeCasePassword(),
             isActive: true,
             isEmailVerified: true,
-            roles: faker.helpers.arrayElements(['user', 'admin', 'editor'], { min: 0, max: 3 }),
+            roles: faker.helpers.arrayElements(['user', 'admin', 'editor'], {
+              min: 0,
+              max: 3,
+            }),
             permissions: this.generateRandomPermissions(),
           };
           break;
       }
-      
+
       users.push(user);
     }
-    
+
     return users;
   }
 
@@ -542,9 +606,20 @@ export class DynamicAuthFixtures {
     const lowercase = faker.random.alpha({ count: 3, casing: 'lower' });
     const uppercase = faker.random.alpha({ count: 3, casing: 'upper' });
     const numbers = faker.datatype.number({ min: 100, max: 999 }).toString();
-    const symbols = faker.helpers.arrayElement(['!', '@', '#', '$', '%', '^', '&', '*']);
-    
-    return faker.helpers.shuffle([...lowercase, ...uppercase, ...numbers, symbols]).join('');
+    const symbols = faker.helpers.arrayElement([
+      '!',
+      '@',
+      '#',
+      '$',
+      '%',
+      '^',
+      '&',
+      '*',
+    ]);
+
+    return faker.helpers
+      .shuffle([...lowercase, ...uppercase, ...numbers, symbols])
+      .join('');
   }
 
   /**
@@ -559,7 +634,7 @@ export class DynamicAuthFixtures {
       'test123@sub.domain.com',
       'very.long.email.address@very.long.domain.name.com',
     ];
-    
+
     return faker.helpers.arrayElement(edgeCases);
   }
 
@@ -574,7 +649,7 @@ export class DynamicAuthFixtures {
       'Password With Spaces 123!',
       'Password"With\'Quotes123!',
     ];
-    
+
     return faker.helpers.arrayElement(edgeCases);
   }
 
@@ -583,18 +658,44 @@ export class DynamicAuthFixtures {
    */
   static generateRandomPermissions(): string[] {
     const allPermissions = [
-      'user:read-own', 'user:update-own', 'user:read-all', 'user:update-all',
-      'admin:manage', 'content:create', 'content:update', 'content:delete',
-      'system:configure', 'audit:read', 'billing:manage',
+      'user:read-own',
+      'user:update-own',
+      'user:read-all',
+      'user:update-all',
+      'admin:manage',
+      'content:create',
+      'content:update',
+      'content:delete',
+      'system:configure',
+      'audit:read',
+      'billing:manage',
     ];
-    
+
     return faker.helpers.arrayElements(allPermissions, { min: 1, max: 5 });
   }
 
   /**
    * Generate performance test data
    */
-  static generatePerformanceTestData(userCount: number, requestsPerUser: number) {
+  static generatePerformanceTestData(
+    userCount: number,
+    requestsPerUser: number,
+  ): {
+    users: Array<{
+      email: string;
+      password: string;
+      isActive: boolean;
+      isEmailVerified: boolean;
+      roles: string[];
+      permissions: string[];
+    }>;
+    requests: Array<{
+      userId: number;
+      endpoint: string;
+      method: string;
+      timestamp: number;
+    }>;
+  } {
     const testData = {
       users: [],
       requests: [],
@@ -602,7 +703,7 @@ export class DynamicAuthFixtures {
         maxResponseTime: 1000, // 1 second
         averageResponseTime: 200, // 200ms
         successRate: 0.95, // 95%
-        throughput: userCount * requestsPerUser / 60, // requests per second
+        throughput: (userCount * requestsPerUser) / 60, // requests per second
       },
     };
 
@@ -616,7 +717,11 @@ export class DynamicAuthFixtures {
       for (let j = 0; j < requestsPerUser; j++) {
         testData.requests.push({
           userId: i,
-          endpoint: faker.helpers.arrayElement(['/auth/login', '/api/users', '/api/profile']),
+          endpoint: faker.helpers.arrayElement([
+            '/auth/login',
+            '/api/users',
+            '/api/profile',
+          ]),
           method: faker.helpers.arrayElement(['GET', 'POST', 'PUT']),
           timestamp: Date.now() + (i * requestsPerUser + j) * 100, // Spread over time
         });
@@ -641,7 +746,8 @@ export const TestEnvironment = {
   },
   jwt: {
     accessTokenSecret: 'test-access-secret-key-for-unit-testing-purposes-only',
-    refreshTokenSecret: 'test-refresh-secret-key-for-unit-testing-purposes-only',
+    refreshTokenSecret:
+      'test-refresh-secret-key-for-unit-testing-purposes-only',
     accessTokenExpiresIn: '15m',
     refreshTokenExpiresIn: '30d',
   },

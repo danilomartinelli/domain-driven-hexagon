@@ -11,7 +11,7 @@ import { SecurityLogger } from './security-logger.service';
 /**
  * Global security module providing comprehensive security features
  * - Request/response security headers
- * - Rate limiting with IP-based throttling  
+ * - Rate limiting with IP-based throttling
  * - Input sanitization and XSS prevention
  * - Security logging and monitoring
  * - Environment validation
@@ -41,13 +41,13 @@ import { SecurityLogger } from './security-logger.service';
     InputSanitizerService,
     SecurityLogger,
     SecurityMiddleware,
-    
+
     // Global guards
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-    
+
     // Global interceptors for security
     {
       provide: APP_INTERCEPTOR,

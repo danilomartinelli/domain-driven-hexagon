@@ -7,14 +7,25 @@ import {
   Req,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
-import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { match, Result } from 'oxide.ts';
 import { Request } from 'express';
 
 import { LogoutCommand } from './logout.command';
-import { LogoutRequestDto, LogoutResponseDto } from '../../dtos/auth.response.dto';
+import {
+  LogoutRequestDto,
+  LogoutResponseDto,
+} from '../../dtos/auth.response.dto';
 import { ApiErrorResponse } from '@libs/api/api-error.response';
-import { CurrentUser, AuthenticatedUser } from '../../infrastructure/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  AuthenticatedUser,
+} from '../../infrastructure/decorators/current-user.decorator';
 import { AuthenticatedOnly } from '../../infrastructure/decorators/auth.decorator';
 
 @ApiTags('Authentication')
@@ -49,12 +60,16 @@ export class LogoutHttpController {
       userAgent: body.userAgent || req.get('User-Agent'),
     });
 
-    const result: Result<boolean, Error> = await this.commandBus.execute(command);
+    const result: Result<boolean, Error> =
+      await this.commandBus.execute(command);
 
     return match(result, {
       Ok: (success: boolean) => {
         if (body.logoutAllDevices) {
-          return new LogoutResponseDto(success, 'Successfully logged out from all devices');
+          return new LogoutResponseDto(
+            success,
+            'Successfully logged out from all devices',
+          );
         }
         return new LogoutResponseDto(success, 'Successfully logged out');
       },

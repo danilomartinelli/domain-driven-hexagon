@@ -7,7 +7,6 @@ import {
   DatabaseSslConfig,
   DatabaseConfigurationResult,
   DEFAULT_DATABASE_CONFIG_CONSTRAINTS,
-  DatabaseSslMode,
 } from './database-config.types';
 import { DatabaseConfigProfiles } from './database-config-profiles';
 
@@ -28,7 +27,7 @@ export class DatabaseConfigValidationError extends Error {
 
 /**
  * Advanced database configuration builder with validation chain pattern
- * 
+ *
  * Features:
  * - Environment variable validation with Zod schemas
  * - Type-safe configuration profiles
@@ -45,10 +44,13 @@ export class DatabaseConfigurationBuilder {
    * Build complete database configuration from environment variables
    * with profile defaults and validation
    */
-  build(environmentOverrides: Partial<DatabaseEnvironmentVariables> = {}): DatabaseConfigurationResult {
+  build(
+    environmentOverrides: Partial<DatabaseEnvironmentVariables> = {},
+  ): DatabaseConfigurationResult {
     try {
       // Step 1: Load and validate environment variables
-      const envVars = this.loadAndValidateEnvironmentVariables(environmentOverrides);
+      const envVars =
+        this.loadAndValidateEnvironmentVariables(environmentOverrides);
 
       // Step 2: Determine environment and get profile
       const environment = this.determineEnvironment(envVars);
@@ -58,7 +60,10 @@ export class DatabaseConfigurationBuilder {
       const connectionConfig = this.buildConnectionConfig(envVars);
 
       // Step 4: Merge profile with environment overrides
-      const mergedConfig = this.mergeConfigWithEnvironmentOverrides(profileConfig, envVars);
+      const mergedConfig = this.mergeConfigWithEnvironmentOverrides(
+        profileConfig,
+        envVars,
+      );
 
       // Step 5: Create complete configuration
       const completeConfig: DatabaseConfiguration = {
@@ -71,14 +76,19 @@ export class DatabaseConfigurationBuilder {
       this.validateCompleteConfiguration(completeConfig);
 
       // Step 7: Add profile validation warnings
-      const profileWarnings = DatabaseConfigProfiles.validateProfile(environment, mergedConfig);
+      const profileWarnings = DatabaseConfigProfiles.validateProfile(
+        environment,
+        mergedConfig,
+      );
       this.warnings.push(...profileWarnings);
 
       return {
         config: completeConfig,
         warnings: [...this.warnings],
         environment,
-        source: this.hasEnvironmentOverrides(envVars) ? 'environment' : 'profile',
+        source: this.hasEnvironmentOverrides(envVars)
+          ? 'environment'
+          : 'profile',
       };
     } catch (error) {
       if (error instanceof DatabaseConfigValidationError) {
@@ -106,7 +116,8 @@ export class DatabaseConfigurationBuilder {
       };
 
       // Parse and validate with Zod schema
-      const validatedEnvVars = DatabaseEnvironmentVariablesSchema.parse(rawEnvVars);
+      const validatedEnvVars =
+        DatabaseEnvironmentVariablesSchema.parse(rawEnvVars);
 
       return validatedEnvVars;
     } catch (error) {
@@ -131,34 +142,50 @@ export class DatabaseConfigurationBuilder {
   /**
    * Determine the current environment with fallback logic
    */
-  private determineEnvironment(envVars: DatabaseEnvironmentVariables): DatabaseEnvironment {
+  private determineEnvironment(
+    envVars: DatabaseEnvironmentVariables,
+  ): DatabaseEnvironment {
     // Check explicit NODE_ENV first
-    if (envVars.NODE_ENV && Object.values(DatabaseEnvironment).includes(envVars.NODE_ENV)) {
+    if (
+      envVars.NODE_ENV &&
+      Object.values(DatabaseEnvironment).includes(envVars.NODE_ENV)
+    ) {
       return envVars.NODE_ENV;
     }
 
     // Fallback detection based on environment characteristics
     if (process.env.CI === 'true' || process.env.NODE_ENV?.includes('test')) {
-      this.warnings.push('Environment detected as TEST based on CI/test indicators');
+      this.warnings.push(
+        'Environment detected as TEST based on CI/test indicators',
+      );
       return DatabaseEnvironment.TEST;
     }
 
     if (process.env.NODE_ENV === 'production' || process.env.PROD === 'true') {
-      this.warnings.push('Environment detected as PRODUCTION based on production indicators');
+      this.warnings.push(
+        'Environment detected as PRODUCTION based on production indicators',
+      );
       return DatabaseEnvironment.PRODUCTION;
     }
 
     // Default to development
-    this.warnings.push('Environment defaulted to DEVELOPMENT - set NODE_ENV explicitly');
+    this.warnings.push(
+      'Environment defaulted to DEVELOPMENT - set NODE_ENV explicitly',
+    );
     return DatabaseEnvironment.DEVELOPMENT;
   }
 
   /**
    * Build connection configuration from validated environment variables
    */
-  private buildConnectionConfig(envVars: DatabaseEnvironmentVariables): DatabaseConnectionConfig {
+  private buildConnectionConfig(
+    envVars: DatabaseEnvironmentVariables,
+  ): DatabaseConnectionConfig {
     // Validate port range
-    if (envVars.DB_PORT < this.constraints.minPort || envVars.DB_PORT > this.constraints.maxPort) {
+    if (
+      envVars.DB_PORT < this.constraints.minPort ||
+      envVars.DB_PORT > this.constraints.maxPort
+    ) {
       throw new DatabaseConfigValidationError(
         `Database port must be between ${this.constraints.minPort} and ${this.constraints.maxPort}`,
         'DB_PORT',
@@ -183,9 +210,12 @@ export class DatabaseConfigurationBuilder {
   /**
    * Build SSL configuration with environment-specific defaults
    */
-  private buildSslConfig(envVars: DatabaseEnvironmentVariables): DatabaseSslConfig | undefined {
+  private buildSslConfig(
+    envVars: DatabaseEnvironmentVariables,
+  ): DatabaseSslConfig | undefined {
     const environment = this.determineEnvironment(envVars);
-    const recommendedSsl = DatabaseConfigProfiles.getRecommendedSslConfig(environment);
+    const recommendedSsl =
+      DatabaseConfigProfiles.getRecommendedSslConfig(environment);
 
     // Use environment variables if provided, otherwise use recommended defaults
     const sslEnabled = envVars.DB_SSL ?? recommendedSsl.enabled;
@@ -198,7 +228,8 @@ export class DatabaseConfigurationBuilder {
     const sslConfig: DatabaseSslConfig = {
       enabled: true,
       mode: envVars.DB_SSL_MODE ?? recommendedSsl.mode,
-      rejectUnauthorized: envVars.DB_SSL_REJECT_UNAUTHORIZED ?? recommendedSsl.rejectUnauthorized,
+      rejectUnauthorized:
+        envVars.DB_SSL_REJECT_UNAUTHORIZED ?? recommendedSsl.rejectUnauthorized,
       ...(envVars.DB_SSL_CA && { ca: envVars.DB_SSL_CA }),
       ...(envVars.DB_SSL_CERT && { cert: envVars.DB_SSL_CERT }),
       ...(envVars.DB_SSL_KEY && { key: envVars.DB_SSL_KEY }),
@@ -219,49 +250,77 @@ export class DatabaseConfigurationBuilder {
 
       pool: {
         ...profileConfig.pool,
-        ...(envVars.DB_MAX_POOL_SIZE && { maximumPoolSize: envVars.DB_MAX_POOL_SIZE }),
-        ...(envVars.DB_MIN_POOL_SIZE && { minimumPoolSize: envVars.DB_MIN_POOL_SIZE }),
-        ...(envVars.DB_ACQUIRE_TIMEOUT && { acquireTimeoutMillis: envVars.DB_ACQUIRE_TIMEOUT }),
-        ...(envVars.DB_CREATE_TIMEOUT && { createTimeoutMillis: envVars.DB_CREATE_TIMEOUT }),
-        ...(envVars.DB_DESTROY_TIMEOUT && { destroyTimeoutMillis: envVars.DB_DESTROY_TIMEOUT }),
-        ...(envVars.DB_IDLE_TIMEOUT && { idleTimeoutMillis: envVars.DB_IDLE_TIMEOUT }),
+        ...(envVars.DB_MAX_POOL_SIZE && {
+          maximumPoolSize: envVars.DB_MAX_POOL_SIZE,
+        }),
+        ...(envVars.DB_MIN_POOL_SIZE && {
+          minimumPoolSize: envVars.DB_MIN_POOL_SIZE,
+        }),
+        ...(envVars.DB_ACQUIRE_TIMEOUT && {
+          acquireTimeoutMillis: envVars.DB_ACQUIRE_TIMEOUT,
+        }),
+        ...(envVars.DB_CREATE_TIMEOUT && {
+          createTimeoutMillis: envVars.DB_CREATE_TIMEOUT,
+        }),
+        ...(envVars.DB_DESTROY_TIMEOUT && {
+          destroyTimeoutMillis: envVars.DB_DESTROY_TIMEOUT,
+        }),
+        ...(envVars.DB_IDLE_TIMEOUT && {
+          idleTimeoutMillis: envVars.DB_IDLE_TIMEOUT,
+        }),
       },
 
       timeouts: {
         ...profileConfig.timeouts,
-        ...(envVars.DB_CONNECTION_TIMEOUT && { connectionTimeoutMillis: envVars.DB_CONNECTION_TIMEOUT }),
-        ...(envVars.DB_STATEMENT_TIMEOUT && { statementTimeoutMillis: envVars.DB_STATEMENT_TIMEOUT }),
-        ...(envVars.DB_QUERY_TIMEOUT && { queryTimeoutMillis: envVars.DB_QUERY_TIMEOUT }),
+        ...(envVars.DB_CONNECTION_TIMEOUT && {
+          connectionTimeoutMillis: envVars.DB_CONNECTION_TIMEOUT,
+        }),
+        ...(envVars.DB_STATEMENT_TIMEOUT && {
+          statementTimeoutMillis: envVars.DB_STATEMENT_TIMEOUT,
+        }),
+        ...(envVars.DB_QUERY_TIMEOUT && {
+          queryTimeoutMillis: envVars.DB_QUERY_TIMEOUT,
+        }),
       },
 
       healthCheck: {
         ...profileConfig.healthCheck,
-        ...(envVars.DB_HEALTH_CHECK_INTERVAL && { intervalMs: envVars.DB_HEALTH_CHECK_INTERVAL }),
-        ...(envVars.DB_HEALTH_CHECK_TIMEOUT && { timeoutMs: envVars.DB_HEALTH_CHECK_TIMEOUT }),
-        ...(envVars.DB_HEALTH_CHECK_RETRIES && { retries: envVars.DB_HEALTH_CHECK_RETRIES }),
+        ...(envVars.DB_HEALTH_CHECK_INTERVAL && {
+          intervalMs: envVars.DB_HEALTH_CHECK_INTERVAL,
+        }),
+        ...(envVars.DB_HEALTH_CHECK_TIMEOUT && {
+          timeoutMs: envVars.DB_HEALTH_CHECK_TIMEOUT,
+        }),
+        ...(envVars.DB_HEALTH_CHECK_RETRIES && {
+          retries: envVars.DB_HEALTH_CHECK_RETRIES,
+        }),
       },
 
       logging: {
         ...profileConfig.logging,
         ...(envVars.DB_LOG_LEVEL && { level: envVars.DB_LOG_LEVEL }),
-        ...(envVars.DB_ENABLE_QUERY_LOGGING !== undefined && { 
-          enableQueryLogging: envVars.DB_ENABLE_QUERY_LOGGING 
+        ...(envVars.DB_ENABLE_QUERY_LOGGING !== undefined && {
+          enableQueryLogging: envVars.DB_ENABLE_QUERY_LOGGING,
         }),
       },
 
       migration: {
         ...profileConfig.migration,
-        ...(envVars.DB_MIGRATION_TABLE && { tableName: envVars.DB_MIGRATION_TABLE }),
-        ...(envVars.DB_MIGRATIONS_PATH && { migrationsPath: envVars.DB_MIGRATIONS_PATH }),
+        ...(envVars.DB_MIGRATION_TABLE && {
+          tableName: envVars.DB_MIGRATION_TABLE,
+        }),
+        ...(envVars.DB_MIGRATIONS_PATH && {
+          migrationsPath: envVars.DB_MIGRATIONS_PATH,
+        }),
       },
 
       monitoring: {
         ...profileConfig.monitoring,
-        ...(envVars.DB_ENABLE_POOL_MONITORING !== undefined && { 
-          enabled: envVars.DB_ENABLE_POOL_MONITORING 
+        ...(envVars.DB_ENABLE_POOL_MONITORING !== undefined && {
+          enabled: envVars.DB_ENABLE_POOL_MONITORING,
         }),
-        ...(envVars.DB_POOL_MONITORING_INTERVAL && { 
-          poolMonitoringIntervalMs: envVars.DB_POOL_MONITORING_INTERVAL 
+        ...(envVars.DB_POOL_MONITORING_INTERVAL && {
+          poolMonitoringIntervalMs: envVars.DB_POOL_MONITORING_INTERVAL,
         }),
       },
 
@@ -314,12 +373,19 @@ export class DatabaseConfigurationBuilder {
     }
 
     // Performance warnings
-    if (pool.maximumPoolSize > 20 && config.environment !== DatabaseEnvironment.PRODUCTION) {
-      this.warnings.push(`Large pool size (${pool.maximumPoolSize}) may be unnecessary for ${config.environment}`);
+    if (
+      pool.maximumPoolSize > 20 &&
+      config.environment !== DatabaseEnvironment.PRODUCTION
+    ) {
+      this.warnings.push(
+        `Large pool size (${pool.maximumPoolSize}) may be unnecessary for ${config.environment}`,
+      );
     }
 
     if (pool.idleTimeoutMillis < 60000) {
-      this.warnings.push('Short idle timeout may cause frequent connection cycling');
+      this.warnings.push(
+        'Short idle timeout may cause frequent connection cycling',
+      );
     }
   }
 
@@ -330,8 +396,14 @@ export class DatabaseConfigurationBuilder {
     const { timeouts } = config;
 
     const timeoutFields = [
-      { name: 'connectionTimeoutMillis', value: timeouts.connectionTimeoutMillis },
-      { name: 'statementTimeoutMillis', value: timeouts.statementTimeoutMillis },
+      {
+        name: 'connectionTimeoutMillis',
+        value: timeouts.connectionTimeoutMillis,
+      },
+      {
+        name: 'statementTimeoutMillis',
+        value: timeouts.statementTimeoutMillis,
+      },
       { name: 'queryTimeoutMillis', value: timeouts.queryTimeoutMillis },
     ];
 
@@ -357,14 +429,18 @@ export class DatabaseConfigurationBuilder {
 
     // Logical relationship validation
     if (timeouts.queryTimeoutMillis > timeouts.statementTimeoutMillis) {
-      this.warnings.push('Query timeout should typically be less than statement timeout');
+      this.warnings.push(
+        'Query timeout should typically be less than statement timeout',
+      );
     }
   }
 
   /**
    * Validate health check configuration
    */
-  private validateHealthCheckConfiguration(config: DatabaseConfiguration): void {
+  private validateHealthCheckConfiguration(
+    config: DatabaseConfiguration,
+  ): void {
     const { healthCheck } = config;
 
     if (healthCheck.intervalMs < this.constraints.minHealthCheckInterval) {
@@ -405,13 +481,20 @@ export class DatabaseConfigurationBuilder {
         this.warnings.push('SSL is recommended for production environments');
       }
 
-      if (config.connection.ssl?.enabled && !config.connection.ssl.rejectUnauthorized) {
-        this.warnings.push('SSL certificate validation should be enabled in production');
+      if (
+        config.connection.ssl?.enabled &&
+        !config.connection.ssl.rejectUnauthorized
+      ) {
+        this.warnings.push(
+          'SSL certificate validation should be enabled in production',
+        );
       }
 
       // Logging validation
       if (config.logging.enableQueryLogging) {
-        this.warnings.push('Query logging may expose sensitive data in production');
+        this.warnings.push(
+          'Query logging may expose sensitive data in production',
+        );
       }
     }
   }
@@ -419,26 +502,40 @@ export class DatabaseConfigurationBuilder {
   /**
    * Validate performance configuration and add optimization suggestions
    */
-  private validatePerformanceConfiguration(config: DatabaseConfiguration): void {
+  private validatePerformanceConfiguration(
+    config: DatabaseConfiguration,
+  ): void {
     // Pool size recommendations
     const poolSize = config.pool.maximumPoolSize;
     const environment = config.environment;
 
     if (environment === DatabaseEnvironment.PRODUCTION && poolSize < 10) {
-      this.warnings.push('Consider increasing pool size for production workloads');
+      this.warnings.push(
+        'Consider increasing pool size for production workloads',
+      );
     }
 
     if (environment === DatabaseEnvironment.TEST && poolSize > 10) {
-      this.warnings.push('Consider reducing pool size for test environments to save resources');
+      this.warnings.push(
+        'Consider reducing pool size for test environments to save resources',
+      );
     }
 
     // Timeout recommendations
-    if (config.timeouts.queryTimeoutMillis < 5000 && environment === DatabaseEnvironment.PRODUCTION) {
-      this.warnings.push('Very short query timeout may cause premature query cancellation in production');
+    if (
+      config.timeouts.queryTimeoutMillis < 5000 &&
+      environment === DatabaseEnvironment.PRODUCTION
+    ) {
+      this.warnings.push(
+        'Very short query timeout may cause premature query cancellation in production',
+      );
     }
 
     // Monitoring recommendations
-    if (!config.monitoring.enabled && environment === DatabaseEnvironment.PRODUCTION) {
+    if (
+      !config.monitoring.enabled &&
+      environment === DatabaseEnvironment.PRODUCTION
+    ) {
       this.warnings.push('Enable monitoring for production environments');
     }
   }
@@ -446,20 +543,32 @@ export class DatabaseConfigurationBuilder {
   /**
    * Check if environment variables contain any overrides
    */
-  private hasEnvironmentOverrides(envVars: DatabaseEnvironmentVariables): boolean {
+  private hasEnvironmentOverrides(
+    envVars: DatabaseEnvironmentVariables,
+  ): boolean {
     const overrideFields = [
-      'DB_MAX_POOL_SIZE', 'DB_MIN_POOL_SIZE', 'DB_CONNECTION_TIMEOUT',
-      'DB_STATEMENT_TIMEOUT', 'DB_QUERY_TIMEOUT', 'DB_LOG_LEVEL',
-      'DB_ENABLE_QUERY_LOGGING', 'DB_HEALTH_CHECK_INTERVAL',
+      'DB_MAX_POOL_SIZE',
+      'DB_MIN_POOL_SIZE',
+      'DB_CONNECTION_TIMEOUT',
+      'DB_STATEMENT_TIMEOUT',
+      'DB_QUERY_TIMEOUT',
+      'DB_LOG_LEVEL',
+      'DB_ENABLE_QUERY_LOGGING',
+      'DB_HEALTH_CHECK_INTERVAL',
     ];
 
-    return overrideFields.some(field => envVars[field as keyof DatabaseEnvironmentVariables] !== undefined);
+    return overrideFields.some(
+      (field) =>
+        envVars[field as keyof DatabaseEnvironmentVariables] !== undefined,
+    );
   }
 
   /**
    * Create a configuration builder with custom constraints
    */
-  static withConstraints(constraints: Partial<typeof DEFAULT_DATABASE_CONFIG_CONSTRAINTS>) {
+  static withConstraints(
+    constraints: Partial<typeof DEFAULT_DATABASE_CONFIG_CONSTRAINTS>,
+  ): DatabaseConfigurationBuilder {
     const builder = new DatabaseConfigurationBuilder();
     Object.assign(builder.constraints, constraints);
     return builder;

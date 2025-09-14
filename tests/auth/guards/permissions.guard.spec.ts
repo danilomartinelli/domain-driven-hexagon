@@ -70,7 +70,7 @@ describe('PermissionsGuard', () => {
       expect(result).toBe(true);
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(
         PERMISSIONS_METADATA_KEY,
-        [mockContext.getHandler(), mockContext.getClass()]
+        [mockContext.getHandler(), mockContext.getClass()],
       );
     });
 
@@ -88,7 +88,10 @@ describe('PermissionsGuard', () => {
 
     it('should allow access when user has required permission (any mode)', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['user:read-own', 'admin:manage'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own', 'admin:manage'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -100,7 +103,10 @@ describe('PermissionsGuard', () => {
 
     it('should allow access when user has all required permissions (all mode)', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['user:read-own', 'post:create'], requireAll: true };
+      const permissionsConfig = {
+        permissions: ['user:read-own', 'post:create'],
+        requireAll: true,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -112,43 +118,57 @@ describe('PermissionsGuard', () => {
 
     it('should deny access when user lacks required permission (any mode)', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['admin:manage', 'super:admin'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['admin:manage', 'super:admin'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required permissions: admin:manage OR super:admin'
+        'Access denied. Required permissions: admin:manage OR super:admin',
       );
     });
 
     it('should deny access when user lacks some required permissions (all mode)', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['user:read-own', 'admin:manage'], requireAll: true };
+      const permissionsConfig = {
+        permissions: ['user:read-own', 'admin:manage'],
+        requireAll: true,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required permissions: user:read-own, admin:manage'
+        'Access denied. Required permissions: user:read-own, admin:manage',
       );
     });
 
     it('should throw ForbiddenException when user is not authenticated', () => {
       // Arrange
       mockRequest.user = undefined;
-      const permissionsConfig = { permissions: ['user:read-own'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
-      expect(() => guard.canActivate(mockContext)).toThrow('User not authenticated');
+      expect(() => guard.canActivate(mockContext)).toThrow(
+        'User not authenticated',
+      );
     });
 
     it('should handle user with empty permissions array', () => {
       // Arrange
       mockRequest.user = { ...mockRequest.user, permissions: [] };
-      const permissionsConfig = { permissions: ['user:read-own'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -158,7 +178,10 @@ describe('PermissionsGuard', () => {
     it('should handle user with undefined permissions', () => {
       // Arrange
       mockRequest.user = { ...mockRequest.user, permissions: undefined };
-      const permissionsConfig = { permissions: ['user:read-own'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -168,7 +191,10 @@ describe('PermissionsGuard', () => {
     it('should handle user with null permissions', () => {
       // Arrange
       mockRequest.user = { ...mockRequest.user, permissions: null as any };
-      const permissionsConfig = { permissions: ['user:read-own'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -177,7 +203,9 @@ describe('PermissionsGuard', () => {
 
     it('should default to requireAll: false when not specified', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['user:read-own', 'admin:manage'] }; // requireAll not specified
+      const permissionsConfig = {
+        permissions: ['user:read-own', 'admin:manage'],
+      }; // requireAll not specified
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -189,7 +217,10 @@ describe('PermissionsGuard', () => {
 
     it('should handle case-sensitive permission matching', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['User:Read-Own'], requireAll: false }; // Different case
+      const permissionsConfig = {
+        permissions: ['User:Read-Own'],
+        requireAll: false,
+      }; // Different case
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -200,7 +231,10 @@ describe('PermissionsGuard', () => {
   describe('permission configuration variations', () => {
     it('should handle single permission requirement', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['post:create'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['post:create'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -212,8 +246,16 @@ describe('PermissionsGuard', () => {
 
     it('should handle multiple permissions with requireAll: true', () => {
       // Arrange
-      mockRequest.user.permissions = ['user:read-own', 'user:update-own', 'post:create', 'post:update'];
-      const permissionsConfig = { permissions: ['user:read-own', 'post:create'], requireAll: true };
+      mockRequest.user.permissions = [
+        'user:read-own',
+        'user:update-own',
+        'post:create',
+        'post:update',
+      ];
+      const permissionsConfig = {
+        permissions: ['user:read-own', 'post:create'],
+        requireAll: true,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -225,8 +267,15 @@ describe('PermissionsGuard', () => {
 
     it('should handle hierarchical permission patterns', () => {
       // Arrange
-      mockRequest.user.permissions = ['organization:read', 'team:manage', 'user:read-own'];
-      const permissionsConfig = { permissions: ['organization:read', 'company:admin'], requireAll: false };
+      mockRequest.user.permissions = [
+        'organization:read',
+        'team:manage',
+        'user:read-own',
+      ];
+      const permissionsConfig = {
+        permissions: ['organization:read', 'company:admin'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -238,8 +287,15 @@ describe('PermissionsGuard', () => {
 
     it('should handle CRUD permission patterns', () => {
       // Arrange
-      mockRequest.user.permissions = ['post:create', 'post:read', 'post:update'];
-      const permissionsConfig = { permissions: ['post:delete', 'post:read'], requireAll: false };
+      mockRequest.user.permissions = [
+        'post:create',
+        'post:read',
+        'post:update',
+      ];
+      const permissionsConfig = {
+        permissions: ['post:delete', 'post:read'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -253,7 +309,10 @@ describe('PermissionsGuard', () => {
   describe('metadata handling', () => {
     it('should retrieve metadata from both handler and class', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['user:read-own'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -262,7 +321,7 @@ describe('PermissionsGuard', () => {
       // Assert
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(
         PERMISSIONS_METADATA_KEY,
-        [mockContext.getHandler(), mockContext.getClass()]
+        [mockContext.getHandler(), mockContext.getClass()],
       );
     });
 
@@ -291,40 +350,43 @@ describe('PermissionsGuard', () => {
   describe('error messages', () => {
     it('should provide clear error message for single permission requirement', () => {
       // Arrange
-      const permissionsConfig = { permissions: ['admin:manage'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['admin:manage'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required permissions: admin:manage'
+        'Access denied. Required permissions: admin:manage',
       );
     });
 
     it('should provide clear error message for multiple permission requirements (any mode)', () => {
       // Arrange
-      const permissionsConfig = { 
-        permissions: ['admin:manage', 'super:admin', 'system:control'], 
-        requireAll: false 
+      const permissionsConfig = {
+        permissions: ['admin:manage', 'super:admin', 'system:control'],
+        requireAll: false,
       };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required permissions: admin:manage OR super:admin OR system:control'
+        'Access denied. Required permissions: admin:manage OR super:admin OR system:control',
       );
     });
 
     it('should provide clear error message for multiple permission requirements (all mode)', () => {
       // Arrange
-      const permissionsConfig = { 
-        permissions: ['admin:manage', 'audit:access'], 
-        requireAll: true 
+      const permissionsConfig = {
+        permissions: ['admin:manage', 'audit:access'],
+        requireAll: true,
       };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
       expect(() => guard.canActivate(mockContext)).toThrow(
-        'Access denied. Required permissions: admin:manage, audit:access'
+        'Access denied. Required permissions: admin:manage, audit:access',
       );
     });
   });
@@ -336,9 +398,12 @@ describe('PermissionsGuard', () => {
         'user:123:read',
         'user:123:update',
         'post:456:read',
-        'organization:789:manage'
+        'organization:789:manage',
       ];
-      const permissionsConfig = { permissions: ['user:123:update'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:123:update'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -350,8 +415,15 @@ describe('PermissionsGuard', () => {
 
     it('should handle wildcard-style permissions', () => {
       // Arrange
-      mockRequest.user.permissions = ['user:*:read', 'post:own:*', 'admin:system:config'];
-      const permissionsConfig = { permissions: ['user:*:read', 'admin:users:manage'], requireAll: false };
+      mockRequest.user.permissions = [
+        'user:*:read',
+        'post:own:*',
+        'admin:system:config',
+      ];
+      const permissionsConfig = {
+        permissions: ['user:*:read', 'admin:users:manage'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -367,11 +439,11 @@ describe('PermissionsGuard', () => {
         'document:own:read',
         'document:team:read',
         'document:own:write',
-        'comment:any:create'
+        'comment:any:create',
       ];
-      const permissionsConfig = { 
-        permissions: ['document:team:write', 'document:own:write'], 
-        requireAll: false 
+      const permissionsConfig = {
+        permissions: ['document:team:write', 'document:own:write'],
+        requireAll: false,
       };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
@@ -387,7 +459,10 @@ describe('PermissionsGuard', () => {
     it('should handle empty user object', () => {
       // Arrange
       mockRequest.user = {} as JwtPayload;
-      const permissionsConfig = { permissions: ['user:read-own'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -400,7 +475,10 @@ describe('PermissionsGuard', () => {
         getRequest: jest.fn().mockReturnValue(null),
         getResponse: jest.fn(),
       });
-      const permissionsConfig = { permissions: ['user:read-own'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['user:read-own'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -435,7 +513,10 @@ describe('PermissionsGuard', () => {
       // Arrange
       const longPermission = 'very:long:permission:'.repeat(100) + 'read';
       mockRequest.user.permissions = [longPermission];
-      const permissionsConfig = { permissions: [longPermission], requireAll: false };
+      const permissionsConfig = {
+        permissions: [longPermission],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -449,11 +530,20 @@ describe('PermissionsGuard', () => {
   describe('performance considerations', () => {
     it('should efficiently handle large permission arrays', () => {
       // Arrange
-      const manyPermissions = Array.from({ length: 1000 }, (_, i) => `resource:${i}:read`);
-      mockRequest.user.permissions = [...manyPermissions, 'target:permission:access'];
-      const permissionsConfig = { permissions: ['target:permission:access'], requireAll: false };
+      const manyPermissions = Array.from(
+        { length: 1000 },
+        (_, i) => `resource:${i}:read`,
+      );
+      mockRequest.user.permissions = [
+        ...manyPermissions,
+        'target:permission:access',
+      ];
+      const permissionsConfig = {
+        permissions: ['target:permission:access'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
-      
+
       const startTime = Date.now();
 
       // Act
@@ -468,11 +558,17 @@ describe('PermissionsGuard', () => {
 
     it('should efficiently handle many required permissions with requireAll: true', () => {
       // Arrange
-      const manyPermissions = Array.from({ length: 100 }, (_, i) => `permission:${i}:access`);
+      const manyPermissions = Array.from(
+        { length: 100 },
+        (_, i) => `permission:${i}:access`,
+      );
       mockRequest.user.permissions = manyPermissions;
-      const permissionsConfig = { permissions: manyPermissions, requireAll: true };
+      const permissionsConfig = {
+        permissions: manyPermissions,
+        requireAll: true,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
-      
+
       const startTime = Date.now();
 
       // Act
@@ -490,7 +586,10 @@ describe('PermissionsGuard', () => {
     it('should not expose user information in error messages', () => {
       // Arrange
       mockRequest.user.permissions = ['user:read-own'];
-      const permissionsConfig = { permissions: ['admin:manage'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['admin:manage'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -514,8 +613,11 @@ describe('PermissionsGuard', () => {
         roles: ['user', 'admin'], // Even if user has admin role, permissions should be checked
       };
       mockRequest.user = maliciousUser;
-      
-      const permissionsConfig = { permissions: ['admin:manage'], requireAll: false };
+
+      const permissionsConfig = {
+        permissions: ['admin:manage'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act & Assert
@@ -547,13 +649,16 @@ describe('PermissionsGuard', () => {
         'resource:action',
         'resource:id:action',
         'namespace:resource:id:action',
-        'very:deeply:nested:resource:specific:action'
+        'very:deeply:nested:resource:specific:action',
       ];
-      
+
       mockRequest.user.permissions = permissionFormats;
-      
-      permissionFormats.forEach(permission => {
-        const permissionsConfig = { permissions: [permission], requireAll: false };
+
+      permissionFormats.forEach((permission) => {
+        const permissionsConfig = {
+          permissions: [permission],
+          requireAll: false,
+        };
         reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
         // Act
@@ -573,9 +678,12 @@ describe('PermissionsGuard', () => {
         'profile:own:update',
         'posts:own:create',
         'posts:own:update',
-        'comments:any:create'
+        'comments:any:create',
       ];
-      const permissionsConfig = { permissions: ['profile:own:update'], requireAll: false };
+      const permissionsConfig = {
+        permissions: ['profile:own:update'],
+        requireAll: false,
+      };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
       // Act
@@ -592,11 +700,11 @@ describe('PermissionsGuard', () => {
         'users:admin:read',
         'users:admin:update',
         'system:admin:configure',
-        'reports:admin:generate'
+        'reports:admin:generate',
       ];
-      const permissionsConfig = { 
-        permissions: ['dashboard:admin:view', 'users:admin:read'], 
-        requireAll: true 
+      const permissionsConfig = {
+        permissions: ['dashboard:admin:view', 'users:admin:read'],
+        requireAll: true,
       };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
@@ -613,11 +721,11 @@ describe('PermissionsGuard', () => {
         'tenant:org-123:admin',
         'tenant:org-123:billing:manage',
         'tenant:org-456:member',
-        'global:support:access'
+        'global:support:access',
       ];
-      const permissionsConfig = { 
-        permissions: ['tenant:org-123:billing:manage', 'tenant:org-789:admin'], 
-        requireAll: false 
+      const permissionsConfig = {
+        permissions: ['tenant:org-123:billing:manage', 'tenant:org-789:admin'],
+        requireAll: false,
       };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 
@@ -634,11 +742,11 @@ describe('PermissionsGuard', () => {
         'api:users:get',
         'api:users:post',
         'api:posts:get',
-        'api:comments:get'
+        'api:comments:get',
       ];
-      const permissionsConfig = { 
-        permissions: ['api:users:put', 'api:users:post'], 
-        requireAll: false 
+      const permissionsConfig = {
+        permissions: ['api:users:put', 'api:users:post'],
+        requireAll: false,
       };
       reflector.getAllAndOverride.mockReturnValue(permissionsConfig);
 

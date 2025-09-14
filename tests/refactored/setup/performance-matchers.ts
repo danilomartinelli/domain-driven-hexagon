@@ -4,12 +4,16 @@
  */
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace jest {
     interface Matchers<R> {
       toBeWithinPerformanceThreshold(threshold: number, unit?: 'ms' | 'μs'): R;
       toHaveMemoryUsageLessThan(limitMB: number): R;
       toHaveCacheHitRateAbove(rate: number): R;
-      toShowPerformanceImprovement(baseline: number, minimumImprovement: number): R;
+      toShowPerformanceImprovement(
+        baseline: number,
+        minimumImprovement: number,
+      ): R;
       toCompleteWithinTimeLimit(timeLimit: number): R;
     }
   }
@@ -19,7 +23,11 @@ expect.extend({
   /**
    * Assert that a performance measurement is within acceptable threshold
    */
-  toBeWithinPerformanceThreshold(received: number, threshold: number, unit = 'ms') {
+  toBeWithinPerformanceThreshold(
+    received: number,
+    threshold: number,
+    unit = 'ms',
+  ) {
     const unitMultiplier = unit === 'μs' ? 1000 : 1;
     const adjustedThreshold = threshold * unitMultiplier;
     const adjustedReceived = received * (unit === 'μs' ? 1000 : 1);
@@ -27,7 +35,7 @@ expect.extend({
     const pass = adjustedReceived <= adjustedThreshold;
 
     return {
-      message: () => 
+      message: () =>
         pass
           ? `Expected performance ${adjustedReceived}${unit} to exceed threshold ${adjustedThreshold}${unit}`
           : `Expected performance ${adjustedReceived}${unit} to be within threshold ${adjustedThreshold}${unit}`,
@@ -69,7 +77,11 @@ expect.extend({
   /**
    * Assert that performance shows improvement over baseline
    */
-  toShowPerformanceImprovement(received: number, baseline: number, minimumImprovement: number) {
+  toShowPerformanceImprovement(
+    received: number,
+    baseline: number,
+    minimumImprovement: number,
+  ) {
     const actualImprovement = ((baseline - received) / baseline) * 100;
     const pass = actualImprovement >= minimumImprovement;
 
@@ -103,15 +115,20 @@ export const performanceMatchers = {
   /**
    * Create a performance benchmark baseline
    */
-  createBaseline(name: string, value: number, unit = 'ms') {
-    (global as any).__performanceBaselines = (global as any).__performanceBaselines || {};
-    (global as any).__performanceBaselines[name] = { value, unit, timestamp: Date.now() };
+  createBaseline(name: string, value: number, unit = 'ms'): void {
+    (global as any).__performanceBaselines =
+      (global as any).__performanceBaselines || {};
+    (global as any).__performanceBaselines[name] = {
+      value,
+      unit,
+      timestamp: Date.now(),
+    };
   },
 
   /**
    * Get a performance baseline
    */
-  getBaseline(name: string) {
+  getBaseline(name: string): any {
     const baselines = (global as any).__performanceBaselines || {};
     return baselines[name];
   },
@@ -119,20 +136,33 @@ export const performanceMatchers = {
   /**
    * Assert against stored baseline
    */
-  expectToImproveBaseline(currentValue: number, baselineName: string, minimumImprovement: number) {
+  expectToImproveBaseline(
+    currentValue: number,
+    baselineName: string,
+    minimumImprovement: number,
+  ): void {
     const baseline = this.getBaseline(baselineName);
     if (!baseline) {
       throw new Error(`Performance baseline "${baselineName}" not found`);
     }
 
-    expect(currentValue).toShowPerformanceImprovement(baseline.value, minimumImprovement);
+    expect(currentValue).toShowPerformanceImprovement(
+      baseline.value,
+      minimumImprovement,
+    );
   },
 
   /**
    * Record performance metrics for reporting
    */
-  recordMetric(name: string, value: number, unit = 'ms', metadata: any = {}) {
-    (global as any).__performanceMetrics = (global as any).__performanceMetrics || [];
+  recordMetric(
+    name: string,
+    value: number,
+    unit = 'ms',
+    metadata: any = {},
+  ): void {
+    (global as any).__performanceMetrics =
+      (global as any).__performanceMetrics || [];
     (global as any).__performanceMetrics.push({
       name,
       value,
@@ -146,14 +176,14 @@ export const performanceMatchers = {
   /**
    * Get all recorded metrics
    */
-  getRecordedMetrics() {
+  getRecordedMetrics(): any[] {
     return (global as any).__performanceMetrics || [];
   },
 
   /**
    * Generate performance summary report
    */
-  generateSummaryReport() {
+  generateSummaryReport(): any {
     const metrics = this.getRecordedMetrics();
     const baselines = (global as any).__performanceBaselines || {};
 
@@ -170,13 +200,14 @@ export const performanceMatchers = {
             unit: metric.unit,
           };
         }
-        
+
         acc[metric.name].count++;
         acc[metric.name].total += metric.value;
         acc[metric.name].min = Math.min(acc[metric.name].min, metric.value);
         acc[metric.name].max = Math.max(acc[metric.name].max, metric.value);
-        acc[metric.name].average = acc[metric.name].total / acc[metric.name].count;
-        
+        acc[metric.name].average =
+          acc[metric.name].total / acc[metric.name].count;
+
         return acc;
       }, {}),
       generatedAt: new Date().toISOString(),
@@ -199,7 +230,7 @@ afterAll(() => {
     console.log(`Total performance tests: ${report.totalTests}`);
     console.log(`Performance baselines: ${report.baselines}`);
     console.log('\nMetrics Summary:');
-    
+
     Object.entries(report.metrics).forEach(([name, data]: [string, any]) => {
       console.log(`\n${name}:`);
       console.log(`  Average: ${data.average.toFixed(3)}${data.unit}`);
@@ -207,7 +238,7 @@ afterAll(() => {
       console.log(`  Max: ${data.max.toFixed(3)}${data.unit}`);
       console.log(`  Count: ${data.count}`);
     });
-    
+
     console.log('\n=====================================\n');
   }
 });

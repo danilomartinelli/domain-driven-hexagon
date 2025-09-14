@@ -15,7 +15,9 @@ export interface AuthOptions {
  * Mark a route as requiring authentication
  * @param options Authentication options
  */
-export const Auth = (options: AuthOptions = { required: true }) => {
+export const Auth = (
+  options: AuthOptions = { required: true },
+): MethodDecorator => {
   return SetMetadata(AUTH_METADATA_KEY, options);
 };
 
@@ -24,7 +26,10 @@ export const Auth = (options: AuthOptions = { required: true }) => {
  * @param roles Array of role names required
  * @param requireAll Whether user must have ALL roles (default: false, meaning ANY role is sufficient)
  */
-export const RequireRoles = (roles: string[], requireAll = false) => {
+export const RequireRoles = (
+  roles: string[],
+  requireAll = false,
+): MethodDecorator => {
   return SetMetadata(ROLES_METADATA_KEY, { roles, requireAll });
 };
 
@@ -33,27 +38,30 @@ export const RequireRoles = (roles: string[], requireAll = false) => {
  * @param permissions Array of permission names required (format: "resource:action")
  * @param requireAll Whether user must have ALL permissions (default: false, meaning ANY permission is sufficient)
  */
-export const RequirePermissions = (permissions: string[], requireAll = false) => {
+export const RequirePermissions = (
+  permissions: string[],
+  requireAll = false,
+): MethodDecorator => {
   return SetMetadata(PERMISSIONS_METADATA_KEY, { permissions, requireAll });
 };
 
 /**
  * Mark a route as public (no authentication required)
  */
-export const Public = () => {
+export const Public = (): MethodDecorator => {
   return SetMetadata(AUTH_METADATA_KEY, { required: false });
 };
 
 /**
  * Convenience decorator for admin-only routes
  */
-export const AdminOnly = () => {
+export const AdminOnly = (): MethodDecorator => {
   return RequireRoles(['admin']);
 };
 
 /**
  * Convenience decorator for authenticated users only
  */
-export const AuthenticatedOnly = () => {
+export const AuthenticatedOnly = (): MethodDecorator => {
   return Auth({ required: true });
 };

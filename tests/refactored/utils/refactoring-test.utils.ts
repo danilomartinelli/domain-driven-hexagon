@@ -3,11 +3,21 @@
  * Provides mock generators, performance measurement tools, and test helpers
  */
 
-import { DatabasePool, DatabaseTransactionConnection, QueryResult, SqlToken } from 'slonik';
+import {
+  DatabasePool,
+  DatabaseTransactionConnection,
+  QueryResult,
+  SqlToken,
+} from 'slonik';
 import { LoggerPort } from '@libs/ports/logger.port';
 import { UserEntity } from '@modules/user/domain/user.entity';
 import { UserRoles } from '@modules/user/domain/user.types';
-import { DatabaseEnvironmentVariables, DatabaseEnvironment, DatabaseLogLevel, DatabaseSslMode } from '@libs/database/config/database-config.types';
+import {
+  DatabaseEnvironmentVariables,
+  DatabaseEnvironment,
+  DatabaseLogLevel,
+  DatabaseSslMode,
+} from '@libs/database/config/database-config.types';
 
 /**
  * Performance measurement utilities
@@ -22,15 +32,15 @@ export class PerformanceMeasurement {
       if (!this.measurements.has(key)) {
         this.measurements.set(key, []);
       }
-      this.measurements.get(key)!.push(duration);
+      this.measurements.get(key)?.push(duration);
       return duration;
     };
   }
 
-  static getStats(key: string): { 
-    avg: number; 
-    min: number; 
-    max: number; 
+  static getStats(key: string): {
+    avg: number;
+    min: number;
+    max: number;
     count: number;
     percentile95: number;
   } {
@@ -73,7 +83,10 @@ export class MemoryMeasurement {
     return usage;
   }
 
-  static getUsageDelta(startKey: string, endKey: string): {
+  static getUsageDelta(
+    startKey: string,
+    endKey: string,
+  ): {
     heapUsedDelta: number;
     heapTotalDelta: number;
     externalDelta: number;
@@ -83,7 +96,9 @@ export class MemoryMeasurement {
     const end = this.snapshots.get(endKey);
 
     if (!start || !end) {
-      throw new Error(`Memory snapshots not found for keys: ${startKey}, ${endKey}`);
+      throw new Error(
+        `Memory snapshots not found for keys: ${startKey}, ${endKey}`,
+      );
     }
 
     return {
@@ -113,14 +128,14 @@ export class MockDatabasePool implements Partial<DatabasePool> {
 
   async query(sql: SqlToken): Promise<QueryResult<any>> {
     const sqlString = sql.toString();
-    
+
     // Track query calls
     const currentCount = this.queryCallCount.get(sqlString) || 0;
     this.queryCallCount.set(sqlString, currentCount + 1);
 
     // Simulate latency
     if (this.queryLatency > 0) {
-      await new Promise(resolve => setTimeout(resolve, this.queryLatency));
+      await new Promise((resolve) => setTimeout(resolve, this.queryLatency));
     }
 
     // Handle error simulation
@@ -139,7 +154,7 @@ export class MockDatabasePool implements Partial<DatabasePool> {
   }
 
   // Test utilities
-  setQueryResult(sql: string, result: any): void {
+  setQueryResult(sql: string, result: unknown): void {
     this.queryResults.set(sql, result);
   }
 
@@ -176,7 +191,9 @@ export class MockDatabasePool implements Partial<DatabasePool> {
 /**
  * Mock database transaction connection
  */
-export class MockTransactionConnection implements Partial<DatabaseTransactionConnection> {
+export class MockTransactionConnection
+  implements Partial<DatabaseTransactionConnection>
+{
   private mockPool: MockDatabasePool;
 
   constructor(testName: string = 'transaction') {
@@ -188,7 +205,7 @@ export class MockTransactionConnection implements Partial<DatabaseTransactionCon
   }
 
   // Delegate test utilities to underlying pool
-  setQueryResult(sql: string, result: any): void {
+  setQueryResult(sql: string, result: unknown): void {
     this.mockPool.setQueryResult(sql, result);
   }
 
@@ -217,42 +234,45 @@ export class MockTransactionConnection implements Partial<DatabaseTransactionCon
  * Mock logger implementation for testing
  */
 export class MockLogger implements LoggerPort {
-  private logs: Array<{ level: string; message: string; context?: any }> = [];
+  private logs: Array<{ level: string; message: string; context?: unknown }> =
+    [];
 
-  debug(message: string, context?: any): void {
+  debug(message: string, context?: unknown): void {
     this.logs.push({ level: 'debug', message, context });
   }
 
-  info(message: string, context?: any): void {
+  info(message: string, context?: unknown): void {
     this.logs.push({ level: 'info', message, context });
   }
 
-  warn(message: string, context?: any): void {
+  warn(message: string, context?: unknown): void {
     this.logs.push({ level: 'warn', message, context });
   }
 
-  error(message: string, context?: any): void {
+  error(message: string, context?: unknown): void {
     this.logs.push({ level: 'error', message, context });
   }
 
-  fatal(message: string, context?: any): void {
+  fatal(message: string, context?: unknown): void {
     this.logs.push({ level: 'fatal', message, context });
   }
 
-  getLogs(): Array<{ level: string; message: string; context?: any }> {
+  getLogs(): Array<{ level: string; message: string; context?: unknown }> {
     return [...this.logs];
   }
 
-  getLogsByLevel(level: string): Array<{ level: string; message: string; context?: any }> {
-    return this.logs.filter(log => log.level === level);
+  getLogsByLevel(
+    level: string,
+  ): Array<{ level: string; message: string; context?: unknown }> {
+    return this.logs.filter((log) => log.level === level);
   }
 
   hasLogWithMessage(message: string): boolean {
-    return this.logs.some(log => log.message.includes(message));
+    return this.logs.some((log) => log.message.includes(message));
   }
 
   hasLogWithLevel(level: string): boolean {
-    return this.logs.some(log => log.level === level);
+    return this.logs.some((log) => log.level === level);
   }
 
   clear(): void {
@@ -381,7 +401,9 @@ export class EnvironmentTestUtils {
     return new EnvironmentTestUtils();
   }
 
-  setEnvironmentVariables(variables: Partial<DatabaseEnvironmentVariables>): this {
+  setEnvironmentVariables(
+    variables: Partial<DatabaseEnvironmentVariables>,
+  ): this {
     // Store original values
     for (const [key, value] of Object.entries(variables)) {
       if (!(key in this.originalEnv)) {
@@ -460,13 +482,14 @@ export class TestAssertions {
     beforeStats: { avg: number },
     afterStats: { avg: number },
     targetImprovementPercent: number,
-    description: string
+    description: string,
   ): void {
-    const actualImprovement = ((beforeStats.avg - afterStats.avg) / beforeStats.avg) * 100;
-    
+    const actualImprovement =
+      ((beforeStats.avg - afterStats.avg) / beforeStats.avg) * 100;
+
     if (actualImprovement < targetImprovementPercent) {
       throw new Error(
-        `${description}: Expected ${targetImprovementPercent}% improvement, but got ${actualImprovement.toFixed(2)}%`
+        `${description}: Expected ${targetImprovementPercent}% improvement, but got ${actualImprovement.toFixed(2)}%`,
       );
     }
   }
@@ -478,13 +501,13 @@ export class TestAssertions {
     beforeUsage: number,
     afterUsage: number,
     targetReductionPercent: number,
-    description: string
+    description: string,
   ): void {
     const actualReduction = ((beforeUsage - afterUsage) / beforeUsage) * 100;
-    
+
     if (actualReduction < targetReductionPercent) {
       throw new Error(
-        `${description}: Expected ${targetReductionPercent}% memory reduction, but got ${actualReduction.toFixed(2)}%`
+        `${description}: Expected ${targetReductionPercent}% memory reduction, but got ${actualReduction.toFixed(2)}%`,
       );
     }
   }
@@ -496,7 +519,7 @@ export class TestAssertions {
     actual: number,
     expected: number,
     tolerancePercent: number,
-    description: string
+    description: string,
   ): void {
     const tolerance = (expected * tolerancePercent) / 100;
     const lowerBound = expected - tolerance;
@@ -504,7 +527,7 @@ export class TestAssertions {
 
     if (actual < lowerBound || actual > upperBound) {
       throw new Error(
-        `${description}: Expected ${actual} to be within ${tolerancePercent}% of ${expected} (${lowerBound}-${upperBound})`
+        `${description}: Expected ${actual} to be within ${tolerancePercent}% of ${expected} (${lowerBound}-${upperBound})`,
       );
     }
   }
@@ -517,12 +540,15 @@ export class BenchmarkRunner {
   static async run<T>(
     name: string,
     operation: () => Promise<T> | T,
-    iterations: number = 100
-  ): Promise<{ result: T; stats: ReturnType<typeof PerformanceMeasurement.getStats> }> {
+    iterations: number = 100,
+  ): Promise<{
+    result: T;
+    stats: ReturnType<typeof PerformanceMeasurement.getStats>;
+  }> {
     PerformanceMeasurement.reset();
-    
+
     let lastResult: T;
-    
+
     for (let i = 0; i < iterations; i++) {
       const endMeasurement = PerformanceMeasurement.startMeasurement(name);
       lastResult = await operation();
@@ -530,20 +556,26 @@ export class BenchmarkRunner {
     }
 
     const stats = PerformanceMeasurement.getStats(name);
-    return { result: lastResult!, stats };
+    return { result: lastResult, stats };
   }
 
   static async compare<T>(
     operations: Array<{ name: string; operation: () => Promise<T> | T }>,
-    iterations: number = 100
-  ): Promise<Array<{ name: string; result: T; stats: ReturnType<typeof PerformanceMeasurement.getStats> }>> {
+    iterations: number = 100,
+  ): Promise<
+    Array<{
+      name: string;
+      result: T;
+      stats: ReturnType<typeof PerformanceMeasurement.getStats>;
+    }>
+  > {
     const results = [];
-    
+
     for (const op of operations) {
       const result = await this.run(op.name, op.operation, iterations);
       results.push({ name: op.name, ...result });
     }
-    
+
     return results;
   }
 }
@@ -558,7 +590,6 @@ export class CacheTestUtils {
   static async testCacheEffectiveness<T>(
     cacheableOperation: (key: string) => T,
     testKeys: string[],
-    expectedCacheHitRate: number
   ): Promise<{ hitRate: number; operations: number }> {
     let cacheHits = 0;
     let totalOperations = 0;
@@ -574,16 +605,16 @@ export class CacheTestUtils {
       const beforeTime = performance.now();
       cacheableOperation(key);
       const afterTime = performance.now();
-      
+
       // Assume cache hit if operation is very fast (< 1ms)
-      if ((afterTime - beforeTime) < 1) {
+      if (afterTime - beforeTime < 1) {
         cacheHits++;
       }
       totalOperations++;
     }
 
     const hitRate = (cacheHits / testKeys.length) * 100;
-    
+
     return { hitRate, operations: totalOperations };
   }
 
@@ -593,12 +624,12 @@ export class CacheTestUtils {
   static generateTestPasswords(count: number): string[] {
     const passwords = [];
     const bases = ['password123', 'SecurePass1!', 'MyP@ssword', 'Test1234!'];
-    
+
     for (let i = 0; i < count; i++) {
       const base = bases[i % bases.length];
       passwords.push(`${base}${i}`);
     }
-    
+
     return passwords;
   }
 }

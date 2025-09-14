@@ -15,7 +15,8 @@ describe('InputSanitizerService', () => {
   describe('sanitizeHtml', () => {
     it('should remove script tags', () => {
       // Arrange
-      const maliciousInput = '<script>alert("xss")</script><p>Valid content</p>';
+      const maliciousInput =
+        '<script>alert("xss")</script><p>Valid content</p>';
 
       // Act
       const result = service.sanitizeHtml(maliciousInput);
@@ -40,7 +41,8 @@ describe('InputSanitizerService', () => {
 
     it('should remove on-event handlers', () => {
       // Arrange
-      const maliciousInput = '<img src="image.jpg" onerror="alert(\'xss\')" onload="malicious()" />';
+      const maliciousInput =
+        '<img src="image.jpg" onerror="alert(\'xss\')" onload="malicious()" />';
 
       // Act
       const result = service.sanitizeHtml(maliciousInput);
@@ -53,7 +55,8 @@ describe('InputSanitizerService', () => {
 
     it('should preserve safe HTML tags and attributes', () => {
       // Arrange
-      const safeInput = '<p><strong>Bold text</strong> and <em>italic text</em></p><ul><li>List item</li></ul>';
+      const safeInput =
+        '<p><strong>Bold text</strong> and <em>italic text</em></p><ul><li>List item</li></ul>';
 
       // Act
       const result = service.sanitizeHtml(safeInput);
@@ -71,7 +74,8 @@ describe('InputSanitizerService', () => {
 
     it('should handle nested malicious content', () => {
       // Arrange
-      const nestedMalicious = '<div><script>alert("outer")</script><p onclick="alert(\'inner\')">Text</p></div>';
+      const nestedMalicious =
+        '<div><script>alert("outer")</script><p onclick="alert(\'inner\')">Text</p></div>';
 
       // Act
       const result = service.sanitizeHtml(nestedMalicious);
@@ -84,7 +88,8 @@ describe('InputSanitizerService', () => {
 
     it('should remove style attributes with expressions', () => {
       // Arrange
-      const maliciousStyle = '<div style="background: url(javascript:alert(\'xss\'));">Content</div>';
+      const maliciousStyle =
+        '<div style="background: url(javascript:alert(\'xss\'));">Content</div>';
 
       // Act
       const result = service.sanitizeHtml(maliciousStyle);
@@ -96,7 +101,8 @@ describe('InputSanitizerService', () => {
 
     it('should handle mixed case malicious tags', () => {
       // Arrange
-      const mixedCase = '<ScRiPt>alert("xss")</ScRiPt><IFRAME src="javascript:alert()"></IFRAME>';
+      const mixedCase =
+        '<ScRiPt>alert("xss")</ScRiPt><IFRAME src="javascript:alert()"></IFRAME>';
 
       // Act
       const result = service.sanitizeHtml(mixedCase);
@@ -198,7 +204,7 @@ describe('InputSanitizerService', () => {
       ];
 
       // Act & Assert
-      injectionAttempts.forEach(attempt => {
+      injectionAttempts.forEach((attempt) => {
         const result = service.sanitizeSqlInput(attempt);
         expect(result).not.toContain("';");
         expect(result).not.toContain("' OR");
@@ -261,7 +267,7 @@ describe('InputSanitizerService', () => {
         'a@b.co',
       ];
 
-      validEmails.forEach(email => {
+      validEmails.forEach((email) => {
         expect(service.validateEmailFormat(email)).toBe(true);
       });
     });
@@ -279,7 +285,7 @@ describe('InputSanitizerService', () => {
         undefined,
       ];
 
-      invalidEmails.forEach(email => {
+      invalidEmails.forEach((email) => {
         expect(service.validateEmailFormat(email as any)).toBe(false);
       });
     });
@@ -287,8 +293,12 @@ describe('InputSanitizerService', () => {
     it('should handle edge cases', () => {
       // Act & Assert
       expect(service.validateEmailFormat('user@example.c')).toBe(false); // TLD too short
-      expect(service.validateEmailFormat('user@example.verylongTLD')).toBe(false); // TLD too long
-      expect(service.validateEmailFormat('a'.repeat(65) + '@example.com')).toBe(false); // Local part too long
+      expect(service.validateEmailFormat('user@example.verylongTLD')).toBe(
+        false,
+      ); // TLD too long
+      expect(service.validateEmailFormat('a'.repeat(65) + '@example.com')).toBe(
+        false,
+      ); // Local part too long
     });
   });
 
@@ -301,7 +311,7 @@ describe('InputSanitizerService', () => {
         'normal/path/../../sensitive.file',
       ];
 
-      pathTraversalAttempts.forEach(path => {
+      pathTraversalAttempts.forEach((path) => {
         const result = service.sanitizePathTraversal(path);
         expect(result).not.toContain('../');
         expect(result).not.toContain('..\\');
@@ -316,7 +326,7 @@ describe('InputSanitizerService', () => {
         'styles/main.css',
       ];
 
-      normalPaths.forEach(path => {
+      normalPaths.forEach((path) => {
         const result = service.sanitizePathTraversal(path);
         expect(result).toBe(path);
       });

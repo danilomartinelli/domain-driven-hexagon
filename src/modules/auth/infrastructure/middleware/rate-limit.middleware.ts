@@ -81,10 +81,13 @@ export class RateLimitMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction): void {
     const clientId = this.getClientIdentifier(req);
     const endpoint = this.getEndpointKey(req.path);
-    
+
     // Check endpoint-specific rate limit first
     const endpointRule = this.getApplicableRule(req.path);
-    if (endpointRule && !this.checkRateLimit(clientId, endpoint, endpointRule)) {
+    if (
+      endpointRule &&
+      !this.checkRateLimit(clientId, endpoint, endpointRule)
+    ) {
       return this.sendRateLimitResponse(res, endpointRule);
     }
 
@@ -94,24 +97,30 @@ export class RateLimitMiddleware implements NestMiddleware {
     }
 
     // Add rate limit headers
-    this.addRateLimitHeaders(res, clientId, endpoint, endpointRule || this.globalRule);
+    this.addRateLimitHeaders(
+      res,
+      clientId,
+      endpoint,
+      endpointRule || this.globalRule,
+    );
 
     next();
   }
 
   private getClientIdentifier(req: Request): string {
     // Use IP address as primary identifier
-    const ip = req.ip || 
-               req.connection?.remoteAddress || 
-               req.socket?.remoteAddress || 
-               'unknown';
-    
+    const ip =
+      req.ip ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      'unknown';
+
     // For authenticated requests, also consider user ID
     const user = (req as any).user;
     if (user?.sub) {
       return `${ip}:${user.sub}`;
     }
-    
+
     return ip;
   }
 
@@ -128,14 +137,18 @@ export class RateLimitMiddleware implements NestMiddleware {
     const matchingRules = Array.from(this.rules.entries())
       .filter(([pattern]) => path.includes(pattern))
       .sort((a, b) => b[0].length - a[0].length); // Sort by specificity (longest first)
-    
+
     return matchingRules.length > 0 ? matchingRules[0][1] : null;
   }
 
-  private checkRateLimit(clientId: string, endpoint: string, rule: RateLimitRule): boolean {
+  private checkRateLimit(
+    clientId: string,
+    endpoint: string,
+    rule: RateLimitRule,
+  ): boolean {
     const key = `${clientId}:${endpoint}`;
     const now = Date.now();
-    const windowStart = now - rule.windowMs;
+    // const windowStart = now - rule.windowMs;
 
     if (!this.store[key]) {
       this.store[key] = {
@@ -174,7 +187,10 @@ export class RateLimitMiddleware implements NestMiddleware {
 
     if (clientData) {
       res.setHeader('X-RateLimit-Limit', rule.maxRequests);
-      res.setHeader('X-RateLimit-Remaining', Math.max(0, rule.maxRequests - clientData.requests));
+      res.setHeader(
+        'X-RateLimit-Remaining',
+        Math.max(0, rule.maxRequests - clientData.requests),
+      );
       res.setHeader('X-RateLimit-Reset', clientData.resetTime);
     }
   }
@@ -190,7 +206,7 @@ export class RateLimitMiddleware implements NestMiddleware {
 
   private cleanup(): void {
     const now = Date.now();
-    Object.keys(this.store).forEach(key => {
+    Object.keys(this.store).forEach((key) => {
       if (now > this.store[key].resetTime) {
         delete this.store[key];
       }

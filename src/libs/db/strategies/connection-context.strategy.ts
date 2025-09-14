@@ -26,7 +26,9 @@ export interface ConnectionContextStrategy {
 /**
  * Advanced connection context strategy with request-scoped transaction management
  */
-export class RequestScopedConnectionContextStrategy implements ConnectionContextStrategy {
+export class RequestScopedConnectionContextStrategy
+  implements ConnectionContextStrategy
+{
   constructor(
     private readonly pool: DatabasePool,
     private readonly logger: LoggerPort,
@@ -45,7 +47,7 @@ export class RequestScopedConnectionContextStrategy implements ConnectionContext
           timestamp: new Date().toISOString(),
         },
       };
-    } catch (error) {
+    } catch {
       // Fallback context when service is not available
       return {
         requestId: this.generateFallbackRequestId(),
@@ -75,7 +77,7 @@ export class RequestScopedConnectionContextStrategy implements ConnectionContext
     handler: (connection: DatabaseTransactionConnection) => Promise<T>,
   ): Promise<T> {
     const existingTransaction = this.getTransactionConnection();
-    
+
     if (existingTransaction) {
       // Reuse existing transaction
       this.logger.debug(
@@ -87,30 +89,25 @@ export class RequestScopedConnectionContextStrategy implements ConnectionContext
     // Create new transaction
     return this.pool.transaction(async (connection) => {
       const requestId = this.getRequestId();
-      
-      this.logger.debug(
-        `[${requestId}] Creating new transaction context`,
-      );
+
+      this.logger.debug(`[${requestId}] Creating new transaction context`);
 
       try {
         // Set transaction in context for nested operations
         RequestContextService.setTransactionConnection(connection);
-        
+
         const result = await handler(connection);
-        
+
         this.logger.debug(
           `[${requestId}] Transaction context completed successfully`,
         );
-        
+
         return result;
       } catch (error) {
-        this.logger.error(
-          `[${requestId}] Transaction context failed`,
-          {
-            error: (error as Error).message,
-            errorType: (error as Error).constructor.name,
-          },
-        );
+        this.logger.error(`[${requestId}] Transaction context failed`, {
+          error: (error as Error).message,
+          errorType: (error as Error).constructor.name,
+        });
         throw error;
       } finally {
         try {
@@ -139,7 +136,9 @@ export class RequestScopedConnectionContextStrategy implements ConnectionContext
 /**
  * Simple connection context strategy for basic use cases
  */
-export class SimpleConnectionContextStrategy implements ConnectionContextStrategy {
+export class SimpleConnectionContextStrategy
+  implements ConnectionContextStrategy
+{
   private requestIdCounter = 0;
 
   constructor(
@@ -170,27 +169,20 @@ export class SimpleConnectionContextStrategy implements ConnectionContextStrateg
     handler: (connection: DatabaseTransactionConnection) => Promise<T>,
   ): Promise<T> {
     const requestId = this.getRequestId();
-    
+
     return this.pool.transaction(async (connection) => {
-      this.logger.debug(
-        `[${requestId}] Simple transaction started`,
-      );
+      this.logger.debug(`[${requestId}] Simple transaction started`);
 
       try {
         const result = await handler(connection);
-        
-        this.logger.debug(
-          `[${requestId}] Simple transaction completed`,
-        );
-        
+
+        this.logger.debug(`[${requestId}] Simple transaction completed`);
+
         return result;
       } catch (error) {
-        this.logger.error(
-          `[${requestId}] Simple transaction failed`,
-          {
-            error: (error as Error).message,
-          },
-        );
+        this.logger.error(`[${requestId}] Simple transaction failed`, {
+          error: (error as Error).message,
+        });
         throw error;
       }
     });
@@ -200,7 +192,9 @@ export class SimpleConnectionContextStrategy implements ConnectionContextStrateg
 /**
  * Mock connection context strategy for testing
  */
-export class MockConnectionContextStrategy implements ConnectionContextStrategy {
+export class MockConnectionContextStrategy
+  implements ConnectionContextStrategy
+{
   private mockRequestId = 'mock-request-id';
   private mockTransactionConnection?: DatabaseTransactionConnection;
 
@@ -234,7 +228,7 @@ export class MockConnectionContextStrategy implements ConnectionContextStrategy 
   ): Promise<T> {
     return this.pool.transaction(async (connection) => {
       this.mockTransactionConnection = connection;
-      
+
       try {
         const result = await handler(connection);
         return result;
@@ -249,7 +243,9 @@ export class MockConnectionContextStrategy implements ConnectionContextStrategy 
     this.mockRequestId = requestId;
   }
 
-  setMockTransactionConnection(connection?: DatabaseTransactionConnection): void {
+  setMockTransactionConnection(
+    connection?: DatabaseTransactionConnection,
+  ): void {
     this.mockTransactionConnection = connection;
   }
 }

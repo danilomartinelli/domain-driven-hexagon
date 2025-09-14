@@ -18,11 +18,11 @@ export class SecurityMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction): void {
     const startTime = Date.now();
-    
+
     try {
       // Validate request security
       const validation = this.securityService.validateRequestSecurity(req);
-      
+
       if (!validation.valid) {
         // Log security issues but don't block request (monitoring only)
         this.securityLogger.logSecurityEvent({
@@ -41,13 +41,14 @@ export class SecurityMiddleware implements NestMiddleware {
 
       // Apply security middleware
       this.securityService.applySecurityMiddleware(req, res, next);
-      
+
       // Track response completion for security logging
       res.on('finish', () => {
         const duration = Date.now() - startTime;
-        
+
         // Log slow requests that might indicate attacks
-        if (duration > 5000) { // 5 seconds
+        if (duration > 5000) {
+          // 5 seconds
           this.securityLogger.logSecurityEvent({
             type: 'SLOW_REQUEST',
             severity: 'LOW',
@@ -93,10 +94,9 @@ export class SecurityMiddleware implements NestMiddleware {
           });
         }
       });
-
     } catch (error) {
       this.logger.error('Security middleware error', error);
-      
+
       // Don't block request on security middleware errors
       next();
     }

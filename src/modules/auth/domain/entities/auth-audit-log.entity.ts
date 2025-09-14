@@ -48,7 +48,9 @@ export class AuthAuditLogEntity extends AggregateRoot<AuthAuditLogProps> {
 
   validate(): void {
     if (!Guard.lengthIsBetween(this.props.action, 2, 100)) {
-      throw new ArgumentInvalidException('Action must be between 2 and 100 characters');
+      throw new ArgumentInvalidException(
+        'Action must be between 2 and 100 characters',
+      );
     }
 
     if (this.props.userId && !Guard.isUuid(this.props.userId)) {
@@ -60,7 +62,9 @@ export class AuthAuditLogEntity extends AggregateRoot<AuthAuditLogProps> {
     }
 
     if (this.props.userAgent && this.props.userAgent.length > 1000) {
-      throw new ArgumentInvalidException('User agent must not exceed 1000 characters');
+      throw new ArgumentInvalidException(
+        'User agent must not exceed 1000 characters',
+      );
     }
 
     // Validate details object is serializable
@@ -68,16 +72,19 @@ export class AuthAuditLogEntity extends AggregateRoot<AuthAuditLogProps> {
       try {
         JSON.stringify(this.props.details);
       } catch {
-        throw new ArgumentInvalidException('Details must be a JSON-serializable object');
+        throw new ArgumentInvalidException(
+          'Details must be a JSON-serializable object',
+        );
       }
     }
   }
 
   private isValidIpAddress(ip: string): boolean {
     // Simple IPv4 and IPv6 validation
-    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const ipv4Regex =
+      /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     const ipv6Regex = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$/;
-    
+
     return ipv4Regex.test(ip) || ipv6Regex.test(ip);
   }
 }

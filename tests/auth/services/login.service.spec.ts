@@ -1,16 +1,21 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { LoginService } from '@modules/auth/commands/login/login.service';
+import { LoggerPort } from '@libs/ports/logger.port';
+import { AUTH_DI_TOKENS } from '@modules/auth/auth.di-tokens';
 import { LoginCommand } from '@modules/auth/commands/login/login.command';
-import { UserRepositoryPort } from '@modules/user/database/user.repository.port';
+import { LoginService } from '@modules/auth/commands/login/login.service';
+import { AuthAuditLogRepositoryPort } from '@modules/auth/database/auth-audit-log.repository.port';
+import { RefreshTokenRepositoryPort } from '@modules/auth/database/refresh-token.repository.port';
+import {
+  AccountInactiveError,
+  AccountLockedError,
+  EmailNotVerifiedError,
+  InvalidCredentialsError,
+} from '@modules/auth/domain/auth.errors';
 import { JwtServicePort } from '@modules/auth/domain/ports/jwt.service.port';
 import { PasswordServicePort } from '@modules/auth/domain/ports/password.service.port';
-import { RefreshTokenRepositoryPort } from '@modules/auth/database/refresh-token.repository.port';
-import { AuthAuditLogRepositoryPort } from '@modules/auth/database/auth-audit-log.repository.port';
+import { UserRepositoryPort } from '@modules/user/database/user.repository.port';
 import { USER_DI_TOKENS } from '@modules/user/user.di-tokens';
-import { AUTH_DI_TOKENS } from '@modules/auth/auth.di-tokens';
-import { LoggerPort } from '@libs/ports/logger.port';
-import {\n  InvalidCredentialsError,\n  AccountLockedError,\n  AccountInactiveError,\n  EmailNotVerifiedError,\n} from '@modules/auth/domain/auth.errors';
-import { Some, None } from 'oxide.ts';
+import { Test, TestingModule } from '@nestjs/testing';
+import { None, Some } from 'oxide.ts';
 
 describe('LoginService', () => {
   let service: LoginService;
@@ -125,8 +130,13 @@ describe('LoginService', () => {
       expect(tokenPair.tokenType).toBe('Bearer');
       expect(tokenPair.expiresIn).toBe(900);
 
-      expect(userRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
-      expect(passwordService.compare).toHaveBeenCalledWith('SecurePassword123!', 'hashed-password');
+      expect(userRepository.findByEmail).toHaveBeenCalledWith(
+        'test@example.com',
+      );
+      expect(passwordService.compare).toHaveBeenCalledWith(
+        'SecurePassword123!',
+        'hashed-password',
+      );
       expect(mockUser.updateAuthProps).toHaveBeenCalledWith({
         loginAttempts: 0,
         lockedUntil: undefined,
@@ -147,11 +157,13 @@ describe('LoginService', () => {
       // Assert
       expect(result.isErr()).toBe(true);
       expect(result.unwrapErr()).toBeInstanceOf(InvalidCredentialsError);
-      expect(auditLogRepository.insert).toHaveBeenCalledWith(\n        expect.objectContaining({\n          getProps: expect.any(Function),\n        })\n      );
+      expect(auditLogRepository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ getProps: expect.any(Function) }),
+      );
     });
 
     it('should fail with locked account', async () => {
-      // Arrange\n      const lockedUser = {\n        ...mockUser,\n        getProps: jest.fn().mockReturnValue({\n          ...mockUser.getProps(),\n          lockedUntil: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now\n        }),\n      };\n      userRepository.findByEmail.mockResolvedValue(Some(lockedUser));
+      // Arrange      const lockedUser = {        ...mockUser,        getProps: jest.fn().mockReturnValue({          ...mockUser.getProps(),          lockedUntil: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now        }),      };      userRepository.findByEmail.mockResolvedValue(Some(lockedUser));
 
       // Act
       const result = await service.execute(validCommand);
@@ -213,7 +225,9 @@ describe('LoginService', () => {
       // Assert
       expect(result.isErr()).toBe(true);
       expect(result.unwrapErr()).toBeInstanceOf(InvalidCredentialsError);
-      expect(mockUser.updateAuthProps).toHaveBeenCalledWith(\n        expect.objectContaining({\n          loginAttempts: 1,\n        })\n      );
+      expect(mockUser.updateAuthProps).toHaveBeenCalledWith(
+        expect.objectContaining({ loginAttempts: 1 }),
+      );
       expect(userRepository.update).toHaveBeenCalledWith(mockUser);
     });
 
@@ -226,7 +240,9 @@ describe('LoginService', () => {
           loginAttempts: 4, // One attempt away from lock
         }),
       };
-      userRepository.findByEmail.mockResolvedValue(Some(userWithFailedAttempts));
+      userRepository.findByEmail.mockResolvedValue(
+        Some(userWithFailedAttempts),
+      );
       passwordService.compare.mockResolvedValue(false);
 
       // Act
@@ -235,7 +251,12 @@ describe('LoginService', () => {
       // Assert
       expect(result.isErr()).toBe(true);
       expect(result.unwrapErr()).toBeInstanceOf(InvalidCredentialsError);
-      expect(userWithFailedAttempts.updateAuthProps).toHaveBeenCalledWith(\n        expect.objectContaining({\n          loginAttempts: 5,\n          lockedUntil: expect.any(Date),\n        })\n      );
+      expect(userWithFailedAttempts.updateAuthProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          loginAttempts: 5,
+          lockedUntil: expect.any(Date),
+        }),
+      );
     });
 
     it('should handle missing password field', async () => {
@@ -267,7 +288,13 @@ describe('LoginService', () => {
 
       // Assert
       expect(result.isErr()).toBe(true);
-      expect(logger.error).toHaveBeenCalledWith(\n        'Login command execution failed',\n        expect.objectContaining({\n          email: 'test@example.com',\n          error: 'Database error',\n        })\n      );
+      expect(logger.error).toHaveBeenCalledWith(
+        'Login command execution failed',
+        expect.objectContaining({
+          email: 'test@example.com',
+          error: 'Database error',
+        }),
+      );
     });
   });
 });

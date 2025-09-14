@@ -15,7 +15,6 @@ import {
   MockLogger,
   PerformanceMeasurement,
   BenchmarkRunner,
-  TestAssertions,
 } from '../utils/refactoring-test.utils';
 
 describe('QueryExecutionStrategy', () => {
@@ -33,14 +32,14 @@ describe('QueryExecutionStrategy', () => {
     mockPool = new MockDatabasePool('query-execution-test');
     mockTransaction = new MockTransactionConnection('transaction-test');
     mockLogger = new MockLogger();
-    
+
     poolStrategy = new PoolQueryExecutionStrategy(
       mockPool as any,
       mockLogger,
       tableName,
       getRequestId,
     );
-    
+
     transactionStrategy = new TransactionQueryExecutionStrategy(
       mockTransaction as any,
       mockLogger,
@@ -62,22 +61,34 @@ describe('QueryExecutionStrategy', () => {
     describe('executeQuery', () => {
       it('should execute query successfully and log performance', async () => {
         // Arrange
-        const expectedResult = { rows: [{ id: 1 }], rowCount: 1, command: 'SELECT' };
+        const expectedResult = {
+          rows: [{ id: 1 }],
+          rowCount: 1,
+          command: 'SELECT',
+        };
         mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
 
         // Act
-        const result = await poolStrategy.executeQuery(mockSqlToken, 'findUser');
+        const result = await poolStrategy.executeQuery(
+          mockSqlToken,
+          'findUser',
+        );
 
         // Assert
         expect(result).toEqual(expectedResult);
         expect(mockPool.getQueryCallCount(mockSqlToken.toString())).toBe(1);
-        expect(mockLogger.hasLogWithMessage('Executing findUser on table "users"')).toBe(true);
-        expect(mockLogger.hasLogWithMessage('Query completed: findUser')).toBe(true);
+        expect(
+          mockLogger.hasLogWithMessage('Executing findUser on table "users"'),
+        ).toBe(true);
+        expect(mockLogger.hasLogWithMessage('Query completed: findUser')).toBe(
+          true,
+        );
       });
 
       it('should detect and log slow queries', async () => {
         // Arrange
-        const slowQueryThreshold = 1000; // 1 second
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _slowQueryThreshold = 1000; // 1 second
         const expectedResult = { rows: [], rowCount: 0, command: 'SELECT' };
         mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
         mockPool.setLatency(1200); // Simulate 1.2 second delay
@@ -112,10 +123,13 @@ describe('QueryExecutionStrategy', () => {
         mockPool.simulateError(testError);
 
         // Act & Assert
-        await expect(poolStrategy.executeQuery(mockSqlToken, 'failingQuery'))
-          .rejects.toThrow('Database connection failed');
-        
-        expect(mockLogger.hasLogWithMessage('Query failingQuery failed')).toBe(true);
+        await expect(
+          poolStrategy.executeQuery(mockSqlToken, 'failingQuery'),
+        ).rejects.toThrow('Database connection failed');
+
+        expect(mockLogger.hasLogWithMessage('Query failingQuery failed')).toBe(
+          true,
+        );
         const errorLogs = mockLogger.getLogsByLevel('error');
         expect(errorLogs.length).toBeGreaterThan(0);
         expect(errorLogs[0].context?.errorType).toBe('Error');
@@ -131,7 +145,7 @@ describe('QueryExecutionStrategy', () => {
 
         // Assert
         const logs = mockLogger.getLogs();
-        logs.forEach(log => {
+        logs.forEach((log) => {
           expect(log.message).toContain('[test-request-123]');
         });
       });
@@ -145,14 +159,22 @@ describe('QueryExecutionStrategy', () => {
         mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
 
         // Act
-        const result = await poolStrategy.executeWriteQuery(mockSqlToken, 'updateUsers', entityIds);
+        const result = await poolStrategy.executeWriteQuery(
+          mockSqlToken,
+          'updateUsers',
+          entityIds,
+        );
 
         // Assert
         expect(result).toEqual(expectedResult);
-        expect(mockLogger.hasLogWithMessage('Write operation updateUsers completed')).toBe(true);
-        
+        expect(
+          mockLogger.hasLogWithMessage('Write operation updateUsers completed'),
+        ).toBe(true);
+
         const logs = mockLogger.getLogs();
-        const writeLog = logs.find(log => log.message.includes('Write operation updateUsers completed'));
+        const writeLog = logs.find((log) =>
+          log.message.includes('Write operation updateUsers completed'),
+        );
         expect(writeLog?.context?.entityCount).toBe(2);
         expect(writeLog?.context?.affectedRows).toBe(2);
       });
@@ -160,15 +182,24 @@ describe('QueryExecutionStrategy', () => {
       it('should limit logged entity IDs to prevent log bloat', async () => {
         // Arrange
         const expectedResult = { rows: [], rowCount: 10, command: 'DELETE' };
-        const manyEntityIds = Array.from({ length: 10 }, (_, i) => `user-${i + 1}`);
+        const manyEntityIds = Array.from(
+          { length: 10 },
+          (_, i) => `user-${i + 1}`,
+        );
         mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
 
         // Act
-        await poolStrategy.executeWriteQuery(mockSqlToken, 'deleteManyUsers', manyEntityIds);
+        await poolStrategy.executeWriteQuery(
+          mockSqlToken,
+          'deleteManyUsers',
+          manyEntityIds,
+        );
 
         // Assert
         const logs = mockLogger.getLogs();
-        const writeLog = logs.find(log => log.message.includes('Write operation deleteManyUsers completed'));
+        const writeLog = logs.find((log) =>
+          log.message.includes('Write operation deleteManyUsers completed'),
+        );
         expect(writeLog?.context?.entities).toHaveLength(5); // Should limit to first 5
         expect(writeLog?.context?.hasMore).toBe(true);
       });
@@ -180,8 +211,13 @@ describe('QueryExecutionStrategy', () => {
         mockPool.simulateError(testError);
 
         // Act & Assert
-        await expect(poolStrategy.executeWriteQuery(mockSqlToken, 'failingWrite', entityIds))
-          .rejects.toThrow('Constraint violation');
+        await expect(
+          poolStrategy.executeWriteQuery(
+            mockSqlToken,
+            'failingWrite',
+            entityIds,
+          ),
+        ).rejects.toThrow('Constraint violation');
 
         const errorLogs = mockLogger.getLogsByLevel('error');
         expect(errorLogs[0].context?.entityCount).toBe(2);
@@ -198,7 +234,7 @@ describe('QueryExecutionStrategy', () => {
         const benchmark = await BenchmarkRunner.run(
           'pool-strategy-overhead',
           () => poolStrategy.executeQuery(mockSqlToken, 'performanceTest'),
-          50
+          50,
         );
 
         // Assert
@@ -214,7 +250,7 @@ describe('QueryExecutionStrategy', () => {
 
         // Act
         const concurrentQueries = Array.from({ length: 20 }, (_, i) =>
-          poolStrategy.executeQuery(mockSqlToken, `concurrent-${i}`)
+          poolStrategy.executeQuery(mockSqlToken, `concurrent-${i}`),
         );
 
         const startTime = performance.now();
@@ -233,16 +269,27 @@ describe('QueryExecutionStrategy', () => {
     describe('executeQuery', () => {
       it('should execute query within transaction context', async () => {
         // Arrange
-        const expectedResult = { rows: [{ id: 1 }], rowCount: 1, command: 'SELECT' };
+        const expectedResult = {
+          rows: [{ id: 1 }],
+          rowCount: 1,
+          command: 'SELECT',
+        };
         mockTransaction.setQueryResult(mockSqlToken.toString(), expectedResult);
 
         // Act
-        const result = await transactionStrategy.executeQuery(mockSqlToken, 'txFindUser');
+        const result = await transactionStrategy.executeQuery(
+          mockSqlToken,
+          'txFindUser',
+        );
 
         // Assert
         expect(result).toEqual(expectedResult);
-        expect(mockTransaction.getQueryCallCount(mockSqlToken.toString())).toBe(1);
-        expect(mockLogger.hasLogWithMessage('Executing transactional txFindUser')).toBe(true);
+        expect(mockTransaction.getQueryCallCount(mockSqlToken.toString())).toBe(
+          1,
+        );
+        expect(
+          mockLogger.hasLogWithMessage('Executing transactional txFindUser'),
+        ).toBe(true);
       });
 
       it('should handle transaction-specific errors', async () => {
@@ -251,10 +298,15 @@ describe('QueryExecutionStrategy', () => {
         mockTransaction.simulateError(txError);
 
         // Act & Assert
-        await expect(transactionStrategy.executeQuery(mockSqlToken, 'txFailingQuery'))
-          .rejects.toThrow('Transaction aborted');
+        await expect(
+          transactionStrategy.executeQuery(mockSqlToken, 'txFailingQuery'),
+        ).rejects.toThrow('Transaction aborted');
 
-        expect(mockLogger.hasLogWithMessage('Transactional query txFailingQuery failed')).toBe(true);
+        expect(
+          mockLogger.hasLogWithMessage(
+            'Transactional query txFailingQuery failed',
+          ),
+        ).toBe(true);
       });
     });
 
@@ -266,11 +318,19 @@ describe('QueryExecutionStrategy', () => {
         mockTransaction.setQueryResult(mockSqlToken.toString(), expectedResult);
 
         // Act
-        const result = await transactionStrategy.executeWriteQuery(mockSqlToken, 'txInsertUsers', entityIds);
+        const result = await transactionStrategy.executeWriteQuery(
+          mockSqlToken,
+          'txInsertUsers',
+          entityIds,
+        );
 
         // Assert
         expect(result).toEqual(expectedResult);
-        expect(mockLogger.hasLogWithMessage('Transactional write txInsertUsers completed')).toBe(true);
+        expect(
+          mockLogger.hasLogWithMessage(
+            'Transactional write txInsertUsers completed',
+          ),
+        ).toBe(true);
       });
     });
   });
@@ -282,7 +342,7 @@ describe('QueryExecutionStrategy', () => {
       expect(poolStrategy).toHaveProperty('executeWriteQuery');
       expect(transactionStrategy).toHaveProperty('executeQuery');
       expect(transactionStrategy).toHaveProperty('executeWriteQuery');
-      
+
       // Verify methods are functions
       expect(typeof poolStrategy.executeQuery).toBe('function');
       expect(typeof poolStrategy.executeWriteQuery).toBe('function');
@@ -292,7 +352,11 @@ describe('QueryExecutionStrategy', () => {
 
     it('should allow strategy swapping without breaking functionality', async () => {
       // Arrange
-      const expectedResult = { rows: [{ id: 1 }], rowCount: 1, command: 'SELECT' };
+      const expectedResult = {
+        rows: [{ id: 1 }],
+        rowCount: 1,
+        command: 'SELECT',
+      };
       mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
       mockTransaction.setQueryResult(mockSqlToken.toString(), expectedResult);
 
@@ -313,7 +377,10 @@ describe('QueryExecutionStrategy', () => {
       const errorTypes = [
         { error: new Error('Connection timeout'), expectedType: 'Error' },
         { error: new TypeError('Invalid argument'), expectedType: 'TypeError' },
-        { error: new RangeError('Value out of range'), expectedType: 'RangeError' },
+        {
+          error: new RangeError('Value out of range'),
+          expectedType: 'RangeError',
+        },
       ];
 
       for (const { error, expectedType } of errorTypes) {
@@ -321,8 +388,9 @@ describe('QueryExecutionStrategy', () => {
         mockPool.simulateError(error);
 
         // Act & Assert
-        await expect(poolStrategy.executeQuery(mockSqlToken, 'errorClassificationTest'))
-          .rejects.toThrow(error.message);
+        await expect(
+          poolStrategy.executeQuery(mockSqlToken, 'errorClassificationTest'),
+        ).rejects.toThrow(error.message);
 
         const errorLogs = mockLogger.getLogsByLevel('error');
         const latestLog = errorLogs[errorLogs.length - 1];
@@ -360,7 +428,7 @@ describe('QueryExecutionStrategy', () => {
       // Assert - Memory usage should not increase significantly
       const memoryIncrease = finalMemory.heapUsed - initialMemory.heapUsed;
       const memoryIncreaseKB = memoryIncrease / 1024;
-      
+
       // Memory increase should be less than 1MB for 1000 operations
       expect(memoryIncreaseKB).toBeLessThan(1024);
     });
@@ -373,7 +441,8 @@ describe('QueryExecutionStrategy', () => {
       // Act
       try {
         await poolStrategy.executeQuery(mockSqlToken, 'resourceTest');
-      } catch (error) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_error) {
         // Expected to fail
       }
 
@@ -385,7 +454,10 @@ describe('QueryExecutionStrategy', () => {
       mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
 
       // Should not throw
-      const result = await poolStrategy.executeQuery(mockSqlToken, 'recoveryTest');
+      const result = await poolStrategy.executeQuery(
+        mockSqlToken,
+        'recoveryTest',
+      );
       expect(result).toEqual(expectedResult);
     });
   });
@@ -402,18 +474,21 @@ describe('QueryExecutionStrategy', () => {
       const expectedResult = {
         rows: [{ id: 1, email: 'test@example.com', role: 'user' }],
         rowCount: 1,
-        command: 'SELECT'
+        command: 'SELECT',
       };
       mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
 
       // Act
-      const result = await poolStrategy.executeQuery<TestUser>(mockSqlToken, 'typedQuery');
+      const result = await poolStrategy.executeQuery<TestUser>(
+        mockSqlToken,
+        'typedQuery',
+      );
 
       // Assert
       expect(result.rows[0].id).toBe(1);
       expect(result.rows[0].email).toBe('test@example.com');
       expect(result.rows[0].role).toBe('user');
-      
+
       // TypeScript should enforce type safety at compile time
       // This test ensures runtime behavior matches type expectations
     });
@@ -424,7 +499,10 @@ describe('QueryExecutionStrategy', () => {
       mockPool.setQueryResult(mockSqlToken.toString(), expectedResult);
 
       // Act
-      const result = await poolStrategy.executeQuery<TestUser>(mockSqlToken, 'emptyTypedQuery');
+      const result = await poolStrategy.executeQuery<TestUser>(
+        mockSqlToken,
+        'emptyTypedQuery',
+      );
 
       // Assert
       expect(result.rows).toEqual([]);

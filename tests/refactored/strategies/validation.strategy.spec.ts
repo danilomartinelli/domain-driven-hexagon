@@ -4,11 +4,14 @@
  */
 
 import {
-  ValidationStrategy,
   CachedValidationStrategy,
   SchemaValidationStrategy,
 } from '@libs/db/strategies/validation.strategy';
-import { MockLogger, PerformanceMeasurement, BenchmarkRunner, CacheTestUtils } from '../utils/refactoring-test.utils';
+import {
+  MockLogger,
+  PerformanceMeasurement,
+  BenchmarkRunner,
+} from '../utils/refactoring-test.utils';
 
 describe('ValidationStrategy', () => {
   let mockLogger: MockLogger;
@@ -40,12 +43,20 @@ describe('ValidationStrategy', () => {
 
         const rules = {
           id: { required: true, type: 'string', minLength: 1 },
-          email: { required: true, type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+          email: {
+            required: true,
+            type: 'string',
+            pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+          },
           age: { required: true, type: 'number', min: 0, max: 120 },
         };
 
         // Act
-        const result = await cachedStrategy.validate(validData, rules, 'user-validation');
+        const result = await cachedStrategy.validate(
+          validData,
+          rules,
+          'user-validation',
+        );
 
         // Assert
         expect(result.isValid).toBe(true);
@@ -63,21 +74,31 @@ describe('ValidationStrategy', () => {
 
         const rules = {
           id: { required: true, type: 'string', minLength: 1 },
-          email: { required: true, type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+          email: {
+            required: true,
+            type: 'string',
+            pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+          },
           age: { required: true, type: 'number', min: 0, max: 120 },
         };
 
         // Act
-        const result = await cachedStrategy.validate(invalidData, rules, 'user-validation');
+        const result = await cachedStrategy.validate(
+          invalidData,
+          rules,
+          'user-validation',
+        );
 
         // Assert
         expect(result.isValid).toBe(false);
         expect(result.errors.length).toBeGreaterThan(0);
-        expect(result.errors).toEqual(expect.arrayContaining([
-          expect.objectContaining({ field: 'id' }),
-          expect.objectContaining({ field: 'email' }),
-          expect.objectContaining({ field: 'age' }),
-        ]));
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ field: 'id' }),
+            expect.objectContaining({ field: 'email' }),
+            expect.objectContaining({ field: 'age' }),
+          ]),
+        );
       });
 
       it('should handle missing required fields', async () => {
@@ -94,16 +115,22 @@ describe('ValidationStrategy', () => {
         };
 
         // Act
-        const result = await cachedStrategy.validate(incompleteData, rules, 'incomplete-validation');
+        const result = await cachedStrategy.validate(
+          incompleteData,
+          rules,
+          'incomplete-validation',
+        );
 
         // Assert
         expect(result.isValid).toBe(false);
-        expect(result.errors).toEqual(expect.arrayContaining([
-          expect.objectContaining({ 
-            field: 'id',
-            code: 'REQUIRED_FIELD_MISSING'
-          })
-        ]));
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              field: 'id',
+              code: 'REQUIRED_FIELD_MISSING',
+            }),
+          ]),
+        );
       });
 
       it('should validate nested objects', async () => {
@@ -114,26 +141,38 @@ describe('ValidationStrategy', () => {
               name: 'John Doe',
               contact: {
                 email: 'john@example.com',
-                phone: '+1234567890'
-              }
+                phone: '+1234567890',
+              },
             },
             preferences: {
               theme: 'dark',
-              notifications: true
-            }
-          }
+              notifications: true,
+            },
+          },
         };
 
         const rules = {
           'user.profile.name': { required: true, type: 'string', minLength: 2 },
-          'user.profile.contact.email': { required: true, type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+          'user.profile.contact.email': {
+            required: true,
+            type: 'string',
+            pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+          },
           'user.profile.contact.phone': { required: false, type: 'string' },
-          'user.preferences.theme': { required: true, type: 'string', enum: ['light', 'dark'] },
+          'user.preferences.theme': {
+            required: true,
+            type: 'string',
+            enum: ['light', 'dark'],
+          },
           'user.preferences.notifications': { required: true, type: 'boolean' },
         };
 
         // Act
-        const result = await cachedStrategy.validate(nestedData, rules, 'nested-validation');
+        const result = await cachedStrategy.validate(
+          nestedData,
+          rules,
+          'nested-validation',
+        );
 
         // Assert
         expect(result.isValid).toBe(true);
@@ -145,14 +184,25 @@ describe('ValidationStrategy', () => {
       it('should cache validation results', async () => {
         // Arrange
         const data = { id: 'cache-test', value: 'test' };
-        const rules = { id: { required: true, type: 'string' }, value: { required: true, type: 'string' } };
+        const rules = {
+          id: { required: true, type: 'string' },
+          value: { required: true, type: 'string' },
+        };
 
         // Act - First validation
-        const result1 = await cachedStrategy.validate(data, rules, 'cache-test');
+        const result1 = await cachedStrategy.validate(
+          data,
+          rules,
+          'cache-test',
+        );
         const metrics1 = cachedStrategy.getCacheMetrics();
 
         // Act - Second validation (should hit cache)
-        const result2 = await cachedStrategy.validate(data, rules, 'cache-test');
+        const result2 = await cachedStrategy.validate(
+          data,
+          rules,
+          'cache-test',
+        );
         const metrics2 = cachedStrategy.getCacheMetrics();
 
         // Assert
@@ -165,9 +215,12 @@ describe('ValidationStrategy', () => {
         // Arrange
         const testData = Array.from({ length: 50 }, (_, i) => ({
           id: `cache-perf-${i % 10}`, // Repeat IDs to test cache effectiveness
-          value: `value-${i}`
+          value: `value-${i}`,
         }));
-        const rules = { id: { required: true, type: 'string' }, value: { required: true, type: 'string' } };
+        const rules = {
+          id: { required: true, type: 'string' },
+          value: { required: true, type: 'string' },
+        };
 
         // Act
         const benchmark = await BenchmarkRunner.run(
@@ -177,7 +230,7 @@ describe('ValidationStrategy', () => {
               await cachedStrategy.validate(data, rules, 'cache-perf');
             }
           },
-          20
+          20,
         );
 
         // Assert
@@ -190,9 +243,12 @@ describe('ValidationStrategy', () => {
         // Arrange
         const manyValidations = Array.from({ length: 1200 }, (_, i) => ({
           id: `cache-limit-${i}`,
-          value: `value-${i}`
+          value: `value-${i}`,
         }));
-        const rules = { id: { required: true, type: 'string' }, value: { required: true, type: 'string' } };
+        const rules = {
+          id: { required: true, type: 'string' },
+          value: { required: true, type: 'string' },
+        };
 
         // Act
         for (const data of manyValidations) {
@@ -212,10 +268,18 @@ describe('ValidationStrategy', () => {
 
         // Act
         await cachedStrategy.validate(data, rules1, 'rule-change');
-        const result1 = await cachedStrategy.validate(data, rules1, 'rule-change'); // Cache hit
+        const result1 = await cachedStrategy.validate(
+          data,
+          rules1,
+          'rule-change',
+        ); // Cache hit
 
         await cachedStrategy.validate(data, rules2, 'rule-change');
-        const result2 = await cachedStrategy.validate(data, rules2, 'rule-change'); // Different rules
+        const result2 = await cachedStrategy.validate(
+          data,
+          rules2,
+          'rule-change',
+        ); // Different rules
 
         // Assert
         expect(result1.isValid).toBe(true);
@@ -235,7 +299,11 @@ describe('ValidationStrategy', () => {
 
         const rules = {
           id: { required: true, type: 'string' },
-          email: { required: true, type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+          email: {
+            required: true,
+            type: 'string',
+            pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+          },
           age: { required: true, type: 'number', min: 0, max: 120 },
           active: { required: true, type: 'boolean' },
         };
@@ -248,7 +316,7 @@ describe('ValidationStrategy', () => {
               await cachedStrategy.validate(data, rules, 'large-dataset');
             }
           },
-          5
+          5,
         );
 
         // Assert
@@ -260,20 +328,23 @@ describe('ValidationStrategy', () => {
         // Arrange
         const concurrentData = Array.from({ length: 20 }, (_, i) => ({
           id: `concurrent-${i}`,
-          value: `value-${i}`
+          value: `value-${i}`,
         }));
-        const rules = { id: { required: true, type: 'string' }, value: { required: true, type: 'string' } };
+        const rules = {
+          id: { required: true, type: 'string' },
+          value: { required: true, type: 'string' },
+        };
 
         // Act
         const benchmark = await BenchmarkRunner.run(
           'concurrent-validation',
           async () => {
-            const validationPromises = concurrentData.map(data =>
-              cachedStrategy.validate(data, rules, 'concurrent')
+            const validationPromises = concurrentData.map((data) =>
+              cachedStrategy.validate(data, rules, 'concurrent'),
             );
             await Promise.all(validationPromises);
           },
-          10
+          10,
         );
 
         // Assert
@@ -300,7 +371,11 @@ describe('ValidationStrategy', () => {
 
         // Act & Assert
         for (const data of edgeCaseData) {
-          const result = await cachedStrategy.validate(data as any, rules, 'edge-case');
+          const result = await cachedStrategy.validate(
+            data as any,
+            rules,
+            'edge-case',
+          );
           expect(result).toHaveProperty('isValid');
           expect(result).toHaveProperty('errors');
           expect(Array.isArray(result.errors)).toBe(true);
@@ -322,17 +397,22 @@ describe('ValidationStrategy', () => {
 
       it('should validate with custom validation functions', async () => {
         // Arrange
-        const data = { password: 'weakpassword', confirmPassword: 'differentpassword' };
+        const data = {
+          password: 'weakpassword',
+          confirmPassword: 'differentpassword',
+        };
         const rules = {
-          password: { 
-            required: true, 
+          password: {
+            required: true,
             type: 'string',
             custom: (value: string) => {
-              if (value.length < 8) return 'Password must be at least 8 characters';
-              if (!/[A-Z]/.test(value)) return 'Password must contain uppercase letter';
+              if (value.length < 8)
+                return 'Password must be at least 8 characters';
+              if (!/[A-Z]/.test(value))
+                return 'Password must contain uppercase letter';
               if (!/[0-9]/.test(value)) return 'Password must contain a number';
               return null;
-            }
+            },
           },
           confirmPassword: {
             required: true,
@@ -340,21 +420,33 @@ describe('ValidationStrategy', () => {
             custom: (value: string, data: any) => {
               if (value !== data.password) return 'Passwords must match';
               return null;
-            }
-          }
+            },
+          },
         };
 
         // Act
-        const result = await cachedStrategy.validate(data, rules, 'custom-validation');
+        const result = await cachedStrategy.validate(
+          data,
+          rules,
+          'custom-validation',
+        );
 
         // Assert
         expect(result.isValid).toBe(false);
         expect(result.errors.length).toBeGreaterThan(0);
-        expect(result.errors).toEqual(expect.arrayContaining([
-          expect.objectContaining({ message: expect.stringContaining('uppercase') }),
-          expect.objectContaining({ message: expect.stringContaining('number') }),
-          expect.objectContaining({ message: expect.stringContaining('match') }),
-        ]));
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: expect.stringContaining('uppercase'),
+            }),
+            expect.objectContaining({
+              message: expect.stringContaining('number'),
+            }),
+            expect.objectContaining({
+              message: expect.stringContaining('match'),
+            }),
+          ]),
+        );
       });
     });
   });
@@ -369,28 +461,36 @@ describe('ValidationStrategy', () => {
             name: { type: 'string', minLength: 1 },
             age: { type: 'integer', minimum: 0, maximum: 120 },
             email: { type: 'string', format: 'email' },
-            active: { type: 'boolean' }
+            active: { type: 'boolean' },
           },
-          required: ['name', 'email']
+          required: ['name', 'email'],
         };
 
         const validData = {
           name: 'John Doe',
           age: 30,
           email: 'john@example.com',
-          active: true
+          active: true,
         };
 
         const invalidData = {
           name: '',
           age: -5,
           email: 'invalid-email',
-          active: 'not-boolean'
+          active: 'not-boolean',
         };
 
         // Act
-        const validResult = await schemaStrategy.validateSchema(validData, schema, 'json-schema');
-        const invalidResult = await schemaStrategy.validateSchema(invalidData, schema, 'json-schema');
+        const validResult = await schemaStrategy.validateSchema(
+          validData,
+          schema,
+          'json-schema',
+        );
+        const invalidResult = await schemaStrategy.validateSchema(
+          invalidData,
+          schema,
+          'json-schema',
+        );
 
         // Assert
         expect(validResult.isValid).toBe(true);
@@ -413,15 +513,15 @@ describe('ValidationStrategy', () => {
                   properties: {
                     firstName: { type: 'string' },
                     lastName: { type: 'string' },
-                    age: { type: 'integer', minimum: 0 }
+                    age: { type: 'integer', minimum: 0 },
                   },
-                  required: ['firstName', 'lastName']
-                }
+                  required: ['firstName', 'lastName'],
+                },
               },
-              required: ['profile']
-            }
+              required: ['profile'],
+            },
           },
-          required: ['user']
+          required: ['user'],
         };
 
         const validData = {
@@ -429,13 +529,17 @@ describe('ValidationStrategy', () => {
             profile: {
               firstName: 'John',
               lastName: 'Doe',
-              age: 30
-            }
-          }
+              age: 30,
+            },
+          },
         };
 
         // Act
-        const result = await schemaStrategy.validateSchema(validData, schema, 'nested-schema');
+        const result = await schemaStrategy.validateSchema(
+          validData,
+          schema,
+          'nested-schema',
+        );
 
         // Assert
         expect(result.isValid).toBe(true);
@@ -448,36 +552,42 @@ describe('ValidationStrategy', () => {
           type: 'object',
           properties: {
             count: { type: 'integer', minimum: 1, maximum: 100 },
-            tags: { 
-              type: 'array', 
+            tags: {
+              type: 'array',
               items: { type: 'string' },
               minItems: 1,
-              maxItems: 5
-            }
+              maxItems: 5,
+            },
           },
-          required: ['count', 'tags']
+          required: ['count', 'tags'],
         };
 
         const invalidData = {
           count: 0, // Below minimum
-          tags: [] // Below minItems
+          tags: [], // Below minItems
         };
 
         // Act
-        const result = await schemaStrategy.validateSchema(invalidData, schema, 'schema-errors');
+        const result = await schemaStrategy.validateSchema(
+          invalidData,
+          schema,
+          'schema-errors',
+        );
 
         // Assert
         expect(result.isValid).toBe(false);
-        expect(result.errors).toEqual(expect.arrayContaining([
-          expect.objectContaining({ 
-            field: 'count',
-            message: expect.stringContaining('minimum')
-          }),
-          expect.objectContaining({ 
-            field: 'tags',
-            message: expect.stringContaining('minItems')
-          })
-        ]));
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              field: 'count',
+              message: expect.stringContaining('minimum'),
+            }),
+            expect.objectContaining({
+              field: 'tags',
+              message: expect.stringContaining('minItems'),
+            }),
+          ]),
+        );
       });
     });
 
@@ -488,14 +598,14 @@ describe('ValidationStrategy', () => {
           type: 'object',
           properties: {
             id: { type: 'string' },
-            value: { type: 'number' }
-          }
+            value: { type: 'number' },
+          },
         };
 
         const testData = [
           { id: 'test1', value: 1 },
           { id: 'test2', value: 2 },
-          { id: 'test3', value: 3 }
+          { id: 'test3', value: 3 },
         ];
 
         // Act
@@ -503,10 +613,14 @@ describe('ValidationStrategy', () => {
           'schema-caching-performance',
           async () => {
             for (const data of testData) {
-              await schemaStrategy.validateSchema(data, schema, 'schema-caching');
+              await schemaStrategy.validateSchema(
+                data,
+                schema,
+                'schema-caching',
+              );
             }
           },
-          30
+          30,
         );
 
         // Assert
@@ -516,16 +630,22 @@ describe('ValidationStrategy', () => {
       it('should demonstrate performance improvement with schema caching', async () => {
         // Compare with non-cached approach
         class NonCachedSchemaValidator {
-          async validateSchema(data: any, schema: any) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          async validateSchema(_data: any, _schema: any) {
             // Simulate schema compilation on each validation
-            await new Promise(resolve => setTimeout(resolve, 1)); // 1ms delay
+            await new Promise((resolve) => setTimeout(resolve, 1)); // 1ms delay
             return { isValid: true, errors: [] };
           }
         }
 
         const nonCachedValidator = new NonCachedSchemaValidator();
-        const schema = { type: 'object', properties: { id: { type: 'string' } } };
-        const testData = Array.from({ length: 20 }, (_, i) => ({ id: `test-${i}` }));
+        const schema = {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+        };
+        const testData = Array.from({ length: 20 }, (_, i) => ({
+          id: `test-${i}`,
+        }));
 
         // Benchmark non-cached
         const nonCachedBenchmark = await BenchmarkRunner.run(
@@ -535,7 +655,7 @@ describe('ValidationStrategy', () => {
               await nonCachedValidator.validateSchema(data, schema);
             }
           },
-          10
+          10,
         );
 
         // Benchmark cached
@@ -546,11 +666,13 @@ describe('ValidationStrategy', () => {
               await schemaStrategy.validateSchema(data, schema, 'perf-test');
             }
           },
-          10
+          10,
         );
 
         // Assert significant improvement
-        expect(cachedBenchmark.stats.avg).toBeLessThan(nonCachedBenchmark.stats.avg * 0.5);
+        expect(cachedBenchmark.stats.avg).toBeLessThan(
+          nonCachedBenchmark.stats.avg * 0.5,
+        );
       });
     });
   });
@@ -560,7 +682,7 @@ describe('ValidationStrategy', () => {
       // Verify both strategies implement the interface
       expect(cachedStrategy).toHaveProperty('validate');
       expect(schemaStrategy).toHaveProperty('validateSchema');
-      
+
       expect(typeof cachedStrategy.validate).toBe('function');
       expect(typeof schemaStrategy.validateSchema).toBe('function');
     });
@@ -570,7 +692,11 @@ describe('ValidationStrategy', () => {
       const data = { id: 'strategy-test', email: 'test@example.com' };
       const rules = {
         id: { required: true, type: 'string' },
-        email: { required: true, type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ }
+        email: {
+          required: true,
+          type: 'string',
+          pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        },
       };
 
       // Use cached strategy
@@ -583,9 +709,9 @@ describe('ValidationStrategy', () => {
         type: 'object',
         properties: {
           id: { type: 'string', minLength: 1 },
-          email: { type: 'string', format: 'email' }
+          email: { type: 'string', format: 'email' },
         },
-        required: ['id', 'email']
+        required: ['id', 'email'],
       };
 
       // Use schema strategy
@@ -605,27 +731,39 @@ describe('ValidationStrategy', () => {
             email: 'invalid-email',
             age: 'not-a-number',
             preferences: {
-              theme: 'invalid-theme'
-            }
-          }
-        }
+              theme: 'invalid-theme',
+            },
+          },
+        },
       };
 
       const rules = {
         'user.id': { required: true, type: 'string', minLength: 1 },
-        'user.profile.email': { required: true, type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
+        'user.profile.email': {
+          required: true,
+          type: 'string',
+          pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        },
         'user.profile.age': { required: true, type: 'number', min: 0 },
-        'user.profile.preferences.theme': { required: true, type: 'string', enum: ['light', 'dark'] }
+        'user.profile.preferences.theme': {
+          required: true,
+          type: 'string',
+          enum: ['light', 'dark'],
+        },
       };
 
       // Act
-      const result = await cachedStrategy.validate(complexData, rules, 'error-details');
+      const result = await cachedStrategy.validate(
+        complexData,
+        rules,
+        'error-details',
+      );
 
       // Assert
       expect(result.isValid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
-      
-      result.errors.forEach(error => {
+
+      result.errors.forEach((error) => {
         expect(error).toHaveProperty('field');
         expect(error).toHaveProperty('message');
         expect(error).toHaveProperty('code');
@@ -637,7 +775,10 @@ describe('ValidationStrategy', () => {
     it('should log validation performance metrics', async () => {
       // Arrange
       const data = { id: 'metrics-test', value: 'test' };
-      const rules = { id: { required: true, type: 'string' }, value: { required: true, type: 'string' } };
+      const rules = {
+        id: { required: true, type: 'string' },
+        value: { required: true, type: 'string' },
+      };
 
       // Act
       await cachedStrategy.validate(data, rules, 'metrics-test');
@@ -645,7 +786,9 @@ describe('ValidationStrategy', () => {
       // Assert
       expect(mockLogger.hasLogWithLevel('debug')).toBe(true);
       const debugLogs = mockLogger.getLogsByLevel('debug');
-      expect(debugLogs.some(log => log.message.includes('validation completed'))).toBe(true);
+      expect(
+        debugLogs.some((log) => log.message.includes('validation completed')),
+      ).toBe(true);
     });
   });
 
@@ -653,7 +796,10 @@ describe('ValidationStrategy', () => {
     it('should not leak memory with repeated validations', async () => {
       // Arrange
       const data = { id: 'memory-test', value: 'test' };
-      const rules = { id: { required: true, type: 'string' }, value: { required: true, type: 'string' } };
+      const rules = {
+        id: { required: true, type: 'string' },
+        value: { required: true, type: 'string' },
+      };
 
       // Act - Perform many validations
       for (let i = 0; i < 1000; i++) {

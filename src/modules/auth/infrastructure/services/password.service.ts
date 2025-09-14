@@ -28,7 +28,10 @@ export class PasswordService implements PasswordServicePort {
     }
   }
 
-  async compare(plainPassword: string, hashedPassword: string): Promise<boolean> {
+  async compare(
+    plainPassword: string,
+    hashedPassword: string,
+  ): Promise<boolean> {
     try {
       return await bcrypt.compare(plainPassword, hashedPassword);
     } catch (error) {

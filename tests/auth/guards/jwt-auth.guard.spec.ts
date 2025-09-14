@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '@modules/auth/infrastructure/guards/jwt-auth.guard';
-import { AUTH_METADATA_KEY, AuthOptions } from '@modules/auth/infrastructure/decorators/auth.decorator';
+import {
+  AUTH_METADATA_KEY,
+  AuthOptions,
+} from '@modules/auth/infrastructure/decorators/auth.decorator';
 
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
@@ -72,7 +75,7 @@ describe('JwtAuthGuard', () => {
       expect(result).toBe(true);
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(
         AUTH_METADATA_KEY,
-        [mockContext.getHandler(), mockContext.getClass()]
+        [mockContext.getHandler(), mockContext.getClass()],
       );
     });
 
@@ -80,9 +83,13 @@ describe('JwtAuthGuard', () => {
       // Arrange
       const authOptions: AuthOptions = { required: true };
       reflector.getAllAndOverride.mockReturnValue(authOptions);
-      
+
       // Mock the parent canActivate method
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockResolvedValue(true);
 
       // Act
@@ -95,9 +102,13 @@ describe('JwtAuthGuard', () => {
     it('should proceed with JWT authentication when no metadata is present', async () => {
       // Arrange
       reflector.getAllAndOverride.mockReturnValue(undefined);
-      
+
       // Mock the parent canActivate method
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockResolvedValue(true);
 
       // Act
@@ -111,13 +122,19 @@ describe('JwtAuthGuard', () => {
       // Arrange
       const authOptions: AuthOptions = { required: true };
       reflector.getAllAndOverride.mockReturnValue(authOptions);
-      
+
       // Mock the parent canActivate method to fail
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockRejectedValue(new UnauthorizedException('Token expired'));
 
       // Act & Assert
-      await expect(guard.canActivate(mockContext)).rejects.toThrow(UnauthorizedException);
+      await expect(guard.canActivate(mockContext)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -153,8 +170,9 @@ describe('JwtAuthGuard', () => {
       reflector.getAllAndOverride.mockReturnValue(authOptions);
 
       // Act & Assert
-      expect(() => guard.handleRequest(null, null, null, mockContext))
-        .toThrow(UnauthorizedException);
+      expect(() => guard.handleRequest(null, null, null, mockContext)).toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw original error when authentication fails', () => {
@@ -164,8 +182,9 @@ describe('JwtAuthGuard', () => {
       const originalError = new UnauthorizedException('Token expired');
 
       // Act & Assert
-      expect(() => guard.handleRequest(originalError, null, null, mockContext))
-        .toThrow('Token expired');
+      expect(() =>
+        guard.handleRequest(originalError, null, null, mockContext),
+      ).toThrow('Token expired');
     });
 
     it('should throw UnauthorizedException with custom message when no error is provided', () => {
@@ -174,8 +193,9 @@ describe('JwtAuthGuard', () => {
       reflector.getAllAndOverride.mockReturnValue(authOptions);
 
       // Act & Assert
-      expect(() => guard.handleRequest(null, null, null, mockContext))
-        .toThrow('Invalid or expired token');
+      expect(() => guard.handleRequest(null, null, null, mockContext)).toThrow(
+        'Invalid or expired token',
+      );
     });
 
     it('should handle missing auth metadata gracefully', () => {
@@ -197,8 +217,9 @@ describe('JwtAuthGuard', () => {
       const falsyUser = '';
 
       // Act & Assert
-      expect(() => guard.handleRequest(null, falsyUser, null, mockContext))
-        .toThrow(UnauthorizedException);
+      expect(() =>
+        guard.handleRequest(null, falsyUser, null, mockContext),
+      ).toThrow(UnauthorizedException);
     });
   });
 
@@ -215,7 +236,7 @@ describe('JwtAuthGuard', () => {
       expect(result).toBe(true);
       expect(reflector.getAllAndOverride).toHaveBeenCalledWith(
         AUTH_METADATA_KEY,
-        [mockContext.getHandler(), mockContext.getClass()]
+        [mockContext.getHandler(), mockContext.getClass()],
       );
     });
 
@@ -225,7 +246,11 @@ describe('JwtAuthGuard', () => {
       reflector.getAllAndOverride.mockReturnValue(methodMetadata);
 
       // Mock parent canActivate
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockResolvedValue(true);
 
       // Act
@@ -257,9 +282,13 @@ describe('JwtAuthGuard', () => {
     it('should work with Passport JWT strategy', async () => {
       // Arrange
       reflector.getAllAndOverride.mockReturnValue({ required: true });
-      
+
       // Mock successful Passport authentication
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockResolvedValue(true);
 
       // Act
@@ -272,14 +301,20 @@ describe('JwtAuthGuard', () => {
     it('should handle Passport authentication errors', async () => {
       // Arrange
       reflector.getAllAndOverride.mockReturnValue({ required: true });
-      
+
       // Mock Passport authentication failure
       const passportError = new UnauthorizedException('JWT malformed');
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockRejectedValue(passportError);
 
       // Act & Assert
-      await expect(guard.canActivate(mockContext)).rejects.toThrow('JWT malformed');
+      await expect(guard.canActivate(mockContext)).rejects.toThrow(
+        'JWT malformed',
+      );
     });
   });
 
@@ -291,7 +326,9 @@ describe('JwtAuthGuard', () => {
       });
 
       // Act & Assert
-      await expect(guard.canActivate(mockContext)).rejects.toThrow('Reflector error');
+      await expect(guard.canActivate(mockContext)).rejects.toThrow(
+        'Reflector error',
+      );
     });
 
     it('should handle missing execution context', async () => {
@@ -309,7 +346,11 @@ describe('JwtAuthGuard', () => {
       reflector.getAllAndOverride.mockReturnValue(malformedMetadata);
 
       // Mock parent canActivate since metadata doesn't specify required: false
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockResolvedValue(true);
 
       // Act
@@ -327,7 +368,9 @@ describe('JwtAuthGuard', () => {
       const startTime = Date.now();
 
       // Act
-      const promises = Array(1000).fill(0).map(() => guard.canActivate(mockContext));
+      const promises = Array(1000)
+        .fill(0)
+        .map(() => guard.canActivate(mockContext));
       await Promise.all(promises);
 
       const endTime = Date.now();
@@ -375,7 +418,11 @@ describe('JwtAuthGuard', () => {
       reflector.getAllAndOverride.mockReturnValue(maliciousMetadata);
 
       // Mock parent canActivate to be called
-      jest.spyOn(Object.getPrototypeOf(Object.getPrototypeOf(guard)), 'canActivate')
+      jest
+        .spyOn(
+          Object.getPrototypeOf(Object.getPrototypeOf(guard)),
+          'canActivate',
+        )
         .mockResolvedValue(true);
 
       // Act

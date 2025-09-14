@@ -8,25 +8,30 @@ import {
 import { LoggerPort } from '../../ports/logger.port';
 
 /**
- * Error classification for different types of database errors
+ * Error classification for different types of database errors with const assertions
+ * for better TypeScript support
  */
-export enum ErrorSeverity {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  CRITICAL = 'CRITICAL',
-}
+export const ErrorSeverity = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  CRITICAL: 'CRITICAL',
+} as const;
 
-export enum ErrorCategory {
-  INTEGRITY = 'INTEGRITY',
-  AUTHENTICATION = 'AUTHENTICATION',
-  AUTHORIZATION = 'AUTHORIZATION',
-  VALIDATION = 'VALIDATION',
-  CONNECTIVITY = 'CONNECTIVITY',
-  PERFORMANCE = 'PERFORMANCE',
-  SECURITY = 'SECURITY',
-  UNKNOWN = 'UNKNOWN',
-}
+export type ErrorSeverity = (typeof ErrorSeverity)[keyof typeof ErrorSeverity];
+
+export const ErrorCategory = {
+  INTEGRITY: 'INTEGRITY',
+  AUTHENTICATION: 'AUTHENTICATION',
+  AUTHORIZATION: 'AUTHORIZATION',
+  VALIDATION: 'VALIDATION',
+  CONNECTIVITY: 'CONNECTIVITY',
+  PERFORMANCE: 'PERFORMANCE',
+  SECURITY: 'SECURITY',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ErrorCategory = (typeof ErrorCategory)[keyof typeof ErrorCategory];
 
 /**
  * Structured error information for logging and monitoring
@@ -60,6 +65,7 @@ export interface ErrorHandlerStrategy {
 
 /**
  * Production-ready error handler with security-conscious logging
+ * Implements comprehensive error classification and sanitization
  */
 export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
   private static readonly SUSPICIOUS_PATTERNS = [
@@ -68,15 +74,22 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     'information_schema',
     'pg_tables',
     'pg_user',
+    'pg_roles',
+    'pg_database',
     'version()',
     'current_user',
     'current_database',
     'drop table',
+    'drop database',
     'delete from',
     'truncate',
     'alter table',
     'create table',
-  ];
+    'grant',
+    'revoke',
+    'insert into',
+    'update set',
+  ] as const;
 
   private static readonly SENSITIVE_FIELD_PATTERNS = [
     'password',
@@ -87,11 +100,37 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
     'auth',
     'session',
     'jwt',
-  ];
+    'api_key',
+    'access_token',
+    'refresh_token',
+  ] as const;
+
+  private static readonly RETRYABLE_ERROR_CODES = [
+    '53300', // too_many_connections
+    '57P01', // admin_shutdown
+    '57P02', // crash_shutdown
+    '57P03', // cannot_connect_now
+    '40001', // serialization_failure
+    '40P01', // deadlock_detected
+    '08006', // connection_failure
+    '08003', // connection_does_not_exist
+    '08000', // connection_exception
+  ] as const;
+
+  private static readonly RETRYABLE_MESSAGE_PATTERNS = [
+    'connection terminated',
+    'connection lost',
+    'server closed the connection',
+    'timeout',
+    'network error',
+    'connection refused',
+    'connection reset',
+    'broken pipe',
+  ] as const;
 
   private readonly errorCounts = new Map<
     string,
-    { count: number; lastSeen: number }
+    { count: number; lastSeen: number; firstSeen: number }
   >();
   private readonly isProduction = process.env.NODE_ENV === 'production';
 
@@ -140,35 +179,28 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
   }
 
   isRetryable(error: Error): boolean {
-    // Connection-related errors are typically retryable
-    if ('code' in error) {
-      const errorCode = (error as any).code;
-      const retryableCodes = [
-        '53300', // too_many_connections
-        '57P01', // admin_shutdown
-        '57P02', // crash_shutdown
-        '57P03', // cannot_connect_now
-        '40001', // serialization_failure
-        '40P01', // deadlock_detected
-      ];
+    // Don't retry if it's a suspicious error (potential attack)
+    if (this.isSuspiciousError(error)) {
+      return false;
+    }
 
-      if (retryableCodes.includes(errorCode)) {
+    // Connection-related errors are typically retryable
+    if ('code' in error && typeof (error as any).code === 'string') {
+      const errorCode = (error as any).code;
+      if (
+        SecureErrorHandlerStrategy.RETRYABLE_ERROR_CODES.includes(
+          errorCode as any,
+        )
+      ) {
         return true;
       }
     }
 
     // Check error message patterns
     const errorMessage = error.message.toLowerCase();
-    const retryablePatterns = [
-      'connection terminated',
-      'connection lost',
-      'server closed the connection',
-      'timeout',
-      'network error',
-      'connection refused',
-    ];
-
-    return retryablePatterns.some((pattern) => errorMessage.includes(pattern));
+    return SecureErrorHandlerStrategy.RETRYABLE_MESSAGE_PATTERNS.some(
+      (pattern) => errorMessage.includes(pattern),
+    );
   }
 
   categorizeError(error: Error): ErrorCategory {
@@ -432,17 +464,51 @@ export class SecureErrorHandlerStrategy implements ErrorHandlerStrategy {
       existing.count += 1;
       existing.lastSeen = now;
     } else {
-      this.errorCounts.set(errorKey, { count: 1, lastSeen: now });
+      this.errorCounts.set(errorKey, {
+        count: 1,
+        lastSeen: now,
+        firstSeen: now,
+      });
     }
 
-    // Check for excessive errors (simple rate limiting)
-    if (existing && existing.count > 10 && now - existing.lastSeen < 60000) {
+    // Check for excessive errors with improved detection
+    if (existing && this.isHighErrorRate(existing, now)) {
       this.logger.warn(`[${context.requestId}] High error rate detected`, {
         errorKey,
         count: existing.count,
         timeWindow: '60s',
+        duration: now - existing.firstSeen,
         severity: ErrorSeverity.HIGH,
+        category: context.category,
+        table: context.table,
       });
+    }
+
+    // Cleanup old error counts periodically (prevent memory leaks)
+    this.cleanupOldErrorCounts(now);
+  }
+
+  private isHighErrorRate(
+    errorCount: { count: number; lastSeen: number; firstSeen: number },
+    now: number,
+  ): boolean {
+    const timeWindow = 60000; // 1 minute
+    const maxErrorsPerWindow = 10;
+
+    // Check if we're within the time window and exceeded the threshold
+    return (
+      errorCount.count > maxErrorsPerWindow &&
+      now - errorCount.lastSeen < timeWindow
+    );
+  }
+
+  private cleanupOldErrorCounts(now: number): void {
+    const cleanupThreshold = 300000; // 5 minutes
+
+    for (const [key, value] of this.errorCounts.entries()) {
+      if (now - value.lastSeen > cleanupThreshold) {
+        this.errorCounts.delete(key);
+      }
     }
   }
 

@@ -12,6 +12,7 @@ import {
 import { UserDeletedDomainEvent } from './events/user-deleted.domain-event';
 import { UserRoleChangedDomainEvent } from './events/user-role-changed.domain-event';
 import { UserAddressUpdatedDomainEvent } from './events/user-address-updated.domain-event';
+import { Guard } from '@libs/guard';
 import { randomUUID } from 'crypto';
 
 export class UserEntity extends AggregateRoot<UserProps> {
@@ -204,14 +205,8 @@ export class UserEntity extends AggregateRoot<UserProps> {
   }
 
   private validateEmail(): void {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(this.props.email)) {
+    if (!Guard.isValidEmail(this.props.email)) {
       throw new Error('Invalid email format');
-    }
-
-    if (this.props.email.length > 320) {
-      // RFC 5321 limit
-      throw new Error('Email address too long');
     }
   }
 
@@ -231,43 +226,56 @@ export class UserEntity extends AggregateRoot<UserProps> {
   }
 
   private validateAuthenticationFields(): void {
-    // Validate login attempts
-    if (this.props.loginAttempts < 0) {
-      throw new Error('Login attempts cannot be negative');
+    // Validate login attempts using type-safe guard
+    if (!Guard.isNonNegativeNumber(this.props.loginAttempts)) {
+      throw new Error('Login attempts must be a non-negative number');
     }
 
     if (this.props.loginAttempts > 100) {
       throw new Error('Login attempts exceeded maximum limit');
     }
 
-    // Validate lock expiration
-    if (this.props.lockedUntil && this.props.lockedUntil < new Date()) {
-      // Auto-unlock expired locks
-      this.props.lockedUntil = undefined;
-    }
+    // Auto-cleanup expired lock
+    this.cleanupExpiredLock();
 
-    // Validate password reset token expiration
-    if (
-      this.props.passwordResetTokenExpiresAt &&
-      this.props.passwordResetTokenExpiresAt < new Date()
-    ) {
-      // Clear expired reset tokens
-      this.props.passwordResetToken = undefined;
-      this.props.passwordResetTokenExpiresAt = undefined;
-    }
+    // Auto-cleanup expired password reset token
+    this.cleanupExpiredPasswordResetToken();
 
     // Validate token consistency
+    this.validatePasswordResetTokenConsistency();
+  }
+
+  private cleanupExpiredLock(): void {
+    if (this.props.lockedUntil && Guard.isValidDate(this.props.lockedUntil)) {
+      if (this.props.lockedUntil < new Date()) {
+        this.props.lockedUntil = undefined;
+      }
+    }
+  }
+
+  private cleanupExpiredPasswordResetToken(): void {
     if (
-      this.props.passwordResetToken &&
-      !this.props.passwordResetTokenExpiresAt
+      this.props.passwordResetTokenExpiresAt &&
+      Guard.isValidDate(this.props.passwordResetTokenExpiresAt)
     ) {
+      if (this.props.passwordResetTokenExpiresAt < new Date()) {
+        this.props.passwordResetToken = undefined;
+        this.props.passwordResetTokenExpiresAt = undefined;
+      }
+    }
+  }
+
+  private validatePasswordResetTokenConsistency(): void {
+    const hasToken = Guard.isNonEmptyString(this.props.passwordResetToken);
+    const hasExpiration = Guard.isValidDate(
+      this.props.passwordResetTokenExpiresAt,
+    );
+
+    if (hasToken && !hasExpiration) {
       throw new Error('Password reset token must have expiration date');
     }
 
-    if (
-      !this.props.passwordResetToken &&
-      this.props.passwordResetTokenExpiresAt
-    ) {
+    if (!hasToken && hasExpiration) {
       throw new Error('Password reset expiration date without token');
     }
   }

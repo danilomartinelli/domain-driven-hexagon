@@ -170,40 +170,61 @@ export class LoginService implements ICommandHandler<LoginCommand> {
   }
 
   private async handleFailedLogin(
-    user: any,
+    user: import('@modules/user/domain/user.entity').UserEntity,
     ipAddress?: string,
     userAgent?: string,
   ): Promise<void> {
     const userProps = user.getProps();
     const attempts = userProps.loginAttempts + 1;
+    const shouldLockAccount = attempts >= AUTH_CONSTANTS.MAX_LOGIN_ATTEMPTS;
 
-    // Update login attempts
+    // Update login attempts with proper type safety
     user.updateAuthProps({
       loginAttempts: attempts,
-      lockedUntil:
-        attempts >= AUTH_CONSTANTS.MAX_LOGIN_ATTEMPTS
-          ? new Date(
-              Date.now() +
-                AUTH_CONSTANTS.ACCOUNT_LOCK_DURATION_MINUTES * 60 * 1000,
-            )
-          : undefined,
+      lockedUntil: shouldLockAccount
+        ? new Date(
+            Date.now() +
+              AUTH_CONSTANTS.ACCOUNT_LOCK_DURATION_MINUTES * 60 * 1000,
+          )
+        : undefined,
     });
 
     await this.userRepo.update(user);
 
+    // Log the failed attempt with detailed information
     await this.logFailedAttempt(
       user.id,
-      attempts >= AUTH_CONSTANTS.MAX_LOGIN_ATTEMPTS
+      shouldLockAccount
         ? 'LOGIN_ACCOUNT_LOCKED_ATTEMPTS'
         : 'LOGIN_INVALID_PASSWORD',
-      { attempts, maxAttempts: AUTH_CONSTANTS.MAX_LOGIN_ATTEMPTS },
+      {
+        attempts,
+        maxAttempts: AUTH_CONSTANTS.MAX_LOGIN_ATTEMPTS,
+        accountLocked: shouldLockAccount,
+        lockDurationMinutes: AUTH_CONSTANTS.ACCOUNT_LOCK_DURATION_MINUTES,
+      },
       ipAddress,
       userAgent,
     );
+
+    // Enhanced security logging
+    if (shouldLockAccount) {
+      this.logger.warn(
+        'Account locked due to excessive failed login attempts',
+        {
+          userId: user.id,
+          attempts,
+          ipAddress,
+          userAgent,
+        },
+      );
+    }
   }
 
-  private async handleSuccessfulLogin(user: any): Promise<void> {
-    // Reset login attempts and update last login
+  private async handleSuccessfulLogin(
+    user: import('@modules/user/domain/user.entity').UserEntity,
+  ): Promise<void> {
+    // Reset login attempts and update last login with proper type safety
     user.updateAuthProps({
       loginAttempts: 0,
       lockedUntil: undefined,
@@ -236,39 +257,56 @@ export class LoginService implements ICommandHandler<LoginCommand> {
   private async logSuccessfulAttempt(
     userId: string,
     action: string,
-    details: any,
+    details: Record<string, unknown>,
     ipAddress?: string,
     userAgent?: string,
   ): Promise<void> {
-    const auditLog = AuthAuditLogEntity.create({
-      userId,
-      action,
-      details,
-      ipAddress,
-      userAgent,
-      success: true,
-    });
+    try {
+      const auditLog = AuthAuditLogEntity.create({
+        userId,
+        action,
+        details,
+        ipAddress,
+        userAgent,
+        success: true,
+      });
 
-    await this.auditLogRepo.insert(auditLog);
+      await this.auditLogRepo.insert(auditLog);
+    } catch (error) {
+      this.logger.error('Failed to log successful attempt', {
+        userId,
+        action,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
 
   private async logFailedAttempt(
     userId: string | undefined,
     action: string,
-    details: any,
+    details: Record<string, unknown>,
     ipAddress?: string,
     userAgent?: string,
   ): Promise<void> {
-    const auditLog = AuthAuditLogEntity.create({
-      userId,
-      action,
-      details,
-      ipAddress,
-      userAgent,
-      success: false,
-    });
+    try {
+      const auditLog = AuthAuditLogEntity.create({
+        userId,
+        action,
+        details,
+        ipAddress,
+        userAgent,
+        success: false,
+      });
 
-    await this.auditLogRepo.insert(auditLog);
+      await this.auditLogRepo.insert(auditLog);
+    } catch (error) {
+      this.logger.error('Failed to log failed attempt', {
+        userId,
+        action,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      // Don't throw - audit logging should not break the login flow
+    }
   }
 
   // These methods would be implemented based on your user repository structure

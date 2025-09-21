@@ -59,43 +59,43 @@ jobs:
   # ==================================================
   # SECURITY AND VALIDATION JOBS
   # ==================================================
-  
+
   security-analysis:
     name: 'Security Analysis'
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     timeout-minutes: 15
-    
+
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Full history for better analysis
-          
+
       - name: 'Setup Node.js'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: 'Install Dependencies'
         run: npm ci --audit
-        
+
       - name: 'CodeQL Analysis Setup'
         uses: github/codeql-action/init@v3
         with:
           languages: javascript
           queries: security-extended,security-and-quality
-          
+
       - name: 'Run CodeQL Analysis'
         uses: github/codeql-action/analyze@v3
-        
+
       - name: 'Dependency Vulnerability Scan'
         run: |
           npm audit --audit-level=high --json > audit-results.json || true
           npx audit-ci --report-type=json --output-file=dependency-report.json
         continue-on-error: true
-        
+
       - name: 'Secret Scanning with TruffleHog'
         uses: trufflesecurity/trufflehog@main
         with:
@@ -103,12 +103,12 @@ jobs:
           base: main
           head: HEAD
           extra_args: --debug --only-verified
-          
+
       - name: 'License Compliance Check'
         run: |
           npx license-checker --json --out license-report.json
           npx license-compliance-checker --production --failOn GPL-2.0,GPL-3.0
-          
+
       - name: 'Upload Security Reports'
         uses: actions/upload-artifact@v4
         if: always()
@@ -124,35 +124,35 @@ jobs:
     name: 'Code Quality & Architecture'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    
+
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v4
-        
+
       - name: 'Setup Node.js'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: 'Install Dependencies'
         run: npm ci
-        
+
       - name: 'Lint Code'
         run: npm run lint
-        
+
       - name: 'Check Code Formatting'
         run: npm run format -- --check
-        
+
       - name: 'Validate Architecture Dependencies'
         run: npm run deps:validate
-        
+
       - name: 'TypeScript Compilation Check'
         run: npx tsc --noEmit
-        
+
       - name: 'Generate Dependency Graph'
         run: npm run deps:graph
-        
+
       - name: 'Upload Architecture Reports'
         uses: actions/upload-artifact@v4
         with:
@@ -164,42 +164,42 @@ jobs:
   # ==================================================
   # TESTING JOBS
   # ==================================================
-  
+
   unit-tests:
     name: 'Unit Tests'
     runs-on: ubuntu-latest
     if: ${{ !inputs.skip_tests }}
     timeout-minutes: 15
-    
+
     strategy:
       matrix:
         node-version: ['24']
-        
+
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v4
-        
+
       - name: 'Setup Node.js ${{ matrix.node-version }}'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          
+
       - name: 'Install Dependencies'
         run: npm ci
-        
+
       - name: 'Run Unit Tests'
         run: npm run test:cov
         env:
           CI: true
-          
+
       - name: 'Upload Coverage to Codecov'
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage/lcov.info
           flags: unittests
           name: codecov-unit-tests
-          
+
       - name: 'Upload Test Results'
         uses: actions/upload-artifact@v4
         if: always()
@@ -215,7 +215,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !inputs.skip_tests }}
     timeout-minutes: 20
-    
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -230,7 +230,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-          
+
       redis:
         image: redis:7-alpine
         options: >-
@@ -240,20 +240,20 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-    
+
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v4
-        
+
       - name: 'Setup Node.js'
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: 'Install Dependencies'
         run: npm ci
-        
+
       - name: 'Setup Test Database'
         run: |
           npm run migration:up:tests
@@ -265,7 +265,7 @@ jobs:
           DB_USERNAME: ddh_test
           DB_PASSWORD: test_password_123
           DB_NAME: ddh_test
-          
+
       - name: 'Run Integration Tests'
         run: npm run test:e2e
         env:
@@ -276,7 +276,7 @@ jobs:
           DB_PASSWORD: test_password_123
           DB_NAME: ddh_test
           JWT_SECRET: test_jwt_secret_for_testing_purposes_only
-          
+
       - name: 'Upload Test Results'
         uses: actions/upload-artifact@v4
         if: always()
@@ -290,34 +290,34 @@ jobs:
   # ==================================================
   # BUILD AND CONTAINER SECURITY
   # ==================================================
-  
+
   build-and-security:
     name: 'Build & Container Security'
     runs-on: ubuntu-latest
     needs: [security-analysis, code-quality]
     timeout-minutes: 30
-    
+
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.build.outputs.digest }}
-      
+
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v4
-        
+
       - name: 'Set up Docker Buildx'
         uses: docker/setup-buildx-action@v3
         with:
           version: latest
           driver-opts: network=host
-          
+
       - name: 'Login to Container Registry'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: 'Extract Metadata'
         id: meta
         uses: docker/metadata-action@v5
@@ -330,7 +330,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-            
+
       - name: 'Build and Push Container Image'
         id: build
         uses: docker/build-push-action@v5
@@ -347,7 +347,7 @@ jobs:
           build-args: |
             NODE_ENV=production
             BUILDKIT_INLINE_CACHE=1
-            
+
       - name: 'Install Security Scanners'
         run: |
           # Install Trivy
@@ -357,46 +357,46 @@ jobs:
           echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
           sudo apt-get update
           sudo apt-get install trivy
-          
+
           # Install Grype
           curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
-          
+
           # Install Syft for SBOM
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          
+
       - name: 'Container Vulnerability Scan'
         run: |
           echo "Running comprehensive container security scan..."
-          
+
           # Create reports directory
           mkdir -p security-reports
-          
+
           # Trivy vulnerability scan
           trivy image --format sarif --output security-reports/trivy-report.sarif ${{ steps.meta.outputs.tags }}
           trivy image --format json --output security-reports/trivy-report.json ${{ steps.meta.outputs.tags }}
-          
+
           # Grype vulnerability scan
           grype ${{ steps.meta.outputs.tags }} -o json --file security-reports/grype-report.json
-          
+
           # Generate SBOM
           syft ${{ steps.meta.outputs.tags }} -o spdx-json --file security-reports/sbom.json
-          
+
           # Summary report
           trivy image --format table --severity HIGH,CRITICAL ${{ steps.meta.outputs.tags }} | tee security-reports/vulnerability-summary.txt
-          
+
       - name: 'Upload SARIF to GitHub Security'
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: security-reports/trivy-report.sarif
           category: container-scan
-          
+
       - name: 'Check Critical Vulnerabilities'
         run: |
           # Fail if critical vulnerabilities are found
           critical_count=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' security-reports/trivy-report.json)
           echo "Critical vulnerabilities found: $critical_count"
-          
+
           if [ "$critical_count" -gt 0 ]; then
             echo "❌ Critical vulnerabilities detected. Failing build."
             echo "Review security-reports/vulnerability-summary.txt for details."
@@ -404,14 +404,14 @@ jobs:
           else
             echo "✅ No critical vulnerabilities found."
           fi
-          
+
       - name: 'Generate Security Attestation'
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
-          
+
       - name: 'Upload Security Reports'
         uses: actions/upload-artifact@v4
         if: always()
@@ -423,7 +423,7 @@ jobs:
   # ==================================================
   # DEPLOYMENT JOBS
   # ==================================================
-  
+
   deploy-staging:
     name: 'Deploy to Staging'
     runs-on: ubuntu-latest
@@ -431,23 +431,23 @@ jobs:
     needs: [unit-tests, integration-tests, build-and-security]
     environment: staging
     timeout-minutes: 20
-    
+
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v4
-        
+
       - name: 'Deploy to Staging Environment'
         run: |
           echo "Deploying to staging environment..."
           echo "Image: ${{ needs.build-and-security.outputs.image-tag }}"
-          
+
           # Here you would implement your staging deployment logic
           # Examples: kubectl apply, docker-compose, AWS ECS, etc.
-          
+
       - name: 'Run Health Checks'
         run: |
           echo "Running post-deployment health checks..."
-          
+
           # Wait for service to be ready
           timeout=300
           while [ $timeout -gt 0 ]; do
@@ -458,17 +458,17 @@ jobs:
             sleep 10
             timeout=$((timeout - 10))
           done
-          
+
           if [ $timeout -le 0 ]; then
             echo "❌ Staging deployment health check failed"
             exit 1
           fi
-          
+
       - name: 'Run Smoke Tests'
         run: |
           echo "Running smoke tests against staging..."
           # Add your smoke tests here
-          
+
   deploy-production:
     name: 'Deploy to Production'
     runs-on: ubuntu-latest
@@ -478,34 +478,34 @@ jobs:
     needs: [unit-tests, integration-tests, build-and-security]
     environment: production
     timeout-minutes: 30
-    
+
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v4
-        
+
       - name: 'Production Deployment with Blue-Green Strategy'
         run: |
           echo "Starting production deployment..."
           echo "Image: ${{ needs.build-and-security.outputs.image-tag }}"
-          
+
           # Production deployment logic with blue-green deployment
           # This would typically involve:
           # 1. Deploy to green environment
           # 2. Run health checks
           # 3. Switch traffic to green
           # 4. Keep blue as fallback
-          
+
       - name: 'Database Migration'
         run: |
           echo "Running database migrations..."
-          
+
           # Run migrations with rollback capability
           # This should be done with proper backup and rollback procedures
-          
+
       - name: 'Production Health Checks'
         run: |
           echo "Running comprehensive production health checks..."
-          
+
           # Extended health checks for production
           timeout=600
           while [ $timeout -gt 0 ]; do
@@ -516,46 +516,46 @@ jobs:
             sleep 15
             timeout=$((timeout - 15))
           done
-          
+
           if [ $timeout -le 0 ]; then
             echo "❌ Production deployment health check failed"
             # Trigger rollback
             exit 1
           fi
-          
+
       - name: 'Performance Testing'
         run: |
           echo "Running performance tests..."
-          
+
           # Run load tests to ensure performance requirements are met
           # Example: artillery, k6, or other load testing tools
-          
+
       - name: 'Monitor Deployment'
         run: |
           echo "Setting up post-deployment monitoring..."
-          
+
           # Set up monitoring alerts and dashboards
           # Send notifications to team
 
   # ==================================================
   # POST-DEPLOYMENT JOBS
   # ==================================================
-  
+
   security-compliance:
     name: 'Security Compliance Report'
     runs-on: ubuntu-latest
     if: always()
     needs: [deploy-staging, deploy-production]
     timeout-minutes: 10
-    
+
     steps:
       - name: 'Generate Compliance Report'
         run: |
           echo "Generating security compliance report..."
-          
+
           # Generate compliance reports for NIST, SOC2, etc.
           # This would integrate with your compliance monitoring tools
-          
+
       - name: 'Upload Compliance Reports'
         uses: actions/upload-artifact@v4
         with:
@@ -569,36 +569,36 @@ jobs:
     if: always()
     needs: [deploy-staging, deploy-production, security-compliance]
     timeout-minutes: 5
-    
+
     steps:
       - name: 'Cleanup Temporary Resources'
         run: |
           echo "Cleaning up temporary resources..."
-          
+
           # Clean up any temporary resources created during deployment
           # Remove old container images, temporary environments, etc.
 
-# ==================================================
-# WORKFLOW NOTIFICATIONS
-# ==================================================
+  # ==================================================
+  # WORKFLOW NOTIFICATIONS
+  # ==================================================
   notify:
     name: 'Deployment Notifications'
     runs-on: ubuntu-latest
     if: always()
     needs: [deploy-staging, deploy-production]
-    
+
     steps:
       - name: 'Send Success Notification'
         if: needs.deploy-production.result == 'success'
         run: |
           echo "✅ Production deployment successful!"
-          
+
           # Send success notifications (Slack, email, etc.)
-          
+
       - name: 'Send Failure Notification'
         if: needs.deploy-production.result == 'failure'
         run: |
           echo "❌ Production deployment failed!"
-          
+
           # Send failure notifications with details
           # Trigger incident response procedures

@@ -68,14 +68,8 @@
     "docker:build": "devtools/scripts/docker-build.sh",
     "docker:build:prod": "devtools/scripts/docker-build.sh production latest",
     "docker:security": "devtools/scripts/security-scan.sh ddh/app:latest all",
-    "docs:generate": "node scripts/generate-docs.js",
-    "docs:analyze": "node scripts/generate-docs.js --verbose",
-    "docs:openapi": "npm run start:dev & sleep 10 && curl -s http://localhost:3000/api-json > docs/api/generated/openapi.json && pkill -f 'nest start'",
     "docs:lint": "markdownlint docs/**/*.md README.md --config .markdownlint.json",
-    "docs:lint:fix": "markdownlint docs/**/*.md README.md --config .markdownlint.json --fix",
-    "docs:serve": "npx http-server docs -p 8080 -o",
-    "docs:build": "npm run docs:generate && npm run docs:openapi && npm run docs:lint",
-    "docs:coverage": "node scripts/generate-docs.js | grep -E 'Coverage|Documentation coverage'"
+    "docs:lint:fix": "markdownlint docs/**/*.md README.md --config .markdownlint.json --fix"
   },
   "dependencies": {
     "@nestjs/apollo": "^13.1.0",

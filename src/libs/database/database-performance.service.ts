@@ -188,7 +188,10 @@ export class DatabasePerformanceService implements OnModuleInit {
         cacheHitRatio: Number(stats.cache_hit_ratio) || 0,
       };
     } catch (error) {
-      this.logger.warn('Failed to get query performance metrics (pg_stat_statements may not be enabled)', error);
+      this.logger.warn(
+        'Failed to get query performance metrics (pg_stat_statements may not be enabled)',
+        error,
+      );
       return {
         totalQueries: 0,
         avgResponseTime: 0,
@@ -223,7 +226,7 @@ export class DatabasePerformanceService implements OnModuleInit {
         `,
       );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         tableName: String(row.tablename),
         inserts: Number(row.inserts) || 0,
         updates: Number(row.updates) || 0,
@@ -257,7 +260,7 @@ export class DatabasePerformanceService implements OnModuleInit {
         `,
       );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         indexName: String(row.indexname),
         tableName: String(row.tablename),
         scans: Number(row.scans) || 0,
@@ -291,7 +294,7 @@ export class DatabasePerformanceService implements OnModuleInit {
         `,
       );
 
-      return result.rows.map(row => ({
+      return result.rows.map((row) => ({
         query: String(row.query).substring(0, 200), // Truncate for logging
         calls: Number(row.calls) || 0,
         totalTime: Number(row.total_time) || 0,
@@ -308,7 +311,9 @@ export class DatabasePerformanceService implements OnModuleInit {
   /**
    * Generate optimization recommendations based on metrics
    */
-  generateOptimizationRecommendations(metrics: PerformanceMetrics): OptimizationRecommendation[] {
+  generateOptimizationRecommendations(
+    metrics: PerformanceMetrics,
+  ): OptimizationRecommendation[] {
     const recommendations: OptimizationRecommendation[] = [];
 
     // Check connection pool utilization
@@ -318,32 +323,34 @@ export class DatabasePerformanceService implements OnModuleInit {
         priority: 'high',
         description: 'Connection pool utilization is high',
         impact: 'May cause connection delays and timeouts',
-        action: 'Consider increasing maximum pool size or optimizing connection usage',
+        action:
+          'Consider increasing maximum pool size or optimizing connection usage',
       });
     }
 
     // Check for tables with low index usage
-    metrics.tableStatistics.forEach(table => {
+    metrics.tableStatistics.forEach((table) => {
       if (table.indexUsagePercent < 50 && table.totalOperations > 1000) {
         recommendations.push({
           type: 'index',
           priority: 'medium',
           description: `Table "${table.tableName}" has low index usage (${table.indexUsagePercent.toFixed(1)}%)`,
           impact: 'Sequential scans may be slowing down queries',
-          action: 'Review queries against this table and consider adding appropriate indexes',
+          action:
+            'Review queries against this table and consider adding appropriate indexes',
         });
       }
     });
 
     // Check for unused indexes
-    metrics.indexUsage.forEach(index => {
+    metrics.indexUsage.forEach((index) => {
       if (index.scans < 10) {
         recommendations.push({
           type: 'index',
           priority: 'low',
           description: `Index "${index.indexName}" on table "${index.tableName}" is rarely used`,
           impact: 'Unused indexes consume storage and slow down writes',
-          action: 'Consider dropping this index if it\'s not needed',
+          action: "Consider dropping this index if it's not needed",
         });
       }
     });
@@ -355,7 +362,8 @@ export class DatabasePerformanceService implements OnModuleInit {
         priority: 'medium',
         description: `Cache hit ratio is low (${metrics.queryPerformance.cacheHitRatio.toFixed(1)}%)`,
         impact: 'Queries are reading from disk more than necessary',
-        action: 'Consider increasing shared_buffers or analyzing query patterns',
+        action:
+          'Consider increasing shared_buffers or analyzing query patterns',
       });
     }
 
@@ -366,7 +374,8 @@ export class DatabasePerformanceService implements OnModuleInit {
         priority: 'high',
         description: `${metrics.slowQueries.length} slow queries detected`,
         impact: 'Slow queries impact overall application performance',
-        action: 'Review and optimize slow queries, consider adding indexes or rewriting queries',
+        action:
+          'Review and optimize slow queries, consider adding indexes or rewriting queries',
       });
     }
 
@@ -381,7 +390,9 @@ export class DatabasePerformanceService implements OnModuleInit {
 
     // Keep only the last N measurements
     if (this.performanceHistory.length > this.maxHistorySize) {
-      this.performanceHistory = this.performanceHistory.slice(-this.maxHistorySize);
+      this.performanceHistory = this.performanceHistory.slice(
+        -this.maxHistorySize,
+      );
     }
   }
 
@@ -391,17 +402,23 @@ export class DatabasePerformanceService implements OnModuleInit {
   private logCriticalIssues(metrics: PerformanceMetrics): void {
     // High connection pool utilization
     if (metrics.connectionPool.utilization > 90) {
-      this.logger.warn(`High connection pool utilization: ${metrics.connectionPool.utilization.toFixed(1)}%`);
+      this.logger.warn(
+        `High connection pool utilization: ${metrics.connectionPool.utilization.toFixed(1)}%`,
+      );
     }
 
     // Many waiting clients
     if (metrics.connectionPool.waitingClients > 5) {
-      this.logger.warn(`${metrics.connectionPool.waitingClients} clients waiting for connections`);
+      this.logger.warn(
+        `${metrics.connectionPool.waitingClients} clients waiting for connections`,
+      );
     }
 
     // Low cache hit ratio
     if (metrics.queryPerformance.cacheHitRatio < 90) {
-      this.logger.warn(`Low cache hit ratio: ${metrics.queryPerformance.cacheHitRatio.toFixed(1)}%`);
+      this.logger.warn(
+        `Low cache hit ratio: ${metrics.queryPerformance.cacheHitRatio.toFixed(1)}%`,
+      );
     }
 
     // Many slow queries
@@ -419,9 +436,15 @@ export class DatabasePerformanceService implements OnModuleInit {
     cacheHitRatioTrend: number[];
   } {
     return {
-      connectionUtilizationTrend: this.performanceHistory.map(m => m.connectionPool.utilization),
-      avgResponseTimeTrend: this.performanceHistory.map(m => m.queryPerformance.avgResponseTime),
-      cacheHitRatioTrend: this.performanceHistory.map(m => m.queryPerformance.cacheHitRatio),
+      connectionUtilizationTrend: this.performanceHistory.map(
+        (m) => m.connectionPool.utilization,
+      ),
+      avgResponseTimeTrend: this.performanceHistory.map(
+        (m) => m.queryPerformance.avgResponseTime,
+      ),
+      cacheHitRatioTrend: this.performanceHistory.map(
+        (m) => m.queryPerformance.cacheHitRatio,
+      ),
     };
   }
 
@@ -435,11 +458,15 @@ export class DatabasePerformanceService implements OnModuleInit {
 
       // Generate and log recommendations for critical issues
       const recommendations = this.generateOptimizationRecommendations(metrics);
-      const criticalRecommendations = recommendations.filter(r => r.priority === 'high');
+      const criticalRecommendations = recommendations.filter(
+        (r) => r.priority === 'high',
+      );
 
       if (criticalRecommendations.length > 0) {
-        this.logger.warn(`${criticalRecommendations.length} critical performance issues detected`);
-        criticalRecommendations.forEach(rec => {
+        this.logger.warn(
+          `${criticalRecommendations.length} critical performance issues detected`,
+        );
+        criticalRecommendations.forEach((rec) => {
           this.logger.warn(`${rec.description}: ${rec.action}`);
         });
       }
@@ -479,8 +506,12 @@ export class DatabasePerformanceService implements OnModuleInit {
       const recommendations = this.generateOptimizationRecommendations(metrics);
 
       // Determine overall health status
-      const criticalIssues = recommendations.filter(r => r.priority === 'high').length;
-      const warningIssues = recommendations.filter(r => r.priority === 'medium').length;
+      const criticalIssues = recommendations.filter(
+        (r) => r.priority === 'high',
+      ).length;
+      const warningIssues = recommendations.filter(
+        (r) => r.priority === 'medium',
+      ).length;
 
       let status: 'healthy' | 'warning' | 'critical' = 'healthy';
       if (criticalIssues > 0) {
@@ -502,13 +533,16 @@ export class DatabasePerformanceService implements OnModuleInit {
       return {
         status: 'critical',
         metrics: {},
-        recommendations: [{
-          type: 'configuration',
-          priority: 'high',
-          description: 'Failed to collect performance metrics',
-          impact: 'Unable to monitor database performance',
-          action: 'Check database connectivity and pg_stat_statements extension',
-        }],
+        recommendations: [
+          {
+            type: 'configuration',
+            priority: 'high',
+            description: 'Failed to collect performance metrics',
+            impact: 'Unable to monitor database performance',
+            action:
+              'Check database connectivity and pg_stat_statements extension',
+          },
+        ],
       };
     }
   }

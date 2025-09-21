@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 
@@ -39,7 +44,7 @@ class InMemoryCacheClient implements CacheClient {
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-    const expiresAt = ttlSeconds ? Date.now() + (ttlSeconds * 1000) : undefined;
+    const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : undefined;
     this.cache.set(key, { value, expiresAt });
   }
 
@@ -57,7 +62,7 @@ class InMemoryCacheClient implements CacheClient {
 
   async keys(pattern: string): Promise<string[]> {
     const regex = new RegExp(pattern.replace(/\*/g, '.*'));
-    return Array.from(this.cache.keys()).filter(key => regex.test(key));
+    return Array.from(this.cache.keys()).filter((key) => regex.test(key));
   }
 
   async exists(key: string): Promise<boolean> {
@@ -148,7 +153,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       enabled: this.configService.get<boolean>('cache.enabled', true),
       defaultTtl: this.configService.get<number>('cache.defaultTtl', 300), // 5 minutes
       maxKeys: this.configService.get<number>('cache.maxKeys', 10000),
-      enableMetrics: this.configService.get<boolean>('cache.enableMetrics', true),
+      enableMetrics: this.configService.get<boolean>(
+        'cache.enableMetrics',
+        true,
+      ),
       keyPrefix: this.configService.get<string>('cache.keyPrefix', 'ddh:'),
     };
   }
@@ -160,7 +168,9 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
       if (this.config.enabled) {
         this.logger.log('Cache service initialized successfully');
-        this.logger.log(`Cache configuration: TTL=${this.config.defaultTtl}s, MaxKeys=${this.config.maxKeys}`);
+        this.logger.log(
+          `Cache configuration: TTL=${this.config.defaultTtl}s, MaxKeys=${this.config.maxKeys}`,
+        );
       } else {
         this.logger.log('Cache service is disabled');
       }
@@ -184,7 +194,10 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get value from cache with automatic deserialization
    */
-  async get<T = unknown>(key: string, defaultValue?: T): Promise<T | undefined> {
+  async get<T = unknown>(
+    key: string,
+    defaultValue?: T,
+  ): Promise<T | undefined> {
     if (!this.config.enabled) {
       return defaultValue;
     }
@@ -214,7 +227,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     key: string,
     value: T,
     ttlSeconds?: number,
-    tags?: CacheTag[]
+    tags?: CacheTag[],
   ): Promise<boolean> {
     if (!this.config.enabled) {
       return false;
@@ -308,7 +321,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     key: string,
     factory: () => Promise<T> | T,
     ttlSeconds?: number,
-    tags?: CacheTag[]
+    tags?: CacheTag[],
   ): Promise<T> {
     // Try to get from cache first
     const cachedValue = await this.get<T>(key);
@@ -322,8 +335,11 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       const value = await factory();
 
       // Cache the computed value (don't await to avoid blocking)
-      this.set(key, value, ttlSeconds, tags).catch(error => {
-        this.logger.warn(`Failed to cache computed value for key: ${key}`, error);
+      this.set(key, value, ttlSeconds, tags).catch((error) => {
+        this.logger.warn(
+          `Failed to cache computed value for key: ${key}`,
+          error,
+        );
       });
 
       return value;
@@ -362,13 +378,18 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (deletedCount > 0) {
-        this.logger.debug(`Invalidated ${deletedCount} cache entries by tags: ${tags.join(', ')}`);
+        this.logger.debug(
+          `Invalidated ${deletedCount} cache entries by tags: ${tags.join(', ')}`,
+        );
         this.metrics.deletes += deletedCount;
       }
 
       return deletedCount;
     } catch (error) {
-      this.logger.error(`Failed to invalidate cache by tags: ${tags.join(', ')}`, error);
+      this.logger.error(
+        `Failed to invalidate cache by tags: ${tags.join(', ')}`,
+        error,
+      );
       return 0;
     }
   }
@@ -394,13 +415,18 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (deletedCount > 0) {
-        this.logger.debug(`Invalidated ${deletedCount} cache entries by pattern: ${pattern}`);
+        this.logger.debug(
+          `Invalidated ${deletedCount} cache entries by pattern: ${pattern}`,
+        );
         this.metrics.deletes += deletedCount;
       }
 
       return deletedCount;
     } catch (error) {
-      this.logger.error(`Failed to invalidate cache by pattern: ${pattern}`, error);
+      this.logger.error(
+        `Failed to invalidate cache by pattern: ${pattern}`,
+        error,
+      );
       return 0;
     }
   }
@@ -466,7 +492,14 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
   /**
    * Warm up cache with predefined data
    */
-  async warmUp(data: Array<{ key: string; value: unknown; ttl?: number; tags?: CacheTag[] }>): Promise<void> {
+  async warmUp(
+    data: Array<{
+      key: string;
+      value: unknown;
+      ttl?: number;
+      tags?: CacheTag[];
+    }>,
+  ): Promise<void> {
     if (!this.config.enabled) {
       return;
     }
@@ -475,7 +508,7 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 
     try {
       const promises = data.map(({ key, value, ttl, tags }) =>
-        this.set(key, value, ttl, tags)
+        this.set(key, value, ttl, tags),
       );
 
       await Promise.allSettled(promises);
@@ -546,9 +579,13 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
 export function Cacheable(
   keyGenerator: (args: any[]) => string,
   ttlSeconds?: number,
-  tags?: CacheTag[]
+  tags?: CacheTag[],
 ) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyName: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const method = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
@@ -565,7 +602,7 @@ export function Cacheable(
         cacheKey,
         () => method.apply(this, args),
         ttlSeconds,
-        tags
+        tags,
       );
     };
   };
@@ -573,7 +610,11 @@ export function Cacheable(
 
 // Cache strategy decorator
 export function CacheStrategy(strategy: CacheStrategy) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyName: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const originalMethod = descriptor.value;
     descriptor.value.cacheStrategy = strategy;
     return descriptor;

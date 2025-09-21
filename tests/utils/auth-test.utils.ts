@@ -14,7 +14,7 @@ export class AuthTestUtils {
    */
   static generateMockUser(overrides: Partial<any> = {}): any {
     return {
-      id: faker.datatype.uuid(),
+      id: faker.string.uuid(),
       email: faker.internet.email().toLowerCase(),
       password: 'HashedPassword123!',
       isActive: true,
@@ -50,7 +50,7 @@ export class AuthTestUtils {
   ): JwtPayload {
     const now = Math.floor(Date.now() / 1000);
     return {
-      sub: faker.datatype.uuid(),
+      sub: faker.string.uuid(),
       email: faker.internet.email().toLowerCase(),
       roles: ['user'],
       permissions: ['user:read-own'],
@@ -85,7 +85,7 @@ export class AuthTestUtils {
     const payloadBase64 = Buffer.from(JSON.stringify(mockPayload)).toString(
       'base64',
     );
-    const signature = faker.datatype.hexadecimal({ length: 64 });
+    const signature = faker.string.hexadecimal({ length: 64 });
 
     return `${header}.${payloadBase64}.${signature}`;
   }
@@ -100,9 +100,9 @@ export class AuthTestUtils {
       password,
       confirmPassword: password,
       address: {
-        street: faker.address.streetAddress(),
-        postalCode: faker.address.zipCode(),
-        country: faker.address.country(),
+        street: faker.location.streetAddress(),
+        postalCode: faker.location.zipCode(),
+        country: faker.location.country(),
       },
       ...overrides,
     };
@@ -139,9 +139,9 @@ export class AuthTestUtils {
    */
   static generateMockRefreshToken(overrides: Partial<any> = {}): any {
     return {
-      id: faker.datatype.uuid(),
+      id: faker.string.uuid(),
       token: this.generateMockJwtToken(),
-      userId: faker.datatype.uuid(),
+      userId: faker.string.uuid(),
       isActive: true,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
       createdByIp: faker.internet.ip(),
@@ -158,8 +158,8 @@ export class AuthTestUtils {
    */
   static generateMockAuditLog(overrides: Partial<any> = {}): any {
     return {
-      id: faker.datatype.uuid(),
-      userId: faker.datatype.uuid(),
+      id: faker.string.uuid(),
+      userId: faker.string.uuid(),
       action: 'LOGIN_SUCCESS',
       details: {},
       ipAddress: faker.internet.ip(),

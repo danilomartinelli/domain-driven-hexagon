@@ -569,8 +569,8 @@ export class DynamicAuthFixtures {
 
         case 'invalid':
           user = {
-            email: faker.random.word(), // Invalid email format
-            password: faker.random.word(), // Weak password
+            email: faker.lorem.word(), // Invalid email format
+            password: faker.lorem.word(), // Weak password
             isActive: faker.datatype.boolean(),
             isEmailVerified: false,
             roles: [],
@@ -603,9 +603,9 @@ export class DynamicAuthFixtures {
    * Generate valid password meeting all requirements
    */
   static generateValidPassword(): string {
-    const lowercase = faker.random.alpha({ count: 3, casing: 'lower' });
-    const uppercase = faker.random.alpha({ count: 3, casing: 'upper' });
-    const numbers = faker.datatype.number({ min: 100, max: 999 }).toString();
+    const lowercase = faker.string.alpha({ length: 3, casing: 'lower' });
+    const uppercase = faker.string.alpha({ length: 3, casing: 'upper' });
+    const numbers = faker.number.int({ min: 100, max: 999 }).toString();
     const symbols = faker.helpers.arrayElement([
       '!',
       '@',

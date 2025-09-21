@@ -66,7 +66,10 @@ export class WalletRepository
   /**
    * Find user wallet with balance check (optimized for balance queries)
    */
-  async findUserWalletWithBalance(userId: string, minBalance = 0): Promise<WalletEntity | null> {
+  async findUserWalletWithBalance(
+    userId: string,
+    minBalance = 0,
+  ): Promise<WalletEntity | null> {
     try {
       // Uses composite index: IDX_wallets_user_balance
       const result = await this.executeQuery(
@@ -85,7 +88,10 @@ export class WalletRepository
       const validatedWallet = this.schema.parse(result.rows[0]);
       return this.mapper.toDomain(validatedWallet);
     } catch (error) {
-      this.handleRepositoryError(error as Error, 'findUserWalletWithBalance', { userId, minBalance });
+      this.handleRepositoryError(error as Error, 'findUserWalletWithBalance', {
+        userId,
+        minBalance,
+      });
       return null;
     }
   }

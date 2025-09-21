@@ -108,7 +108,9 @@ export class UserRepository
       const validatedUser = this.schema.parse(result.rows[0]);
       return this.mapper.toDomain(validatedUser);
     } catch (error) {
-      this.handleRepositoryError(error as Error, 'findByEmailForAuth', { email });
+      this.handleRepositoryError(error as Error, 'findByEmailForAuth', {
+        email,
+      });
       return null;
     }
   }

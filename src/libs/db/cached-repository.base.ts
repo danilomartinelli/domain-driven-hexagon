@@ -19,7 +19,6 @@ export abstract class CachedRepositoryBase<
   DbModel extends ObjectLiteral,
   EntityId extends string | number = string,
 > extends SqlRepositoryBase<Aggregate, DbModel, EntityId> {
-
   /** Default cache TTL in seconds */
   protected cacheTtl = 300; // 5 minutes
 
@@ -137,14 +136,10 @@ export abstract class CachedRepositoryBase<
 
     const cacheKey = this.buildCountCacheKey(where);
 
-    return this.cacheService.getOrSet(
-      cacheKey,
-      () => super.count(where),
-      {
-        ttl: this.cacheTtl / 2, // Shorter TTL for counts
-        tags: [this.cacheTag, `${this.cacheTag}:count`],
-      },
-    );
+    return this.cacheService.getOrSet(cacheKey, () => super.count(where), {
+      ttl: this.cacheTtl / 2, // Shorter TTL for counts
+      tags: [this.cacheTag, `${this.cacheTag}:count`],
+    });
   }
 
   /**
@@ -184,9 +179,7 @@ export abstract class CachedRepositoryBase<
       const batch = entityIds.slice(i, i + batchSize);
 
       // Use Promise.allSettled to handle individual failures
-      await Promise.allSettled(
-        batch.map(id => this.findOneById(id))
-      );
+      await Promise.allSettled(batch.map((id) => this.findOneById(id)));
     }
 
     this.logger.log('Cache warmup completed', {
@@ -198,19 +191,21 @@ export abstract class CachedRepositoryBase<
   /**
    * Invalidate all caches related to an entity
    */
-  protected async invalidateEntityCaches(entity: Aggregate | Aggregate[]): Promise<void> {
+  protected async invalidateEntityCaches(
+    entity: Aggregate | Aggregate[],
+  ): Promise<void> {
     const entities = Array.isArray(entity) ? entity : [entity];
 
     const tags = [
       this.cacheTag,
-      ...entities.map(e => `${this.cacheTag}:${e.id}`),
+      ...entities.map((e) => `${this.cacheTag}:${e.id}`),
       `${this.cacheTag}:count`,
     ];
 
     await this.cacheService.invalidateByTags(tags);
 
     this.logCacheInvalidation('entity_operation', {
-      entityIds: entities.map(e => e.id),
+      entityIds: entities.map((e) => e.id),
       invalidatedTags: tags,
     });
   }
@@ -253,14 +248,23 @@ export abstract class CachedRepositoryBase<
   /**
    * Build cache key for custom queries
    */
-  protected buildQueryCacheKey(operation: string, params: Record<string, any>): string {
-    return CacheKeyBuilder.buildQueryKey(`${this.tableName}:${operation}`, params);
+  protected buildQueryCacheKey(
+    operation: string,
+    params: Record<string, any>,
+  ): string {
+    return CacheKeyBuilder.buildQueryKey(
+      `${this.tableName}:${operation}`,
+      params,
+    );
   }
 
   /**
    * Log cache hit for monitoring
    */
-  protected logCacheHit(operation: string, context?: Record<string, any>): void {
+  protected logCacheHit(
+    operation: string,
+    context?: Record<string, any>,
+  ): void {
     this.logger.debug('Cache hit', {
       table: this.tableName,
       operation,
@@ -271,7 +275,10 @@ export abstract class CachedRepositoryBase<
   /**
    * Log cache miss for monitoring
    */
-  protected logCacheMiss(operation: string, context?: Record<string, any>): void {
+  protected logCacheMiss(
+    operation: string,
+    context?: Record<string, any>,
+  ): void {
     this.logger.debug('Cache miss', {
       table: this.tableName,
       operation,
@@ -282,7 +289,10 @@ export abstract class CachedRepositoryBase<
   /**
    * Log cache invalidation for monitoring
    */
-  protected logCacheInvalidation(operation: string, context?: Record<string, any>): void {
+  protected logCacheInvalidation(
+    operation: string,
+    context?: Record<string, any>,
+  ): void {
     this.logger.debug('Cache invalidated', {
       table: this.tableName,
       operation,
@@ -313,7 +323,11 @@ export abstract class CachedRepositoryBase<
  * Decorator for caching repository methods
  */
 export function CacheResult(ttl?: number, tags?: string[]) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
